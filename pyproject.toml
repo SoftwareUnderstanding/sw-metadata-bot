@@ -1,0 +1,7 @@
+[project]
+name = "sw-metadata-bot"
+version = "0.1.0"
+description = "RSMetaCheck bot for pushing issues with existing repository metadata"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
