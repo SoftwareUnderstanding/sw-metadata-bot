@@ -2,8 +2,6 @@ from urllib.parse import urlparse
 
 import requests
 
-from ossrsq.logging_config import logger
-
 from .repo_api import RepoAPI
 
 
@@ -72,7 +70,7 @@ class GitHubAPI(RepoAPI):
     def create_issue(self, repo_url: str, title: str, body: str) -> dict:
         url = GitHubAPI.get_repo_info(repo_url)
         issues_url = f"{url}/issues"
-        logger.info(f"Creating issue at {issues_url}")
+        print(f"Creating issue at {issues_url}")
 
         # Implementation for creating an issue on GitHub
         full_body = body
@@ -84,7 +82,7 @@ class GitHubAPI(RepoAPI):
         }
 
         if self.dry_run:
-            logger.info(f"[DRY RUN] Would create issue with title: {title}")
+            print(f"[DRY RUN] Would create issue with title: {title}")
             return {
                 "title": title,
                 "body": full_body,
@@ -97,7 +95,9 @@ class GitHubAPI(RepoAPI):
         response.raise_for_status()
         return response.json()
 
-    def create_pull_request(self, repo_url: str, title: str, body: str, head: str, base: str) -> dict:
+    def create_pull_request(
+        self, repo_url: str, title: str, body: str, head: str, base: str
+    ) -> dict:
         # Implementation for creating a pull request on GitHub
         pass
 
@@ -119,7 +119,11 @@ if __name__ == "__main__":
     EXAMPLE_REPO_URL = "https://github.com/francoto/indicators"
 
     try:
-        result = api.create_issue(EXAMPLE_REPO_URL, "Test Issue", "This is a test issue created via the GitHub API.")
+        result = api.create_issue(
+            EXAMPLE_REPO_URL,
+            "Test Issue",
+            "This is a test issue created via the GitHub API.",
+        )
         print(f"Issue created successfully: {result['html_url']}")
     except Exception as e:
         print(f"Error: {e}")

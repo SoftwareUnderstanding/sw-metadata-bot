@@ -1,6 +1,15 @@
-from ..repo_utils import RepoType
+from enum import Enum
+
 from .github_api import GitHubAPI
 from .repo_api import RepoAPI
+
+
+class RepoType(Enum):
+    GITHUB = "github"
+    GITLAB = "gitlab"
+    GITLAB_SELF_HOSTED = "self-hosted gitlab"
+    BITBUCKET = "bitbucket"
+    UNKNOWN = "unknown"
 
 
 def setup_api(repo_type: RepoType, dry_run: bool) -> RepoAPI:
@@ -19,7 +28,9 @@ def setup_api(repo_type: RepoType, dry_run: bool) -> RepoAPI:
         api.test_authentication()
         return api
     else:
-        raise NotImplementedError(f"API setup not implemented for repo type: {repo_type}")
+        raise NotImplementedError(
+            f"API setup not implemented for repo type: {repo_type}"
+        )
 
 
 def create_issue(api: RepoAPI, repo_url: str, content_report: str) -> str:

@@ -20,4 +20,3 @@ Based on the RS Metacheck package analysis, this bot creates an issue in the rep
 ### What is out of the scope of this project
 
 This repository is not actually doing the evaluation of the metadata quality. It is using the analysis provided by the RsMetacheck package.
-

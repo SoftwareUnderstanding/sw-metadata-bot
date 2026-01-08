@@ -7,4 +7,7 @@ requires-python = ">=3.11"
 authors = [
     {name = "Tom François", email = "tom.francois@lapp.in2p3.fr"}
 ]
-dependencies = []
+dependencies = [
+    "python-dotenv>=1.2.1",
+    "requests>=2.32.5",
+]
