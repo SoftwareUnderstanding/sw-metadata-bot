@@ -3,15 +3,22 @@ name = "sw-metadata-bot"
 version = "0.1.0"
 description = "RSMetaCheck bot for pushing issues with existing repository metadata"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 authors = [
     {name = "Tom François", email = "tom.francois@lapp.in2p3.fr"}
 ]
 dependencies = [
+    "metacheck",
     "python-dotenv>=1.2.1",
     "requests>=2.32.5",
 ]
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+[tool.uv]
+package = true
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = { find = { where = ["src"] } }
+
+[tool.uv.sources]
+metacheck = { git = "https://github.com/SoftwareUnderstanding/RsMetaCheck", tag = "0.1.1" }
