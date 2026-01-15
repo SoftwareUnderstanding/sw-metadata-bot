@@ -95,11 +95,28 @@ class GitHubAPI(RepoAPI):
         response.raise_for_status()
         return response.json()
 
-    def create_pull_request(
-        self, repo_url: str, title: str, body: str, head: str, base: str
-    ) -> dict:
-        # Implementation for creating a pull request on GitHub
-        pass
+    # def create_pull_request(
+    #     self, repo_url: str, title: str, body: str, head: str, base: str
+    # ) -> dict:
+    #     # Implementation for creating a pull request on GitHub
+    #     pass
+
+
+def set_github_api(dry_run: bool) -> GitHubAPI:
+    import os
+
+    from dotenv import load_dotenv
+
+    load_dotenv()
+    token = os.getenv("GITHUB_API_TOKEN")
+    if not token:
+        raise ValueError("GITHUB_API_TOKEN not found in environment variables")
+
+    api = GitHubAPI(token=token, dry_run=dry_run)
+
+    if not api.test_authentication():
+        raise ValueError("Invalid GitHub API token")
+    return api
 
 
 if __name__ == "__main__":

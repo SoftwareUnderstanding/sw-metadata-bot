@@ -17,6 +17,31 @@ Based on the RS Metacheck package analysis, this bot creates an issue in the rep
 - the detected pitfalls and warnings
 - suggestions to fix these pitfalls and warnings.
 
+### Current features
+
+The bot is able to create issues on the repository hosted on gitub.com 
+In the future, we will add gitlab.com and self-hosted gitlab instances support.
+
 ### What is out of the scope of this project
 
-This repository is not actually doing the evaluation of the metadata quality. It is using the analysis provided by the RsMetacheck package.
+This repository is not actually doing the analysis of the metadata quality. It is using the analysis provided by the RsMetacheck package.
+
+## Install (temporary)
+
+(will be publish on PyPy when released)
+
+Use uv to install the package directly from github repo.
+
+```bash
+uv add git+https://github.com/codemetasoft/sw-metadata-bot.git
+```
+
+Or from local path if cloned already,
+
+```bash
+uv add --editable <path>/sw-metadata-bot
+```
+
+## Usage
+
+To be completed.

@@ -1,3 +1,7 @@
+"""
+Issue templates and formatting functions for repository host issues.
+"""
+
 ISSUE_TEMPLATE = """
 Hi,
 

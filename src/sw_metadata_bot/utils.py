@@ -1,6 +1,6 @@
 from enum import Enum
 
-from .github_api import GitHubAPI
+from .github_api import set_github_api
 from .repo_api import RepoAPI
 
 
@@ -14,19 +14,7 @@ class RepoType(Enum):
 
 def setup_api(repo_type: RepoType, dry_run: bool) -> RepoAPI:
     if repo_type == RepoType.GITHUB:
-        import os
-
-        from dotenv import load_dotenv
-
-        load_dotenv()
-        token = os.getenv("GITHUB_API_TOKEN")
-        if not token:
-            raise ValueError("GITHUB_API_TOKEN not found in environment variables")
-
-        api = GitHubAPI(token=token, dry_run=dry_run)
-
-        api.test_authentication()
-        return api
+        return set_github_api(dry_run)
     else:
         raise NotImplementedError(
             f"API setup not implemented for repo type: {repo_type}"
