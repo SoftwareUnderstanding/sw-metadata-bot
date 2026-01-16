@@ -10,7 +10,6 @@ authors = [
 dependencies = [
     "click>=8.3.1",
     "metacheck",
-    "python-dotenv>=1.2.1",
     "requests>=2.32.5",
 ]
 

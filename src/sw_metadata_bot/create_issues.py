@@ -6,7 +6,7 @@ from pathlib import Path
 
 import click
 
-from . import github_api, gitlab_api, pitfalls
+from . import github_api, pitfalls
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ def create_issues_command(
 
     # Initialize API clients
     github = github_api.GitHubAPI(dry_run=dry_run)
-    gitlab = gitlab_api.GitLabAPI(dry_run=dry_run)
+    # gitlab = gitlab_api.GitLabAPI(dry_run=dry_run)
 
     mode = "DRY RUN" if dry_run else "PRODUCTION"
     click.echo(f"\n{'=' * 60}")
@@ -112,8 +112,8 @@ def create_issues_command(
 
             if platform == "github":
                 issue_url = github.create_issue(repo_url, title, body)
-            elif platform == "gitlab":
-                issue_url = gitlab.create_issue(repo_url, title, body)
+            # elif platform == "gitlab":
+            #     issue_url = gitlab.create_issue(repo_url, title, body)
             else:
                 raise ValueError(f"Unsupported platform: {platform}")
 
