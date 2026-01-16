@@ -12,5 +12,7 @@ class RepoAPI:
     def create_issue(self, repo_url: str, title: str, body: str) -> dict:
         raise NotImplementedError("This method should be implemented by subclasses.")
 
-    def create_pull_request(self, repo_url: str, title: str, body: str, head: str, base: str) -> dict:
+    def create_pull_request(
+        self, repo_url: str, title: str, body: str, head: str, base: str
+    ) -> dict:
         raise NotImplementedError("This method should be implemented by subclasses.")

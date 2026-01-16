@@ -1,7 +1,6 @@
 import click
 
-from .configuration import configure
-from .issue_creator import create_issue
+from .issue_creator import create_all_issues
 from .metacheck_wrapper import metacheck_command
 
 
@@ -12,8 +11,7 @@ def cli():
 
 
 cli.add_command(metacheck_command, name="metacheck")
-cli.add_command(configure, name="configure")
-cli.add_command(create_issue, name="create-issue")
+cli.add_command(create_all_issues, name="create-issue")
 
 
 def main():

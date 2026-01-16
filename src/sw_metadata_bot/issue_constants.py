@@ -2,6 +2,7 @@
 Issue templates and formatting functions for repository host issues.
 """
 
+ISSUE_TITLE = "Automated Metadata Quality Report from CodeMetaSoft"
 ISSUE_TEMPLATE = """
 Hi,
 
