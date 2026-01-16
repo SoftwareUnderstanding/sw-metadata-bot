@@ -1,6 +1,8 @@
+"""CLI entry point for sw-metadata-bot."""
+
 import click
 
-from .commands import create_issues_command
+from .create_issues import create_issues_command
 from .metacheck_wrapper import metacheck_command
 
 

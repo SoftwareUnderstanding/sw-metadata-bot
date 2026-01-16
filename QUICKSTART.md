@@ -75,35 +75,32 @@ Key options:
 - `--dry-run`             : Generate content without posting
 
 ## Minimal examples (Python)
-Detect platform:
-```python
-from sw_metadata_bot.config import RepositoryTypeDetector
-print(RepositoryTypeDetector.detect("https://github.com/owner/repo"))
-```
-
-Create an issue (dry-run):
+Detect platform and create issue (dry-run):
 ```python
 from pathlib import Path
-from sw_metadata_bot.config import PlatformFactory
-from sw_metadata_bot.core import PitfallsAnalyzer
-from sw_metadata_bot.utils import ReportFormatter, IssueTemplate
+from sw_metadata_bot import pitfalls, github_api, create_issues
 
-factory = PlatformFactory()
-factory.set_dry_run(True)
+# Load pitfalls data
+data = pitfalls.load_pitfalls(Path("pitfalls_outputs/repo.jsonld"))
+repo_url = pitfalls.get_repository_url(data)
 
-pitfalls = PitfallsAnalyzer().load_pitfalls(Path("pitfalls_outputs/repo.jsonld"))
-repo_url = PitfallsAnalyzer().get_repository_url(pitfalls)
-report = ReportFormatter.format_pitfalls_report(repo_url, pitfalls)
-issue_body = IssueTemplate.create_issue_body(report)
+# Detect platform
+platform_type = create_issues.detect_platform(repo_url)
+print(f"Platform: {platform_type}")
 
-platform = factory.create_platform_from_url(repo_url)
-repository = platform.parse_repository_url(repo_url)
-issue = platform.create_issue(repository, "Metadata Quality Report", issue_body)
-print(issue.url)
+# Generate issue content
+report = pitfalls.format_report(repo_url, data)
+body = pitfalls.create_issue_body(report)
+
+# Create issue (dry-run mode)
+github = github_api.GitHubAPI(dry_run=True)
+issue_url = github.create_issue(repo_url, "Metadata Quality Report", body)
+print(f"Issue URL: {issue_url}")
 ```
 
 ## Troubleshooting
 - **Auth failed / 401**: Check `GITHUB_API_TOKEN` / `GITLAB_API_TOKEN` are exported and valid.
+- **403 / 404 on issue creation**: You need write/triage permissions on the repository. Test with repos you own first.
 - **Platform not supported**: Repo must be GitHub or GitLab (self-hosted GitLab is auto-detected).
 - **No pitfalls found**: Ensure `--pitfalls-output-dir` points to metacheck JSON-LD outputs.
 - **Review before posting**: Always run with `--dry-run` first and inspect files in `--issues-dir`.
