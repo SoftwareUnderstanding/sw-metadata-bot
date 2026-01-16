@@ -8,6 +8,7 @@ authors = [
     {name = "Tom François", email = "tom.francois@lapp.in2p3.fr"}
 ]
 dependencies = [
+    "click>=8.3.1",
     "metacheck",
     "python-dotenv>=1.2.1",
     "requests>=2.32.5",
@@ -21,4 +22,4 @@ package-dir = {"" = "src"}
 packages = { find = { where = ["src"] } }
 
 [tool.uv.sources]
-metacheck = { git = "https://github.com/SoftwareUnderstanding/RsMetaCheck", tag = "0.1.1" }
+metacheck = { git = "https://github.com/SoftwareUnderstanding/RsMetaCheck"}

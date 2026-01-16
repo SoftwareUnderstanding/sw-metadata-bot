@@ -526,8 +526,8 @@ wheels = [
 
 [[package]]
 name = "metacheck"
-version = "0.1.0"
-source = { git = "https://github.com/SoftwareUnderstanding/RsMetaCheck?tag=0.1.1#124a6514e3278266cc83623699c33a0a44f10642" }
+version = "0.1.1"
+source = { git = "https://github.com/SoftwareUnderstanding/RsMetaCheck#dea72d55035105d12ac864927a1784a67c5c3782" }
 dependencies = [
     { name = "requests" },
     { name = "somef" },
@@ -1125,6 +1125,7 @@ name = "sw-metadata-bot"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "click" },
     { name = "metacheck" },
     { name = "python-dotenv" },
     { name = "requests" },
@@ -1132,7 +1133,8 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "metacheck", git = "https://github.com/SoftwareUnderstanding/RsMetaCheck?tag=0.1.1" },
+    { name = "click", specifier = ">=8.3.1" },
+    { name = "metacheck", git = "https://github.com/SoftwareUnderstanding/RsMetaCheck" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "requests", specifier = ">=2.32.5" },
 ]
