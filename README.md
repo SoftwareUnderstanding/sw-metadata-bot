@@ -1,47 +1,80 @@
 # sw-metadata-bot
 
-A repository to keep the code of the RSMetaCheck bot for pushing issues with existing repository metadata
+An automated bot that analyzes repository metadata quality and creates issues with improvement suggestions.
 
-## Description
+Part of the [CodeMetaSoft](https://w3id.org/codemetasoft) project to improve research software metadata quality.
 
-### Goal of the bot
+---
 
-Contact maintainers and developpers about our pitfalls and warnings analysis about metadata.
-We want to start a discussion about the actual state of the quality of the given repository (possibly against others or standards).
-Ideally, we would like to point out what should be modified to fix the actual pitfalls and warnings detected.
+## 📋 What This Bot Does
 
-### Current approach
+If you received an issue from this bot, it means your repository's metadata was automatically analyzed and some improvements were detected.
 
-Based on the RS Metacheck package analysis, this bot creates an issue in the repository host provider to present:
+The issue contains:
+- **Pitfalls**: Critical metadata issues that should be fixed
+- **Warnings**: Metadata improvements that are recommended
+- **Suggestions**: Specific recommendations on how to fix each issue
 
-- the detected pitfalls and warnings
-- suggestions to fix these pitfalls and warnings.
+### Example Issues You Might See
 
-### Current features
+- Missing or incomplete `LICENSE` file
+- No `CITATION.cff` file (for software citation)
+- Incomplete or missing `README` sections
+- Missing repository metadata (topics, description, etc.)
+- Outdated dependencies
+- Missing software documentation
 
-The bot is able to create issues on the repository hosted on gitub.com 
-In the future, we will add gitlab.com and self-hosted gitlab instances support.
+---
 
-### What is out of the scope of this project
+## 💬 How to Respond
 
-This repository is not actually doing the analysis of the metadata quality. It is using the analysis provided by the RsMetacheck package.
+### If You Agree with the Suggestions
 
-## Install (temporary)
+Fix the identified issues and **close the issue** with a comment explaining what you fixed. Your improvements help your software become more discoverable and citable!
 
-(will be publish on PyPy when released)
+### If You Disagree or Have Questions
 
-Use uv to install the package directly from github repo.
+Feel free to **comment on the issue**. We're happy to discuss the suggestions and help clarify what's needed.
 
-```bash
-uv add git+https://github.com/codemetasoft/sw-metadata-bot.git
-```
+### If You're Not Interested
 
-Or from local path if cloned already,
+Simply comment **"unsubscribe"** on the issue and we'll remove your repository from future analysis.
 
-```bash
-uv add --editable <path>/sw-metadata-bot
-```
+---
 
-## Usage
+## 🔍 What Analysis Is Used
 
-To be completed.
+This bot uses [RSMetaCheck](https://github.com/SoftwareUnderstanding/RsMetaCheck), which analyzes:
+- Software metadata completeness
+- Citation and documentation quality
+- Repository structure and best practices
+
+The bot **does not**:
+- Modify your code or files
+- Make pull requests
+- Have access to your repository secrets
+
+---
+
+## 📚 Learn More
+
+- [CodeMetaSoft Project](https://w3id.org/codemetasoft) - About the initiative
+- [RSMetaCheck](https://github.com/SoftwareUnderstanding/RsMetaCheck) - The analysis tool
+- [Citation File Format](https://citation-file-format.github.io/) - How to add CITATION.cff
+
+---
+
+## 🛠️ For Maintainers Running This Bot
+
+See [QUICKSTART.md](QUICKSTART.md) for setup and usage instructions.
+
+Supported platforms:
+- ✅ GitHub.com
+- ✅ GitLab.com
+- ✅ Self-hosted GitLab instances
+
+---
+
+## 📝 License
+
+See [LICENSE](LICENSE) file.
