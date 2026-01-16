@@ -2,7 +2,10 @@
 
 import json
 from datetime import datetime
+from importlib.metadata import version
 from pathlib import Path
+
+from . import __version__
 
 
 def load_pitfalls(file_path: Path) -> dict:
@@ -34,6 +37,11 @@ def get_warnings_list(data: dict) -> list[dict]:
     ]
 
 
+def get_metacheck_version(data: dict) -> str:
+    """Get the version of RSMetacheck used for analysis."""
+    return version("metacheck")
+
+
 def format_report(repo_url: str, data: dict) -> str:
     """Format pitfalls data into a readable report."""
     pitfalls = get_pitfalls_list(data)
@@ -41,12 +49,15 @@ def format_report(repo_url: str, data: dict) -> str:
 
     report = "# Metadata Quality Report\n\n"
     report += f"**Repository:** {repo_url}\n"
-    report += f"**Analysis Date:** {datetime.now().strftime('%Y-%m-%d')}\n\n"
+    report += f"**Analysis Date:** {datetime.now().strftime('%Y-%m-%d')}\n"
+    report += f"* sw-metadata-bot version: {__version__}\n"
+    report += f"**RSMetacheck version:** {get_metacheck_version(data)}\n\n"
 
     if pitfalls:
-        report += f"## 🔴 Critical Issues ({len(pitfalls)})\n\n"
+        report += f"## 🔴 Pitfalls ({len(pitfalls)})\n\n"
         for p in pitfalls:
             report += f"### {p['checkId']}\n"
+            report += f"{p.get('process', 'No description')}\n"
             report += f"{p.get('evidence', 'No details')}\n\n"
             if p.get("suggestion"):
                 report += f"**Suggestion:** {p['suggestion']}\n\n"
@@ -59,20 +70,31 @@ def format_report(repo_url: str, data: dict) -> str:
             if w.get("suggestion"):
                 report += f"**Suggestion:** {w['suggestion']}\n\n"
 
-    report += "---\n"
-    report += "This report was generated automatically by [sw-metadata-bot](https://github.com/codemetasoft/sw-metadata-bot).\n"
-
     return report
+
+
+ISSUE_TEMPLATE = """\
+    Hi maintainers,
+Your repository is part of our metadata quality improvement initiative. We've automatically analyzed your repository's metadata and discovered some issues that could be fixed.
+
+This automated issue includes:
+- Detected metadata pitfalls and warnings
+- Suggestions for fixing each issue
+
+## Context
+This analysis is performed by the [CodeMetaSoft](https://w3id.org/codemetasoft) project to help improve research software quality.
+
+If you're not interested in participating, you can comment "unsubscribe" and we'll remove your repository from our list.
+
+{report}
+---
+
+This report was generated automatically by [sw-metadata-bot](https://github.com/codemetasoft/sw-metadata-bot).
+"""
 
 
 def create_issue_body(report: str) -> str:
     """Wrap report in issue template."""
-    body = "👋 Hello! This is an automated metadata quality report.\n\n"
-    body += report
-    body += "\n\n"
-    body += "## How to respond\n\n"
-    body += "- **Fix the issues** and close this issue with a comment\n"
-    body += "- **Have questions?** Comment below and we'll help\n"
-    body += "- **Not interested?** Comment 'unsubscribe' to opt out\n"
+    body = ISSUE_TEMPLATE.format(report=report)
 
     return body
