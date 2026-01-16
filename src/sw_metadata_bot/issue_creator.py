@@ -7,7 +7,7 @@ import click
 
 from sw_metadata_bot.repo_api import RepoAPI
 from sw_metadata_bot.repo_utils import RepoType, get_repo_type
-from sw_metadata_bot.utils import create_issue
+from sw_metadata_bot.utils import create_issue, setup_api
 
 from .analysis_infos import (
     check_is_pitfall,
@@ -148,17 +148,11 @@ def create_all_issues(pitfalls_output_dir: Path, issues_dir: Path, dry_run: bool
                 f"Repository host {repo_type} not supported for issue creation. Skipping."
             )
             continue
-        if repo_type not in map_apis:
-            if repo_type == RepoType.GITHUB:
-                from .github_api import GitHubAPI
 
-                api_instance = GitHubAPI(dry_run=dry_run)
-            else:
-                click.echo(
-                    f"Repository host {repo_type} not supported for issue creation. Skipping."
-                )
-                continue
+        if repo_type not in map_apis:
+            api_instance = setup_api(repo_type, dry_run)
             map_apis[repo_type] = api_instance
+
         issue_url = create_issue(map_apis[repo_type], repo_url, issue_title, issue_body)
         issue_timestamp_created = get_current_timestamp()
         issue_infos = {
