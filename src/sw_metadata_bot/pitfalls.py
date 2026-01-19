@@ -89,7 +89,7 @@ If you're not interested in participating, you can comment "unsubscribe" and we'
 {report}
 ---
 
-This report was generated automatically by [sw-metadata-bot](https://github.com/codemetasoft/sw-metadata-bot).
+This report was generated automatically by [sw-metadata-bot](https://github.com/SoftwareUnderstanding/sw-metadata-bot).
 """
 
 
