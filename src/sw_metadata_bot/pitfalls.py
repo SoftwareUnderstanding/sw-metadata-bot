@@ -24,7 +24,7 @@ def get_pitfalls_list(data: dict) -> list[dict]:
     return [
         check
         for check in data.get("checks", [])
-        if check.get("checkId", "").startswith("E")
+        if check.get("checkId", "").startswith("P")
     ]
 
 

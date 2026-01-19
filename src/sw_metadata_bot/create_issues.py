@@ -125,6 +125,7 @@ def create_issues_command(
                     "issue_url": issue_url,
                     "platform": platform,
                     "pitfalls_count": len(pitfalls.get_pitfalls_list(data)),
+                    "warnings_count": len(pitfalls.get_warnings_list(data)),
                 }
             )
 
