@@ -13,6 +13,13 @@ dependencies = [
     "requests>=2.32.5",
 ]
 
+keywords = ["codemeta", "metadata", "bot", "quality software"]
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
 [project.scripts]
 sw-metadata-bot = "sw_metadata_bot.main:main"
 
