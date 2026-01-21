@@ -1,0 +1,5 @@
+[rules]
+# treat missing imports as errors
+possibly-missing-import = "error"
+# unused ignore comments are warnings
+unused-ignore-comment = "warn"

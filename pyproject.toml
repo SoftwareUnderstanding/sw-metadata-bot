@@ -30,5 +30,19 @@ package = true
 package-dir = {"" = "src"}
 packages = { find = { where = ["src"] } }
 
+[dependency-groups]
+dev = [
+    "bandit>=1.9.3",
+    "pre-commit>=4.5.1",
+    "ruff>=0.14.13",
+    "ty>=0.0.12",
+]
+
 [tool.uv.sources]
 metacheck = { git = "https://github.com/SoftwareUnderstanding/RsMetaCheck"}
+
+
+[tool.bandit]
+exclude_dirs = ["tests",".venv", ".ruff-cache"]
+tests = ["B201", "B301"]
+skips = ["B101", "B601"]
