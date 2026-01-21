@@ -13,26 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        id: setup-python
-      # Uses the repo's .python-version for consistency
-        uses: actions/setup-python@v5
+      - name: Setup uv environment
+        uses: ./.github/actions/setup-uv
         with:
-          python-version-file: ".python-version"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
-
-      - name: Cache uv
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-            .venv
-          key: ${{ runner.os }}-py-${{ steps.setup-python.outputs.python-version }}-uv-${{ hashFiles('pyproject.toml') }}
-
-      - name: Sync dependencies (dev)
-        run: uv sync --group dev
+          dependency-group: dev
 
       - name: Ruff format (check)
         run: uv run ruff format --check
@@ -46,25 +30,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        id: setup-python
-        uses: actions/setup-python@v5
+      - name: Setup uv environment
+        uses: ./.github/actions/setup-uv
         with:
-          python-version-file: ".python-version"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
-
-      - name: Cache uv
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-            .venv
-          key: ${{ runner.os }}-py-${{ steps.setup-python.outputs.python-version }}-uv-${{ hashFiles('pyproject.toml') }}
-
-      - name: Sync dependencies (test)
-        run: uv sync --group test
+          dependency-group: test
 
       - name: Run pytest
         run: uv run pytest -q tests/
@@ -75,25 +44,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        id: setup-python
-        uses: actions/setup-python@v5
+      - name: Setup uv environment
+        uses: ./.github/actions/setup-uv
         with:
-          python-version-file: ".python-version"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
-
-      - name: Cache uv
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-            .venv
-          key: ${{ runner.os }}-py-${{ steps.setup-python.outputs.python-version }}-uv-${{ hashFiles('pyproject.toml', 'docs/**') }}
-
-      - name: Sync dependencies (docs)
-        run: uv sync --group docs
+          dependency-group: docs
 
       - name: Build Sphinx HTML
         run: uv run sphinx-build -b html docs docs/_build/html
