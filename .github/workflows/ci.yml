@@ -5,6 +5,8 @@ on:
     branches: ["main", "master"]
   pull_request:
     branches: ["*"]
+  release:
+    types: [published]
 
 jobs:
   lint:
@@ -104,3 +106,43 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  publish-pypi:
+    name: Publish to PyPI
+    if: github.event_name == 'release'
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup uv environment
+        uses: ./.github/actions/setup-uv
+        with:
+          dependency-group: dev
+
+      - name: Build package
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+
+  # publish-zenodo:
+  #   name: Publish to Zenodo
+  #   if: github.event_name == 'release'
+  #   needs: [lint, test]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Publish to Zenodo
+  #       uses: leokratos/github-action-json-to-zenodo@v1.0.1
+  #       with:
+  #         filename: codemeta.json
+  #         zenodo_sandbox: false
+  #       env:
+  #         ZENODO_DEPOSITION_ID: ${{ secrets.ZENODO_DEPOSITION_ID }}
+  #         ZENODO_ACCESS_TOKEN: ${{ secrets.ZENODO_ACCESS_TOKEN }}
