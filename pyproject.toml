@@ -90,6 +90,6 @@ quiet = false
 whitelist-regex = []
 color = true
 omit-covered-files = false
-# output file logation
+# output file location
 generate-badge = "."
 badge-format = "svg"

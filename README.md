@@ -5,7 +5,7 @@
 [![CI](https://github.com/SoftwareUnderstanding/sw-metadata-bot/workflows/CI/badge.svg)](https://github.com/codemetasoft/sw-metadata-bot/actions)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 ![coverage](coverage.svg)
-![interrogate](interrogate.svg)
+![interrogate](interrogate_badge.svg)
 
 An automated bot that analyzes repository metadata quality and creates issues with improvement suggestions.
 

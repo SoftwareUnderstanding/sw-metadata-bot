@@ -26,22 +26,42 @@ jobs:
       - name: Ruff check
         run: uv run ruff check --output-format=github
 
+  security:
+    name: Security (Bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup uv environment
+        uses: ./.github/actions/setup-uv
+        with:
+          dependency-group: dev
+
+      - name: Run Bandit security linter
+        run: uv run bandit -c pyproject.toml -r src/sw_metadata_bot/
+
+  interrogate:
+      name: Interrogate badge
+      runs-on: ubuntu-latest
+      steps:
+      - uses: actions/checkout@v6
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
       - name: Interrogate (docstring coverage)
-        run: uv run interrogate -v src/sw_metadata_bot/
+        run: uv run interrogate -c pyproject.toml
       
       - name: Commit interrogate badge
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          uv run interrogate -o interrogate.svg -f src/sw_metadata_bot/
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add interrogate.svg
+          git add interrogate_badge.svg
           git diff --quiet && git diff --staged --quiet || git commit -m "chore: update interrogate badge"
           git push
         continue-on-error: true
+        
 
-      - name: Bandit (security linter)
-        run: uv run bandit -c pyproject.toml -r src/sw_metadata_bot/
+
       
 
   test:
