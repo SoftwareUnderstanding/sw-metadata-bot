@@ -26,6 +26,21 @@ jobs:
 
       - name: Interrogate (docstring coverage)
         run: uv run interrogate -v src/sw_metadata_bot/
+      
+      - name: Commit interrogate badge
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          uv run interrogate -o interrogate.svg -f src/sw_metadata_bot/
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add interrogate.svg
+          git diff --quiet && git diff --staged --quiet || git commit -m "chore: update interrogate badge"
+          git push
+        continue-on-error: true
+
+      - name: Bandit (security linter)
+        run: uv run bandit -c pyproject.toml -r src/sw_metadata_bot/
+      
 
   test:
     name: Test (pytest)
