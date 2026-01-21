@@ -1,6 +1,7 @@
 version: 2
 updates:
-  - package-ecosystem: "pip"
+# Python dependencies (uv)
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -11,6 +12,7 @@ updates:
           - "minor"
           - "patch"
 
+# GitHub Actions updates
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
