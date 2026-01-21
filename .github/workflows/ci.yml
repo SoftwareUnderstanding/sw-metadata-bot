@@ -45,7 +45,6 @@ jobs:
       runs-on: ubuntu-latest
       steps:
       - uses: actions/checkout@v6
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
       - name: Setup uv environment
         uses: ./.github/actions/setup-uv
