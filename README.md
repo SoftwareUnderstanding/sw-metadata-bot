@@ -2,8 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![CI](https://github.com/codemetasoft/sw-metadata-bot/workflows/CI/badge.svg)](https://github.com/codemetasoft/sw-metadata-bot/actions)
-![coverage](https://img.shields.io/badge/coverage-placeholder-blue)
+[![CI](https://github.com/SoftwareUnderstanding/sw-metadata-bot/workflows/CI/badge.svg)](https://github.com/codemetasoft/sw-metadata-bot/actions)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 ![coverage](coverage.svg)
 
@@ -18,6 +17,7 @@ Part of the [CodeMetaSoft](https://w3id.org/codemetasoft) project to improve res
 If you received an issue from this bot, it means your repository's metadata was automatically analyzed and some improvements were detected.
 
 The issue contains:
+
 - **Pitfalls**: Critical metadata issues that should be fixed
 - **Warnings**: Metadata improvements that are recommended
 - **Suggestions**: Specific recommendations on how to fix each issue
@@ -52,11 +52,13 @@ Simply comment **"unsubscribe"** on the issue and we'll remove your repository f
 ## 🔍 What Analysis Is Used
 
 This bot uses [RSMetaCheck](https://github.com/SoftwareUnderstanding/RsMetaCheck), which analyzes:
+
 - Software metadata completeness
 - Citation and documentation quality
 - Repository structure and best practices
 
 The bot **does not**:
+
 - Modify your code or files
 - Make pull requests
 - Have access to your repository secrets
@@ -76,6 +78,7 @@ The bot **does not**:
 See [QUICKSTART.md](QUICKSTART.md) for setup and usage instructions.
 
 Supported platforms:
+
 - ✅ GitHub.com
 - ✅ GitLab.com
 - ✅ Self-hosted GitLab instances
