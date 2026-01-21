@@ -24,6 +24,9 @@ jobs:
       - name: Ruff check
         run: uv run ruff check --output-format=github
 
+      - name: Interrogate (docstring coverage)
+        run: uv run interrogate -v src/sw_metadata_bot/
+
   test:
     name: Test (pytest)
     runs-on: ubuntu-latest

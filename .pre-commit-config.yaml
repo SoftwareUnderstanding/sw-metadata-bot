@@ -21,3 +21,12 @@ repos:
     hooks:
     - id: bandit
       args: ["-c", "pyproject.toml"]
+
+  - repo: https://github.com/econchick/interrogate
+    rev: 1.7.0  # Update me!
+    hooks:
+      - id: interrogate
+        name: interrogate
+        entry: interrogate -c pyproject.toml -v src/sw_metadata_bot/
+        pass_filenames: false
+        always_run: true

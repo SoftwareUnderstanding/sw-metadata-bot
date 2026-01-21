@@ -36,6 +36,7 @@ dev = [
     "pre-commit>=4.5.1",
     "ruff>=0.14.13",
     "ty>=0.0.12",
+    "interrogate>=1.7.0",
 ]
 test = [
     "pytest",
@@ -62,3 +63,33 @@ addopts = "-v --tb=short"
 exclude_dirs = ["tests",".venv", ".ruff-cache"]
 tests = ["B201", "B301"]
 skips = ["B101", "B601"]
+
+[tool.interrogate]
+ignore-init-method = false
+ignore-init-module = false
+ignore-magic = false
+ignore-semiprivate = false
+ignore-private = false
+ignore-property-decorators = false
+ignore-module = false
+ignore-nested-functions = false
+ignore-nested-classes = false
+ignore-setters = false
+ignore-overloaded-functions = false
+fail-under = 80
+# example values
+exclude = ["setup.py", "docs", "build"]
+# example regex
+ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
+ext = []
+# possible values: sphinx (default), google
+style = "sphinx"
+# possible values: 0 (minimal output), 1 (-v), 2 (-vv)
+verbose = 0
+quiet = false
+whitelist-regex = []
+color = true
+omit-covered-files = false
+# output file logation
+generate-badge = "."
+badge-format = "svg"
