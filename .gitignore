@@ -7,3 +7,10 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# generated files
+outputs/*
+
+# docs
+docs/_build/
+site/
