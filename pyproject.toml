@@ -40,6 +40,7 @@ dev = [
 test = [
     "pytest",
     "pytest-cov",
+    "coverage-badge",
 ]
 docs = [
     "furo>=2025.12.19",

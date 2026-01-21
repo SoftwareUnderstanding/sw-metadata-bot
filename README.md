@@ -1,5 +1,12 @@
 # sw-metadata-bot
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![CI](https://github.com/codemetasoft/sw-metadata-bot/workflows/CI/badge.svg)](https://github.com/codemetasoft/sw-metadata-bot/actions)
+![coverage](https://img.shields.io/badge/coverage-placeholder-blue)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+![coverage](coverage.svg)
+
 An automated bot that analyzes repository metadata quality and creates issues with improvement suggestions.
 
 Part of the [CodeMetaSoft](https://w3id.org/codemetasoft) project to improve research software metadata quality.
