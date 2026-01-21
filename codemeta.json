@@ -1,0 +1,47 @@
+{
+    "@context": "https://w3id.org/codemeta/3.0",
+    "applicationCategory": "SoftwareSourceCode",
+    "author": [
+        {
+            "@id": "https://github.com/SoftwareUnderstanding",
+            "@type": "Organization"
+        },
+        {
+            "affiliation": {
+                "name": "Univ. Savoie Mont-Blanc, CNRS, LAPP",
+                "@type": "Organization"
+            },
+            "email": "tom.francois@lapp.in2p3.fr",
+            "@id": "https://orcid.org/0000-0001-5226-3089",
+            "@type": "Person"
+        }
+    ],
+    "codeRepository": "https://github.com/SoftwareUnderstanding/sw-metadata-bot",
+    "dateCreated": "2025-12-15",
+    "dateModified": "2026-01-21",
+    "datePublished": "2026-01-16",
+    "description": "A repository to keep the code of the RSMetaCheck bot for pushing issues with existing repository metadata",
+    "downloadUrl": "https://github.com/SoftwareUnderstanding/sw-metadata-bot/releases",
+    "keywords": [
+        "codemeta",
+        "bot",
+        "software",
+        "metadata"
+    ],
+    "license": "https://spdx.org/licenses/MIT",
+    "name": "sw-metadata-bot",
+    "programmingLanguage": "Python 3",
+    "releaseNotes": "## What's Changed\n* Fix beta test feedbacks by @francoto in https://github.com/SoftwareUnderstanding/sw-metadata-bot/pull/7\n\n\n**Full Changelog**: https://github.com/SoftwareUnderstanding/sw-metadata-bot/compare/v0.1.0...v0.1.1",
+    "softwareRequirements": [
+        "metacheck>=0.2.0",
+        "requests>=2.32.5"
+    ],
+    "version": "v0.1.1",
+    "codemeta:contIntegration": {
+        "@id": "https://raw.githubusercontent.com/SoftwareUnderstanding/sw-metadata-bot/main/.github/workflows/ci.yml"
+    },
+    "continuousIntegration": "https://raw.githubusercontent.com/SoftwareUnderstanding/sw-metadata-bot/main/.github/workflows/ci.yml",
+    "developmentStatus": "active",
+    "issueTracker": "https://github.com/SoftwareUnderstanding/sw-metadata-bot/issues",
+    "@type": "SoftwareSourceCode"
+}
