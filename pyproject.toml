@@ -50,6 +50,13 @@ docs = [
 metacheck = { git = "https://github.com/SoftwareUnderstanding/RsMetaCheck"}
 
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
 [tool.bandit]
 exclude_dirs = ["tests",".venv", ".ruff-cache"]
 tests = ["B201", "B301"]
