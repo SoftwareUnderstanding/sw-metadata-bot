@@ -1,6 +1,6 @@
 """sw-metadata-bot: RSMetaCheck bot for pushing issues with existing repository metadata."""
 
-from importlib.metadata import version, PackageNotFoundError
+from importlib.metadata import PackageNotFoundError, version
 
 try:
     __version__ = version("sw-metadata-bot")
