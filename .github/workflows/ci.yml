@@ -136,7 +136,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup uv environment
         uses: ./.github/actions/setup-uv
@@ -157,7 +157,7 @@ jobs:
   #   needs: [lint, test]
   #   runs-on: ubuntu-latest
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v6
 
   #     - name: Publish to Zenodo
   #       uses: leokratos/github-action-json-to-zenodo@v1.0.1
