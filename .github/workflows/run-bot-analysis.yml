@@ -39,7 +39,7 @@ jobs:
 
       - name: Upload analysis results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: analysis-results
           path: analysis_results.json
@@ -47,7 +47,7 @@ jobs:
 
       - name: Upload pitfalls files
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pitfalls-files
           path: pitfalls_outputs/
@@ -55,7 +55,7 @@ jobs:
 
       - name: Upload generated issues
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: generated-issues
           path: issues_output/
