@@ -84,14 +84,12 @@ This automated issue includes:
 ## Context
 This analysis is performed by the [CodeMetaSoft](https://w3id.org/codemetasoft) project to help improve research software quality.
 
-If you're not interested in participating, you can comment "unsubscribe" and we'll remove your repository from our list.
-
 {report}
 ---
 
 This report was generated automatically by [sw-metadata-bot](https://github.com/SoftwareUnderstanding/sw-metadata-bot).
 
-If you don't want to receive future issues, please comment "unsubscribe" and we will remove your repository from our list.
+If you're not interested in participating, please comment "unsubscribe" and we will remove your repository from our list.
 """
 
 
