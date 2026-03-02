@@ -90,6 +90,8 @@ If you're not interested in participating, you can comment "unsubscribe" and we'
 ---
 
 This report was generated automatically by [sw-metadata-bot](https://github.com/SoftwareUnderstanding/sw-metadata-bot).
+
+If you don't want to receive future issues, please comment "unsubscribe" and we will remove your repository from our list.
 """
 
 
