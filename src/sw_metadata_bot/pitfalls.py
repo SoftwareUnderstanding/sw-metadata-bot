@@ -50,7 +50,7 @@ def format_report(repo_url: str, data: dict) -> str:
     report = "# Metadata Quality Report\n\n"
     report += f"**Repository:** {repo_url}\n"
     report += f"**Analysis Date:** {datetime.now().strftime('%Y-%m-%d')}\n"
-    report += f"* sw-metadata-bot version: {__version__}\n"
+    report += f"**sw-metadata-bot version:** {__version__}\n"
     report += f"**RSMetacheck version:** {get_metacheck_version(data)}\n\n"
 
     if pitfalls:
