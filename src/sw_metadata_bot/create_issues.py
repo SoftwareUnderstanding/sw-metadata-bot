@@ -6,19 +6,41 @@ from pathlib import Path
 
 import click
 
-from . import github_api, pitfalls
+from . import github_api, gitlab_api, pitfalls
 
 logger = logging.getLogger(__name__)
 
 
 def detect_platform(url: str) -> str:
-    """Detect platform from URL."""
+    """Detect platform (GitHub, GitLab, etc.) from repository URL."""
+    url = url.lower()
     if "github.com" in url:
         return "github"
-    elif "gitlab" in url.lower():
+    elif "gitlab.com" in url:
+        return "gitlab.com"
+    elif "gitlab" in url:
         return "gitlab"
     else:
-        raise ValueError(f"Unknown platform for URL: {url}")
+        raise ValueError(f"Unsupported repository platform in URL: {url}")
+
+
+def _normalize_repo_url(url: str) -> str:
+    """Normalize repository URL for matching between datasets."""
+    return url.strip().rstrip("/")
+
+
+def _load_repository_list(file_path: Path) -> set[str]:
+    """Load repository URLs from a JSON file with a 'repositories' key."""
+    with open(file_path, encoding="utf-8") as f:
+        data = json.load(f)
+
+    repositories = data.get("repositories", [])
+    if not isinstance(repositories, list):
+        raise click.ClickException(
+            f"Invalid format in {file_path}: 'repositories' must be a list"
+        )
+
+    return {_normalize_repo_url(url) for url in repositories if isinstance(url, str)}
 
 
 @click.command()
@@ -45,11 +67,18 @@ def detect_platform(url: str) -> str:
     default="INFO",
     help="Logging level.",
 )
+@click.option(
+    "--opt-outs-file",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="JSON file containing repositories to exclude from issue creation.",
+)
 def create_issues_command(
     pitfalls_output_dir: Path,
     issues_dir: Path,
     dry_run: bool,
     log_level: str,
+    opt_outs_file: Path | None,
 ):
     """
     Create issues in repositories based on metadata analysis results.
@@ -68,12 +97,19 @@ def create_issues_command(
 
     # Initialize API clients
     github = github_api.GitHubAPI(dry_run=dry_run)
-    # gitlab = gitlab_api.GitLabAPI(dry_run=dry_run)
+    gitlab = gitlab_api.GitLabAPI(dry_run=dry_run)
 
     mode = "DRY RUN" if dry_run else "PRODUCTION"
     click.echo(f"\n{'=' * 60}")
     click.echo(f"Creating issues [{mode}]")
     click.echo(f"{'=' * 60}\n")
+
+    opt_out_repos: set[str] = set()
+    if opt_outs_file is not None:
+        opt_out_repos = _load_repository_list(opt_outs_file)
+        click.echo(
+            f"Loaded {len(opt_out_repos)} opt-out repositories from: {opt_outs_file}\n"
+        )
 
     # Find pitfalls files
     pitfalls_files = sorted(pitfalls_output_dir.glob("*.jsonld"))
@@ -86,6 +122,7 @@ def create_issues_command(
     # Process each file
     created = []
     failed = []
+    skipped = []
 
     for i, file_path in enumerate(pitfalls_files, 1):
         click.echo(f"[{i}/{len(pitfalls_files)}] Processing: {file_path.name}")
@@ -95,6 +132,12 @@ def create_issues_command(
             data = pitfalls.load_pitfalls(file_path)
             repo_url = pitfalls.get_repository_url(data)
             click.echo(f"  Repository: {repo_url}")
+
+            if _normalize_repo_url(repo_url) in opt_out_repos:
+                click.echo("  ↷ Skipped: repository is in opt-outs list")
+                skipped.append({"repo_url": repo_url, "file": str(file_path)})
+                click.echo()
+                continue
 
             # Generate issue content
             report = pitfalls.format_report(repo_url, data)
@@ -108,12 +151,13 @@ def create_issues_command(
 
             # Create issue
             platform = detect_platform(repo_url)
+            click.echo(f"  Detected platform: {platform}")
             title = "Automated Metadata Quality Report from CodeMetaSoft"
 
             if platform == "github":
                 issue_url = github.create_issue(repo_url, title, body)
-            # elif platform == "gitlab":
-            #     issue_url = gitlab.create_issue(repo_url, title, body)
+            elif platform == "gitlab.com":
+                issue_url = gitlab.create_issue(repo_url, title, body)
             else:
                 raise ValueError(f"Unsupported platform: {platform}")
 
@@ -145,9 +189,18 @@ def create_issues_command(
             json.dump(failed, f, indent=2)
         click.echo(f"Failed issues report: {issues_dir / 'failed_issues_report.json'}")
 
+    if skipped:
+        with open(issues_dir / "skipped_issues_report.json", "w") as f:
+            json.dump(skipped, f, indent=2)
+        click.echo(
+            f"Skipped issues report: {issues_dir / 'skipped_issues_report.json'}"
+        )
+
     # Display summary
     click.echo(f"\n{'=' * 60}")
-    click.echo(f"Summary: Created {len(created)} | Failed {len(failed)}")
+    click.echo(
+        f"Summary: Created {len(created)} | Skipped {len(skipped)} | Failed {len(failed)}"
+    )
     click.echo(f"{'=' * 60}\n")
 
     if failed:
