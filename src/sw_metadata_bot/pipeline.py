@@ -7,8 +7,8 @@ import click
 from .create_issues import create_issues_command
 from .metacheck_wrapper import metacheck_command
 
-DEFAULT_INPUT_FILE = Path("data/opt-ins.json")
-DEFAULT_OPTOUT_FILE = Path("data/opt-outs.json")
+DEFAULT_INPUT_FILE = Path("assets/opt-ins.json")
+DEFAULT_OPTOUT_FILE = Path("assets/opt-outs.json")
 DEFAULT_OUTPUT_ROOT = Path("outputs")
 
 
