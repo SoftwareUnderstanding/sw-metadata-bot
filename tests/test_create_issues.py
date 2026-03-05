@@ -75,10 +75,12 @@ def test_create_issues_cli_failed_report_contains_analysis_fields(tmp_path):
         "checks": [
             {
                 "checkId": "hash1",
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
                 "evidence": "P001 detected: missing metadata",
             },
             {
                 "checkId": "hash2",
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W002",
                 "evidence": "W002 detected: missing version pin",
             },
         ],

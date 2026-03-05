@@ -1,0 +1,112 @@
+{
+  "@context": "[IN PROCESS]",
+  "@type": "SoftwareQualityAssessment",
+  "name": "Quality Assessment for Unknown",
+  "description": "This is a container to extract Gravitational Wave (GW) data from the datalake using Rucio and feed 1 second GW frames to the GW pipelines.",
+  "creator": {
+    "@type": "schema:Person",
+    "name": "Anonymous",
+    "email": "example@email.com"
+  },
+  "dateCreated": "2026-03-05T15:55:32Z",
+  "license": {
+    "@id": "https://opensource.org/license/mit"
+  },
+  "commit_id": "Unknown",
+  "assessedSoftware": {
+    "@type": "schema:SoftwareApplication",
+    "name": "Unknown",
+    "softwareVersion": "Unknown",
+    "url": "https://git.ligo.org/rhys.poulton/escape-datalake-shared-volume-writer/",
+    "schema:identifier": {
+      "@id": "https://doi.org/10.5281/zenodo.5742053"
+    },
+    "commit_id": "Unknown"
+  },
+  "checks": [
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/license"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Searches for common template placeholders (e.g., <program>, <year>) within the LICENSE file.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P002",
+      "output": "true",
+      "evidence": "P002 detected: LICENSE file contains unreplaced template placeholders",
+      "suggestion": "Update the copyright section with accurate names, organizations, and the current year. Personalizing this section ensures clarity and legal accuracy.",
+      "checkId": "8454f0d79563a0ecd16bd6e439d5a76d282cc8071ca936f496d2c8fa8073ec6f"
+    },
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/codemeta"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Checks the identifier field in codemeta.json to see if it uses a bare DOI string instead of a full HTTPS URL.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P014",
+      "output": "true",
+      "evidence": "P014 detected: codemeta.json Identifier uses bare DOI instead of full URL: '10.5281/zenodo.5742053'",
+      "suggestion": "You should include the full DOI URL form in your metadata (e.g., https://doi.org/XX.XXXX/zenodo.XXXX)",
+      "checkId": "5332af69762b78de21b8b3f64a63a6fc781cc390029bc18fab5adbd4e1565953"
+    },
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/codemeta"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Detects if multiple distinct licenses are found in the repository but only a single license is declared in codemeta.json.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W003",
+      "output": "true",
+      "evidence": "W003 detected: Repository has multiple licenses but codemeta.json only lists one. Found in: https:///rhys.poulton/escape-datalake-shared-volume-writer/-/blob/main/LICENSE",
+      "suggestion": "Make sure you are using the correct licenses. This avoids confusion about terms of use and ensures full transparency.",
+      "checkId": "3dbc3727e714a3623407acc90516150321adddd8b06d7552db68a1356e88dbc8"
+    },
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/codemeta"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Checks programming language declarations in codemeta.json to see if they lack specific version numbers.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W004",
+      "output": "true",
+      "evidence": "W004 detected: codemeta.json Programming languages without versions: Python, bash",
+      "suggestion": "Include version numbers for each programming language used. Defining these helps ensure reproducibility and compatibility across systems.",
+      "checkId": "79c379cb7ed9ae82341ac78424c44cb61bbafca03f7142d9da9c69e1017b964d"
+    }
+  ]
+}

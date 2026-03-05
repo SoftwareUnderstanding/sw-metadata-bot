@@ -12,6 +12,7 @@ from sw_metadata_bot.pitfalls import (
     get_pitfalls_list,
     get_repository_url,
     get_warnings_list,
+    load_pitfalls,
 )
 
 
@@ -22,23 +23,23 @@ def sample_data():
         "assessedSoftware": {"url": "https://github.com/example/repo"},
         "checks": [
             {
-                "checkId": "P001",
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
                 "process": "Pitfall process description",
                 "evidence": "Evidence of pitfall",
                 "suggestion": "How to fix this",
             },
             {
-                "checkId": "P002",
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P002",
                 "process": "Another pitfall",
                 "evidence": "More evidence",
             },
             {
-                "checkId": "W001",
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001",
                 "evidence": "Warning evidence",
                 "suggestion": "Warning suggestion",
             },
             {
-                "checkId": "W002",
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W002",
                 "evidence": "Another warning",
             },
         ],
@@ -71,32 +72,35 @@ def test_get_pitfalls_list(sample_data):
     """Test filtering pitfalls from checks."""
     pitfalls = get_pitfalls_list(sample_data)
     assert len(pitfalls) == 2
-    assert pitfalls[0]["checkId"] == "P001"
-    assert pitfalls[1]["checkId"] == "P002"
+    assert pitfalls[0]["pitfall"].endswith("#P001")
+    assert pitfalls[1]["pitfall"].endswith("#P002")
 
 
 def test_get_warnings_list(sample_data):
     """Test filtering warnings from checks."""
     warnings = get_warnings_list(sample_data)
     assert len(warnings) == 2
-    assert warnings[0]["checkId"] == "W001"
-    assert warnings[1]["checkId"] == "W002"
+    assert warnings[0]["pitfall"].endswith("#W001")
+    assert warnings[1]["pitfall"].endswith("#W002")
 
 
 def test_get_lists_from_hashed_check_ids():
-    """Test filtering when checkId is hashed and code is in evidence."""
+    """Test filtering when checkId is hashed but pitfall URLs are present."""
     data = {
         "checks": [
             {
                 "checkId": "694a7a7c5a16db39412fac70b6d27fbadc7222b1d8ae57ff061cc6c87e6d8edc",
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
                 "evidence": "P001 detected: codemeta.json version 'unknown' does not match release version '2.2.0'",
             },
             {
                 "checkId": "95e131ef79871959cfd0f1ae06dd502d6c160851b0cd5b40844818858c0b22c4",
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001",
                 "evidence": "W001 detected: pyproject.toml contains software requirements without versions.",
             },
             {
                 "checkId": "7c48a13e4d4ef33a608362bd2142616ca01aa2b528b457e51016034a151d058e",
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W004",
                 "evidence": "W004 detected: codemeta.json Programming languages without versions: Python",
             },
         ]
@@ -113,6 +117,35 @@ def test_get_pitfalls_list_empty():
     """Test pitfalls extraction from empty data."""
     pitfalls = get_pitfalls_list({})
     assert pitfalls == []
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected_pitfalls", "expected_warnings"),
+    [
+        ("example_pitfall_1.jsonld", {"P001", "P002", "P009"}, {"W001", "W003"}),
+        ("example_pitfall_2.jsonld", {"P002", "P014"}, {"W003", "W004"}),
+        ("example_pitfall_3.jsonld", {"P001"}, {"W001", "W002", "W004"}),
+        ("example_pitfall_4.jsonld", {"P001", "P006"}, set()),
+        ("example_pitfall_5.jsonld", set(), {"W002", "W004"}),
+    ],
+)
+def test_existing_metacheck_analysis_jsonld_files(
+    filename, expected_pitfalls, expected_warnings
+):
+    """Test parsing of existing metacheck analysis JSON-LD files."""
+    base_path = Path(__file__).resolve().parents[1]
+    data = load_pitfalls(
+        base_path / "assets" / "existing_metacheck_analysis" / filename
+    )
+
+    pitfalls = get_pitfalls_list(data)
+    warnings = get_warnings_list(data)
+
+    pitfall_codes = {item["pitfall"].split("#")[-1] for item in pitfalls}
+    warning_codes = {item["pitfall"].split("#")[-1] for item in warnings}
+
+    assert pitfall_codes == expected_pitfalls
+    assert warning_codes == expected_warnings
 
 
 def test_format_report(sample_data):
@@ -141,7 +174,12 @@ def test_format_report_no_pitfalls():
     """Test report with no pitfalls."""
     data = {
         "assessedSoftware": {"url": "https://github.com/test/repo"},
-        "checks": [{"checkId": "W001", "evidence": "A warning"}],
+        "checks": [
+            {
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001",
+                "evidence": "A warning",
+            }
+        ],
     }
     report = format_report("https://github.com/test/repo", data)
 

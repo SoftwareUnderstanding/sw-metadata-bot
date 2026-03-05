@@ -1,0 +1,70 @@
+{
+  "@context": "[IN PROCESS]",
+  "@type": "SoftwareQualityAssessment",
+  "name": "Quality Assessment for IndexedConv/IndexedConv",
+  "description": "Code for the indexed convolution",
+  "creator": {
+    "@type": "schema:Person",
+    "name": "Anonymous",
+    "email": "example@email.com"
+  },
+  "dateCreated": "2026-03-05T15:57:10Z",
+  "license": {
+    "@id": "https://opensource.org/license/mit"
+  },
+  "commit_id": "62d46bc283a911a7e38c79195f7cd25428dba112",
+  "assessedSoftware": {
+    "@type": "schema:SoftwareApplication",
+    "name": "IndexedConv/IndexedConv",
+    "softwareVersion": "v1.3.2",
+    "url": "https://github.com/IndexedConv/IndexedConv",
+    "schema:identifier": {
+      "@id": "https://doi.org/10.5281/zenodo.2542651"
+    },
+    "commit_id": "62d46bc283a911a7e38c79195f7cd25428dba112"
+  },
+  "checks": [
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/codemeta"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Compares the dateModified field against the last updated date of the actual repository.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W002",
+      "output": "true",
+      "evidence": "W002 detected: codemeta.json dateModified '2024-04-05T00:00:00' is outdated compared to repository date '2026-03-04T14:06:26'",
+      "suggestion": "The data in the metadata file should be updated to be aligned with the date of the latest release. Automating this synchronization as part of your release process is highly recommended.",
+      "checkId": "194f9735a1916b672922ad2a73d6f142b30bce64a7d84a3be62be82e3e53f3ae"
+    },
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/codemeta"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Checks programming language declarations in codemeta.json to see if they lack specific version numbers.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W004",
+      "output": "true",
+      "evidence": "W004 detected: codemeta.json Programming languages without versions: Python 3.8",
+      "suggestion": "Include version numbers for each programming language used. Defining these helps ensure reproducibility and compatibility across systems.",
+      "checkId": "6d43d42bb77a7d22a68e8fcf8f3f36a16b5b60bd1d4c4ed638c92db88a273f2b"
+    }
+  ]
+}

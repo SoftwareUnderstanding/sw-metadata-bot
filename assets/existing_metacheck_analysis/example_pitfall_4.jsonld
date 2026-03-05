@@ -1,0 +1,70 @@
+{
+  "@context": "[IN PROCESS]",
+  "@type": "SoftwareQualityAssessment",
+  "name": "Quality Assessment for FairRootGroup/FairMQ",
+  "description": "C++ Message Queuing Library and Framework",
+  "creator": {
+    "@type": "schema:Person",
+    "name": "Anonymous",
+    "email": "example@email.com"
+  },
+  "dateCreated": "2026-03-05T15:55:22Z",
+  "license": {
+    "@id": "https://opensource.org/license/mit"
+  },
+  "commit_id": "fa64faf3f755e9b00e0af738826718bf5117c8ea",
+  "assessedSoftware": {
+    "@type": "schema:SoftwareApplication",
+    "name": "FairRootGroup/FairMQ",
+    "softwareVersion": "v1.10.1",
+    "url": "https://github.com/FairRootGroup/FairMQ",
+    "schema:identifier": {
+      "@id": "https://doi.org/10.5281/zenodo.1689985"
+    },
+    "commit_id": "fa64faf3f755e9b00e0af738826718bf5117c8ea"
+  },
+  "checks": [
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/metadatafile"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Compares the version found in the metadata file with the latest repository release tag.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
+      "output": "true",
+      "evidence": "P001 detected: codemeta.json version 'master' does not match release version '1.10.1'",
+      "suggestion": "Ensure the version in your metadata matches the latest official release. Keeping these synchronized avoids confusion for users and improves reproducibility.",
+      "checkId": "e41e9300f64f91efe5164dbcf3013229f358f8f920e5861c10c81aecfebac2d0"
+    },
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/metadatafile"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Checks if the License property in the metadata file points to a local file path instead of an SPDX license identifier.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P006",
+      "output": "true",
+      "evidence": "P006 detected: codemeta.json License points to local file instead of license name: './COPYRIGHT'",
+      "suggestion": "You need to replace local file paths with recognized SPDX license identifiers, such as MIT or GPL-3.0-only in URL form. This ensures your license can be correctly detected by automated tools.",
+      "checkId": "406196bfdc138505c4aea1a00c2ac38e5b9972b95562427db5f53abbedbf5232"
+    }
+  ]
+}

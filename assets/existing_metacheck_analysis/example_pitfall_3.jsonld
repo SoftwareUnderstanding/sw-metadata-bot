@@ -1,0 +1,109 @@
+{
+  "@context": "[IN PROCESS]",
+  "@type": "SoftwareQualityAssessment",
+  "name": "Quality Assessment for AMIGA-IAA/hcg-16",
+  "description": "HCG-16 Project",
+  "creator": {
+    "@type": "schema:Person",
+    "name": "Anonymous",
+    "email": "example@email.com"
+  },
+  "dateCreated": "2026-03-05T15:57:03Z",
+  "license": {
+    "@id": "https://opensource.org/license/mit"
+  },
+  "commit_id": "3e46b026f96b30c4b7d69546720bdb9debb07f99",
+  "assessedSoftware": {
+    "@type": "schema:SoftwareApplication",
+    "name": "AMIGA-IAA/hcg-16",
+    "softwareVersion": "v1.2.3",
+    "url": "https://github.com/AMIGA-IAA/hcg-16",
+    "commit_id": "3e46b026f96b30c4b7d69546720bdb9debb07f99"
+  },
+  "checks": [
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/metadatafile"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Compares the version found in the metadata file with the latest repository release tag.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
+      "output": "true",
+      "evidence": "P001 detected: codemeta.json version '1.2.1' does not match release version '1.2.3'",
+      "suggestion": "Ensure the version in your metadata matches the latest official release. Keeping these synchronized avoids confusion for users and improves reproducibility.",
+      "checkId": "36bc1bbaee0838ae68e47514b4ad7ef566f44f66ee3e3175a1168277ac4326d3"
+    },
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/metadatafile"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Analyzes software requirements in metadata to see if they lack explicit version constraints.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001",
+      "output": "true",
+      "evidence": "W001 detected: codemeta.json contains software requirements without versions: https://github.com/AMIGA-IAA/hcg-16/blob/master/conda-linux-64.lock",
+      "suggestion": "Add version numbers to your dependencies. This provides stability for users and allows reproducibility across different environments.",
+      "checkId": "c7bc3040b51b441ad9224cabe8a9f65cf6473a0ad2ddfa26386894fd3a526d5e"
+    },
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/codemeta"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Compares the dateModified field against the last updated date of the actual repository.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W002",
+      "output": "true",
+      "evidence": "W002 detected: codemeta.json dateModified '2021-09-28T00:00:00' is outdated compared to repository date '2023-06-14T17:26:23'",
+      "suggestion": "The data in the metadata file should be updated to be aligned with the date of the latest release. Automating this synchronization as part of your release process is highly recommended.",
+      "checkId": "9899b42e1ee09c93bf269e81574db71daca18a345e1f9f5bd43f6022fcf39fba"
+    },
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/codemeta"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Checks programming language declarations in codemeta.json to see if they lack specific version numbers.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W004",
+      "output": "true",
+      "evidence": "W004 detected: codemeta.json Programming languages without versions: Python",
+      "suggestion": "Include version numbers for each programming language used. Defining these helps ensure reproducibility and compatibility across systems.",
+      "checkId": "9afd141924d0a42df9c1b53a6552790dccf6bd40886d704cb8699191578eb846"
+    }
+  ]
+}

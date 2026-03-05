@@ -1,0 +1,130 @@
+{
+  "@context": "[IN PROCESS]",
+  "@type": "SoftwareQualityAssessment",
+  "name": "Quality Assessment for Unknown",
+  "description": "LOFAR Pipeline System",
+  "creator": {
+    "@type": "schema:Person",
+    "name": "Anonymous",
+    "email": "example@email.com"
+  },
+  "dateCreated": "2026-03-05T15:57:06Z",
+  "license": {
+    "@id": "https://opensource.org/license/mit"
+  },
+  "commit_id": "Unknown",
+  "assessedSoftware": {
+    "@type": "schema:SoftwareApplication",
+    "name": "Unknown",
+    "softwareVersion": "Before-Remove-TMSS",
+    "url": "https://git.astron.nl/ro/lofar/",
+    "commit_id": "Unknown"
+  },
+  "checks": [
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/metadatafile"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Compares the version found in the metadata file with the latest repository release tag.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
+      "output": "true",
+      "evidence": "P001 detected: pom.xml version '2.22.0-SNAPSHOT' does not match release version 'Before-Remove-TMSS'",
+      "suggestion": "Ensure the version in your metadata matches the latest official release. Keeping these synchronized avoids confusion for users and improves reproducibility.",
+      "checkId": "8036a85b58a90340eee71682b743c6e47e8455f37d47414278e12121c86c3715"
+    },
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/license"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Searches for common template placeholders (e.g., <program>, <year>) within the LICENSE file.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P002",
+      "output": "true",
+      "evidence": "P002 detected: LICENSE file contains unreplaced template placeholders",
+      "suggestion": "Update the copyright section with accurate names, organizations, and the current year. Personalizing this section ensures clarity and legal accuracy.",
+      "checkId": "8454f0d79563a0ecd16bd6e439d5a76d282cc8071ca936f496d2c8fa8073ec6f"
+    },
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/metadatafile"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Checks if the codeRepository field points to a project homepage rather than the actual source code repository.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P009",
+      "output": "true",
+      "evidence": "P009 detected: setup.py codeRepository points to homepage instead of repository: http://www.transientskp.org/",
+      "suggestion": "You need to update the codeRepository field to point directly to your repository's source code instead of a homepage. Accurate links improve traceability and user access.",
+      "checkId": "30d666820d2e730be4ba5c7261cb2d893bb81f3c4b20044c517a891d78af0000"
+    },
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/metadatafile"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Analyzes software requirements in metadata to see if they lack explicit version constraints.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001",
+      "output": "true",
+      "evidence": "W001 detected: pom.xml contains software requirements without versions: django, psycopg2-binary, djangorestframework, django-polymorphic, django-rest-polymorphic, requests, gunicorn, fabric, invocations, beautifultable, blessings, celery, django-filter, coreapi, matplotlib",
+      "suggestion": "Add version numbers to your dependencies. This provides stability for users and allows reproducibility across different environments.",
+      "checkId": "5a28a7a1d78554975164d60957f31f2601eaf60dfa9ebe9b2835e585853f075e"
+    },
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/example/metacheck/i/indicators/codemeta"
+      },
+      "checkingSoftware": {
+        "@type": "schema:SoftwareApplication",
+        "name": "metacheck",
+        "@id": "https://w3id.org/example/metacheck/tools/",
+        "softwareVersion": "0.2.0"
+      },
+      "process": "Detects if multiple distinct licenses are found in the repository but only a single license is declared in codemeta.json.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W003",
+      "output": "true",
+      "evidence": "W003 detected: Repository has multiple licenses but codemeta.json only lists one. Found in: https:///ro/lofar/-/blob/master/LICENSE",
+      "suggestion": "Make sure you are using the correct licenses. This avoids confusion about terms of use and ensures full transparency.",
+      "checkId": "efe9bf2946d3bba4dc5eae8f3f425cfe06a05172953e95284eb8db3c18792811"
+    }
+  ]
+}
