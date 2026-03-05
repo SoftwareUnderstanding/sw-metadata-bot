@@ -1,7 +1,6 @@
 """Pitfalls data loading and parsing."""
 
 import json
-import re
 from datetime import datetime
 from importlib.metadata import version
 from pathlib import Path
@@ -22,16 +21,13 @@ def get_repository_url(data: dict) -> str:
 
 def _get_check_code(check: dict) -> str:
     """Extract check code (e.g. P001/W004) from a check entry."""
-    check_id = str(check.get("checkId", ""))
-    if re.match(r"^[PW]\d+", check_id):
-        return check_id
+    PITFALL_ID_KEY = "pitfall"
+    return str(check.get(PITFALL_ID_KEY, ""))
 
-    evidence = str(check.get("evidence", ""))
-    match = re.search(r"\b([PW]\d{3,})\b", evidence)
-    if match:
-        return match.group(1)
 
-    return ""
+def _get_short_check_code(check_full_id: str) -> str:
+    """Extract short check code (e.g. P001/W004) from full check ID."""
+    return check_full_id.split("#")[-1]
 
 
 def get_pitfalls_list(data: dict) -> list[dict]:
@@ -39,7 +35,7 @@ def get_pitfalls_list(data: dict) -> list[dict]:
     return [
         check
         for check in data.get("checks", [])
-        if _get_check_code(check).startswith("P")
+        if _get_short_check_code(_get_check_code(check)).startswith("P")
     ]
 
 
@@ -48,7 +44,7 @@ def get_warnings_list(data: dict) -> list[dict]:
     return [
         check
         for check in data.get("checks", [])
-        if _get_check_code(check).startswith("W")
+        if _get_short_check_code(_get_check_code(check)).startswith("W")
     ]
 
 
@@ -71,17 +67,20 @@ def format_report(repo_url: str, data: dict) -> str:
     if pitfalls:
         report += f"## 🔴 Pitfalls ({len(pitfalls)})\n\n"
         for p in pitfalls:
-            report += f"### {p['checkId']}\n"
-            report += f"{p.get('process', 'No description')}\n"
-            report += f"{p.get('evidence', 'No details')}\n\n"
+            full_pitfall_id = _get_check_code(p)
+            short_code = _get_short_check_code(full_pitfall_id)
+            report += f"### [{short_code}]({full_pitfall_id})\n"
+            report += f"**Evidence:** {p.get('evidence', 'No details')}\n\n"
             if p.get("suggestion"):
                 report += f"**Suggestion:** {p['suggestion']}\n\n"
 
     if warnings:
         report += f"## ⚠️ Warnings ({len(warnings)})\n\n"
         for w in warnings:
-            report += f"### {w['checkId']}\n"
-            report += f"{w.get('evidence', 'No details')}\n\n"
+            full_warning_id = _get_check_code(w)
+            short_code = _get_short_check_code(full_warning_id)
+            report += f"### [{short_code}]({full_warning_id})\n"
+            report += f"**Evidence:** {w.get('evidence', 'No details')}\n\n"
             if w.get("suggestion"):
                 report += f"**Suggestion:** {w['suggestion']}\n\n"
 
@@ -106,6 +105,10 @@ This analysis is performed by the [CodeMetaSoft](https://w3id.org/codemetasoft) 
 This is a first initiative aimed at identifying and reporting metadata quality issues across research software repositories. 
 At this stage, we only provide diagnostics and recommendations. 
 In future iterations, we plan to propose automated fixes for the detected issues to further simplify the improvement process and reduce manual effort.
+
+Each pitfall and warning is identified by a unique code (e.g. P001 for pitfalls, W004 for warnings) that corresponds to specific metadata quality issues.
+You can find more details about these checks and how to address them in the [RSMetacheck catalog](https://github.com/SoftwareUnderstanding/RSMetacheck/blob/main/catalog.md).
+
 
 {report}
 ---

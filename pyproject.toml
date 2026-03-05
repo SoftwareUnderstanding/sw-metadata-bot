@@ -50,8 +50,7 @@ docs = [
 ]
 
 [tool.uv.sources]
-metacheck = { git = "https://github.com/SoftwareUnderstanding/RsMetaCheck", rev ="9a32828df95b8cd6dd53052e27974802c23a5de1"}
-
+metacheck = { git = "https://github.com/SoftwareUnderstanding/RsMetaCheck"}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
