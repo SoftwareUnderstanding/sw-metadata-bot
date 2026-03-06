@@ -56,7 +56,7 @@ def run_pipeline(
             str(pitfalls_output_dir),
             "--analysis-output",
             str(analysis_output_file),
-            "--blacklist",
+            "--opt-outs",
             str(opt_outs_file),
         ],
         standalone_mode=False,

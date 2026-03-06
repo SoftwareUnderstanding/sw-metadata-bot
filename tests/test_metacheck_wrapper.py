@@ -9,35 +9,35 @@ import pytest
 from sw_metadata_bot import metacheck_wrapper
 
 
-def test_filter_blacklisted_repos_removes_matching_urls(tmp_path):
-    """Repos in the blacklist are excluded from the filtered input file."""
+def test_filter_opt_out_repos_removes_matching_urls(tmp_path):
+    """Repos in the opt-outs list are excluded from the filtered input file."""
     input_file = tmp_path / "repos.json"
     input_file.write_text(
         json.dumps(
             {
                 "repositories": [
                     "https://github.com/org/keep-me",
-                    "https://github.com/org/blacklisted",
-                    "https://gitlab.com/group/also-blacklisted/",
+                    "https://github.com/org/opted-out",
+                    "https://gitlab.com/group/also-opted-out/",
                 ]
             }
         )
     )
 
-    blacklist = tmp_path / "blacklist.json"
-    blacklist.write_text(
+    opt_outs = tmp_path / "opt-outs.json"
+    opt_outs.write_text(
         json.dumps(
             {
                 "repositories": [
-                    "https://github.com/org/blacklisted",
-                    "https://gitlab.com/group/also-blacklisted",
+                    "https://github.com/org/opted-out",
+                    "https://gitlab.com/group/also-opted-out",
                 ]
             }
         )
     )
 
-    filtered_path = metacheck_wrapper._filter_blacklisted_repos(
-        str(input_file), blacklist
+    filtered_path = metacheck_wrapper._filter_opt_out_repos(
+        str(input_file), opt_outs
     )
 
     try:
@@ -49,7 +49,7 @@ def test_filter_blacklisted_repos_removes_matching_urls(tmp_path):
         os.unlink(filtered_path)
 
 
-def test_filter_blacklisted_repos_wildcard_pattern(tmp_path):
+def test_filter_opt_out_repos_wildcard_pattern(tmp_path):
     """Glob-style wildcard patterns match all repos in an organisation."""
     input_file = tmp_path / "repos.json"
     input_file.write_text(
@@ -64,13 +64,13 @@ def test_filter_blacklisted_repos_wildcard_pattern(tmp_path):
         )
     )
 
-    blacklist = tmp_path / "blacklist.json"
-    blacklist.write_text(
+    opt_outs = tmp_path / "opt-outs.json"
+    opt_outs.write_text(
         json.dumps({"repositories": ["https://github.com/SoftwareUnderstanding/*"]})
     )
 
-    filtered_path = metacheck_wrapper._filter_blacklisted_repos(
-        str(input_file), blacklist
+    filtered_path = metacheck_wrapper._filter_opt_out_repos(
+        str(input_file), opt_outs
     )
 
     try:
@@ -82,7 +82,7 @@ def test_filter_blacklisted_repos_wildcard_pattern(tmp_path):
         os.unlink(filtered_path)
 
 
-def test_filter_blacklisted_repos_wildcard_suffix(tmp_path):
+def test_filter_opt_out_repos_wildcard_suffix(tmp_path):
     """Wildcard suffix on a prefix matches repos whose name starts with the prefix."""
     input_file = tmp_path / "repos.json"
     input_file.write_text(
@@ -97,13 +97,13 @@ def test_filter_blacklisted_repos_wildcard_suffix(tmp_path):
         )
     )
 
-    blacklist = tmp_path / "blacklist.json"
-    blacklist.write_text(
+    opt_outs = tmp_path / "opt-outs.json"
+    opt_outs.write_text(
         json.dumps({"repositories": ["https://github.com/org/skip-*"]})
     )
 
-    filtered_path = metacheck_wrapper._filter_blacklisted_repos(
-        str(input_file), blacklist
+    filtered_path = metacheck_wrapper._filter_opt_out_repos(
+        str(input_file), opt_outs
     )
 
     try:
@@ -115,7 +115,7 @@ def test_filter_blacklisted_repos_wildcard_suffix(tmp_path):
         os.unlink(filtered_path)
 
 
-def test_filter_blacklisted_repos_dot_in_url_is_literal(tmp_path):
+def test_filter_opt_out_repos_dot_in_url_is_literal(tmp_path):
     """Dots in URLs are treated as literals, not regex 'any character'."""
     input_file = tmp_path / "repos.json"
     input_file.write_text(
@@ -129,13 +129,13 @@ def test_filter_blacklisted_repos_dot_in_url_is_literal(tmp_path):
         )
     )
 
-    blacklist = tmp_path / "blacklist.json"
-    blacklist.write_text(
+    opt_outs = tmp_path / "opt-outs.json"
+    opt_outs.write_text(
         json.dumps({"repositories": ["https://github.com/org/repo"]})
     )
 
-    filtered_path = metacheck_wrapper._filter_blacklisted_repos(
-        str(input_file), blacklist
+    filtered_path = metacheck_wrapper._filter_opt_out_repos(
+        str(input_file), opt_outs
     )
 
     try:
@@ -148,7 +148,7 @@ def test_filter_blacklisted_repos_dot_in_url_is_literal(tmp_path):
         os.unlink(filtered_path)
 
 
-def test_filter_blacklisted_repos_preserves_extra_keys(tmp_path):
+def test_filter_opt_out_repos_preserves_extra_keys(tmp_path):
     """Non-repositories keys in the input file are preserved after filtering."""
     input_file = tmp_path / "repos.json"
     input_file.write_text(
@@ -160,13 +160,13 @@ def test_filter_blacklisted_repos_preserves_extra_keys(tmp_path):
         )
     )
 
-    blacklist = tmp_path / "blacklist.json"
-    blacklist.write_text(
+    opt_outs = tmp_path / "opt-outs.json"
+    opt_outs.write_text(
         json.dumps({"repositories": ["https://github.com/org/skip"]})
     )
 
-    filtered_path = metacheck_wrapper._filter_blacklisted_repos(
-        str(input_file), blacklist
+    filtered_path = metacheck_wrapper._filter_opt_out_repos(
+        str(input_file), opt_outs
     )
 
     try:
@@ -179,17 +179,17 @@ def test_filter_blacklisted_repos_preserves_extra_keys(tmp_path):
         os.unlink(filtered_path)
 
 
-def test_filter_blacklisted_repos_empty_blacklist_keeps_all(tmp_path):
-    """Empty blacklist leaves the repository list unchanged."""
+def test_filter_opt_out_repos_empty_list_keeps_all(tmp_path):
+    """Empty opt-outs list leaves the repository list unchanged."""
     input_file = tmp_path / "repos.json"
     repos = ["https://github.com/org/a", "https://github.com/org/b"]
     input_file.write_text(json.dumps({"repositories": repos}))
 
-    blacklist = tmp_path / "blacklist.json"
-    blacklist.write_text(json.dumps({"repositories": []}))
+    opt_outs = tmp_path / "opt-outs.json"
+    opt_outs.write_text(json.dumps({"repositories": []}))
 
-    filtered_path = metacheck_wrapper._filter_blacklisted_repos(
-        str(input_file), blacklist
+    filtered_path = metacheck_wrapper._filter_opt_out_repos(
+        str(input_file), opt_outs
     )
 
     try:
@@ -201,43 +201,43 @@ def test_filter_blacklisted_repos_empty_blacklist_keeps_all(tmp_path):
         os.unlink(filtered_path)
 
 
-def test_filter_blacklisted_repos_invalid_blacklist_format_raises(tmp_path):
-    """Invalid 'repositories' type in blacklist file raises ClickException."""
+def test_filter_opt_out_repos_invalid_format_raises(tmp_path):
+    """Invalid 'repositories' type in opt-outs file raises ClickException."""
     input_file = tmp_path / "repos.json"
     input_file.write_text(json.dumps({"repositories": ["https://github.com/org/a"]}))
 
-    blacklist = tmp_path / "blacklist.json"
-    blacklist.write_text(json.dumps({"repositories": "not-a-list"}))
+    opt_outs = tmp_path / "opt-outs.json"
+    opt_outs.write_text(json.dumps({"repositories": "not-a-list"}))
 
     with pytest.raises(click.ClickException, match="repositories' must be a list"):
-        metacheck_wrapper._filter_blacklisted_repos(str(input_file), blacklist)
+        metacheck_wrapper._filter_opt_out_repos(str(input_file), opt_outs)
 
 
-def test_is_blacklisted_wildcard():
+def test_is_opted_out_wildcard():
     """Wildcard pattern matches repos in the specified organisation."""
     patterns = ["https://github.com/MyOrg/*"]
-    assert metacheck_wrapper._is_blacklisted("https://github.com/MyOrg/repo-a", patterns)
-    assert metacheck_wrapper._is_blacklisted("https://github.com/MyOrg/repo-b", patterns)
-    assert not metacheck_wrapper._is_blacklisted("https://github.com/OtherOrg/repo", patterns)
+    assert metacheck_wrapper._is_opted_out("https://github.com/MyOrg/repo-a", patterns)
+    assert metacheck_wrapper._is_opted_out("https://github.com/MyOrg/repo-b", patterns)
+    assert not metacheck_wrapper._is_opted_out("https://github.com/OtherOrg/repo", patterns)
 
 
-def test_is_blacklisted_exact_url():
+def test_is_opted_out_exact_url():
     """Exact URL (no regex) is matched correctly."""
     patterns = ["https://github.com/org/repo"]
-    assert metacheck_wrapper._is_blacklisted("https://github.com/org/repo", patterns)
-    assert metacheck_wrapper._is_blacklisted("https://github.com/org/repo/", patterns)
-    assert not metacheck_wrapper._is_blacklisted("https://github.com/org/other", patterns)
+    assert metacheck_wrapper._is_opted_out("https://github.com/org/repo", patterns)
+    assert metacheck_wrapper._is_opted_out("https://github.com/org/repo/", patterns)
+    assert not metacheck_wrapper._is_opted_out("https://github.com/org/other", patterns)
 
 
-def test_is_blacklisted_trailing_slash_normalization():
+def test_is_opted_out_trailing_slash_normalization():
     """Trailing slashes are stripped before matching."""
     patterns = ["https://github.com/org/repo/"]
-    assert metacheck_wrapper._is_blacklisted("https://github.com/org/repo", patterns)
+    assert metacheck_wrapper._is_opted_out("https://github.com/org/repo", patterns)
 
 
-def test_missing_default_blacklist_is_silently_skipped(tmp_path, monkeypatch):
-    """When the default .blacklist file is absent, no filtering is applied."""
-    monkeypatch.chdir(tmp_path)  # ensure no .blacklist exists in CWD
+def test_missing_default_opt_outs_is_silently_skipped(tmp_path, monkeypatch):
+    """When the default .opt-outs file is absent, no filtering is applied."""
+    monkeypatch.chdir(tmp_path)  # ensure no .opt-outs exists in CWD
 
     def fake_metacheck_cli():
         pass
@@ -247,7 +247,7 @@ def test_missing_default_blacklist_is_silently_skipped(tmp_path, monkeypatch):
     input_file = tmp_path / "repos.json"
     input_file.write_text(json.dumps({"repositories": ["https://github.com/org/a"]}))
 
-    # Invoke directly without providing --blacklist; default .blacklist does not exist
+    # Invoke directly without providing --opt-outs; default .opt-outs does not exist
     from click.testing import CliRunner
 
     runner = CliRunner()
@@ -262,6 +262,6 @@ def test_missing_default_blacklist_is_silently_skipped(tmp_path, monkeypatch):
             str(tmp_path / "results.json"),
         ],
     )
-    # Should not error due to missing default .blacklist
+    # Should not error due to missing default .opt-outs
     assert "Error" not in result.output
     assert result.exit_code == 0

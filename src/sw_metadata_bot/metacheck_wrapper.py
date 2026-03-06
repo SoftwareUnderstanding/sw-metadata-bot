@@ -9,11 +9,11 @@ from pathlib import Path
 import click
 from metacheck import cli as metacheck_cli
 
-DEFAULT_BLACKLIST_FILE = Path(".blacklist")
+DEFAULT_OPT_OUTS_FILE = Path(".opt-outs")
 
 
 def _pattern_to_regex(pattern: str) -> re.Pattern:
-    """Compile a blacklist pattern into a regex.
+    """Compile an opt-outs pattern into a regex.
 
     Entries may be plain URLs (exact match) or patterns using ``*`` as a
     wildcard (e.g. ``https://github.com/MyOrg/*``).  The pattern is first
@@ -21,7 +21,7 @@ def _pattern_to_regex(pattern: str) -> re.Pattern:
     ``/`` are treated as literals, then the escaped form of ``*`` (``\\*``) is
     replaced with ``.*`` to restore wildcard behaviour.
 
-    :param pattern: A blacklist entry after trailing-slash stripping.
+    :param pattern: An opt-outs entry after trailing-slash stripping.
     :return: Compiled regex pattern for ``re.fullmatch``.
     """
     escaped = re.escape(pattern)
@@ -29,11 +29,11 @@ def _pattern_to_regex(pattern: str) -> re.Pattern:
     return re.compile(regex)
 
 
-def _is_blacklisted(url: str, patterns: list[str]) -> bool:
-    """Return True if *url* matches any blacklist pattern.
+def _is_opted_out(url: str, patterns: list[str]) -> bool:
+    """Return True if *url* matches any opt-outs pattern.
 
     :param url: Repository URL to test (trailing slash already stripped).
-    :param patterns: List of raw blacklist entries from the blacklist file.
+    :param patterns: List of raw opt-outs entries from the opt-outs file.
     :return: True when url matches at least one pattern.
     """
     normalized = url.strip().rstrip("/")
@@ -43,33 +43,33 @@ def _is_blacklisted(url: str, patterns: list[str]) -> bool:
                 return True
         except re.error as exc:
             click.echo(
-                f"Warning: invalid blacklist pattern ignored ({pattern!r}): {exc}",
+                f"Warning: invalid opt-outs pattern ignored ({pattern!r}): {exc}",
                 err=True,
             )
     return False
 
 
-def _filter_blacklisted_repos(input_path: str, blacklist_file: Path) -> str:
-    """Return a temp file path with blacklisted repos removed from the input JSON.
+def _filter_opt_out_repos(input_path: str, opt_outs_file: Path) -> str:
+    """Return a temp file path with opted-out repos removed from the input JSON.
 
-    Each entry in the blacklist ``repositories`` list is treated as a pattern
+    Each entry in the opt-outs ``repositories`` list is treated as a pattern
     where ``*`` acts as a wildcard (e.g. ``https://github.com/MyOrg/*``).
     Full Python regex syntax is also accepted.
 
     :param input_path: Path to the input JSON file containing repository list.
-    :param blacklist_file: Path to the JSON file containing blacklisted repos.
+    :param opt_outs_file: Path to the JSON file containing opted-out repos.
     :return: Path to a temporary filtered JSON file.
-    :raises click.ClickException: If blacklist file has invalid format.
+    :raises click.ClickException: If opt-outs file has invalid format.
     """
-    with open(blacklist_file, encoding="utf-8") as f:
-        blacklist_data = json.load(f)
+    with open(opt_outs_file, encoding="utf-8") as f:
+        opt_outs_data = json.load(f)
 
-    blacklisted = blacklist_data.get("repositories", [])
-    if not isinstance(blacklisted, list):
+    opted_out = opt_outs_data.get("repositories", [])
+    if not isinstance(opted_out, list):
         raise click.ClickException(
-            f"Invalid format in {blacklist_file}: 'repositories' must be a list"
+            f"Invalid format in {opt_outs_file}: 'repositories' must be a list"
         )
-    patterns = [url for url in blacklisted if isinstance(url, str)]
+    patterns = [url for url in opted_out if isinstance(url, str)]
 
     with open(input_path, encoding="utf-8") as f:
         input_data = json.load(f)
@@ -78,13 +78,13 @@ def _filter_blacklisted_repos(input_path: str, blacklist_file: Path) -> str:
     filtered_repos = [
         url
         for url in original_repos
-        if isinstance(url, str) and not _is_blacklisted(url, patterns)
+        if isinstance(url, str) and not _is_opted_out(url, patterns)
     ]
 
     skipped = len(original_repos) - len(filtered_repos)
     if skipped > 0:
         click.echo(
-            f"Blacklist: skipping {skipped} blacklisted "
+            f"Opt-outs: skipping {skipped} opted-out "
             f"{'repository' if skipped == 1 else 'repositories'} from analysis."
         )
 
@@ -129,25 +129,25 @@ def _filter_blacklisted_repos(input_path: str, blacklist_file: Path) -> str:
     help="SoMEF confidence threshold (default: 0.8).",
 )
 @click.option(
-    "--blacklist",
+    "--opt-outs",
     type=click.Path(dir_okay=False, path_type=Path),
-    default=DEFAULT_BLACKLIST_FILE,
+    default=DEFAULT_OPT_OUTS_FILE,
     show_default=True,
     help=(
         "JSON file listing repositories (or patterns) to exclude from analysis. "
-        "Defaults to .blacklist in the current directory; "
+        "Defaults to .opt-outs in the current directory; "
         "silently ignored when the file does not exist."
     ),
 )
 def metacheck_command(
-    input, skip_somef, pitfalls_output, analysis_output, threshold, blacklist
+    input, skip_somef, pitfalls_output, analysis_output, threshold, opt_outs
 ):
     """Run metacheck to detect metadata pitfalls in repositories."""
-    # Apply blacklist filtering when input is a JSON file (not a single URL)
+    # Apply opt-outs filtering when input is a JSON file (not a single URL)
     effective_input = input.strip()
     tmp_input_path = None
-    if blacklist is not None and blacklist.is_file() and Path(effective_input).is_file():
-        tmp_input_path = _filter_blacklisted_repos(effective_input, blacklist)
+    if opt_outs is not None and opt_outs.is_file() and Path(effective_input).is_file():
+        tmp_input_path = _filter_opt_out_repos(effective_input, opt_outs)
         effective_input = tmp_input_path
 
     # Convert click arguments to sys.argv format for metacheck's argparse

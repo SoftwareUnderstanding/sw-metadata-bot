@@ -83,7 +83,7 @@ def test_run_pipeline_invokes_commands_with_expected_args(monkeypatch, tmp_path)
         str(output_root / "batch-a" / "202603" / "pitfalls_outputs"),
         "--analysis-output",
         str(output_root / "batch-a" / "202603" / "analysis_results.json"),
-        "--blacklist",
+        "--opt-outs",
         str(opt_outs_file),
     ]
 
