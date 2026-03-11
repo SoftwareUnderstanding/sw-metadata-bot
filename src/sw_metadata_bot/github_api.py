@@ -1,7 +1,7 @@
 """GitHub API client."""
 
 import os
-from urllib.parse import urlparse
+from urllib.parse import ParseResult, urlparse
 
 import requests
 
@@ -148,3 +148,89 @@ class GitHubAPI:
         response.raise_for_status()
 
         return response.json()["html_url"]
+
+    @staticmethod
+    def parse_issue_url(issue_url: str) -> tuple[str, str, int]:
+        """Parse a GitHub issue URL and return owner/repo/number."""
+        parsed: ParseResult = urlparse(issue_url)
+        if parsed.netloc != "github.com":
+            raise ValueError(f"Not a GitHub issue URL: {issue_url}")
+
+        parts = parsed.path.strip("/").split("/")
+        if len(parts) < 4 or parts[2] != "issues":
+            raise ValueError(f"Invalid GitHub issue URL format: {issue_url}")
+
+        owner, repo = parts[0], parts[1].removesuffix(".git")
+        issue_number = int(parts[3])
+        return owner, repo, issue_number
+
+    def get_issue(self, issue_url: str) -> dict:
+        """Fetch issue details from GitHub."""
+        owner, repo, issue_number = self.parse_issue_url(issue_url)
+
+        if self.dry_run:
+            return {
+                "state": "open",
+                "html_url": issue_url,
+                "number": issue_number,
+                "repository_url": f"https://github.com/{owner}/{repo}",
+            }
+
+        url = f"{self.base_url}/repos/{owner}/{repo}/issues/{issue_number}"
+        headers = {
+            "Authorization": f"token {self.token}",
+            "Accept": "application/vnd.github.v3+json",
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return response.json()
+
+    def get_issue_comments(self, issue_url: str) -> list[str]:
+        """Fetch issue comments and return bodies."""
+        owner, repo, issue_number = self.parse_issue_url(issue_url)
+
+        if self.dry_run:
+            return []
+
+        url = f"{self.base_url}/repos/{owner}/{repo}/issues/{issue_number}/comments"
+        headers = {
+            "Authorization": f"token {self.token}",
+            "Accept": "application/vnd.github.v3+json",
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        return [str(item.get("body", "")) for item in data if isinstance(item, dict)]
+
+    def add_issue_comment(self, issue_url: str, body: str) -> None:
+        """Add a comment to an issue."""
+        if self.dry_run:
+            return
+
+        owner, repo, issue_number = self.parse_issue_url(issue_url)
+        url = f"{self.base_url}/repos/{owner}/{repo}/issues/{issue_number}/comments"
+        headers = {
+            "Authorization": f"token {self.token}",
+            "Accept": "application/vnd.github.v3+json",
+        }
+        response = requests.post(url, json={"body": body}, headers=headers, timeout=10)
+        response.raise_for_status()
+
+    def close_issue(self, issue_url: str) -> None:
+        """Close an existing issue."""
+        if self.dry_run:
+            return
+
+        owner, repo, issue_number = self.parse_issue_url(issue_url)
+        url = f"{self.base_url}/repos/{owner}/{repo}/issues/{issue_number}"
+        headers = {
+            "Authorization": f"token {self.token}",
+            "Accept": "application/vnd.github.v3+json",
+        }
+        response = requests.patch(
+            url,
+            json={"state": "closed"},
+            headers=headers,
+            timeout=10,
+        )
+        response.raise_for_status()

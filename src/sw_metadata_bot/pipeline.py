@@ -39,6 +39,7 @@ def run_pipeline(
     dry_run: bool,
     run_name: str | None,
     snapshot_tag: str | None,
+    previous_created_report: Path | None,
 ) -> None:
     """Run analysis and issue creation for a repository list."""
     pitfalls_output_dir, analysis_output_file, issues_output_dir = _resolve_run_paths(
@@ -69,7 +70,14 @@ def run_pipeline(
         str(opt_outs_file),
         "--issue-config-file",
         str(input_file),  # Use default config
+        "--analysis-summary-file",
+        str(analysis_output_file),
     ]
+
+    if previous_created_report is not None:
+        create_issues_args.extend(
+            ["--previous-created-report", str(previous_created_report)]
+        )
 
     if dry_run:
         create_issues_args.append("--dry-run")
@@ -117,6 +125,12 @@ def run_pipeline(
     default=False,
     help="Run issue creation in dry-run mode without posting issues.",
 )
+@click.option(
+    "--previous-created-report",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Previous created_issues_report.json used for incremental issue handling.",
+)
 def run_pipeline_command(
     input_file: Path,
     opt_outs_file: Path,
@@ -124,6 +138,7 @@ def run_pipeline_command(
     run_name: str | None,
     snapshot_tag: str | None,
     dry_run: bool,
+    previous_created_report: Path | None,
 ) -> None:
     """Run full pipeline: metacheck analysis then issue creation."""
     run_pipeline(
@@ -133,4 +148,5 @@ def run_pipeline_command(
         dry_run=dry_run,
         run_name=run_name,
         snapshot_tag=snapshot_tag,
+        previous_created_report=previous_created_report,
     )

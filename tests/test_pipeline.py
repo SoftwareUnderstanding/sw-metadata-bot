@@ -73,6 +73,7 @@ def test_run_pipeline_invokes_commands_with_expected_args(monkeypatch, tmp_path)
         dry_run=False,
         run_name="batch-a",
         snapshot_tag="202603",
+        previous_created_report=None,
     )
 
     assert calls["metacheck"]["standalone_mode"] is False
@@ -95,6 +96,8 @@ def test_run_pipeline_invokes_commands_with_expected_args(monkeypatch, tmp_path)
         str(opt_outs_file),
         "--issue-config-file",
         str(input_file),
+        "--analysis-summary-file",
+        str(output_root / "batch-a" / "202603" / "analysis_results.json"),
     ]
 
 
@@ -124,6 +127,7 @@ def test_run_pipeline_appends_dry_run_flag(monkeypatch, tmp_path):
         dry_run=True,
         run_name=None,
         snapshot_tag=None,
+        previous_created_report=None,
     )
 
     assert captured_args["args"][-1] == "--dry-run"
@@ -159,6 +163,8 @@ def test_run_pipeline_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
             "--snapshot-tag",
             "2026-03",
             "--dry-run",
+            "--previous-created-report",
+            str(opt_outs_file),
         ],
     )
 
@@ -170,4 +176,5 @@ def test_run_pipeline_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
         "dry_run": True,
         "run_name": "custom-run",
         "snapshot_tag": "2026-03",
+        "previous_created_report": opt_outs_file,
     }

@@ -198,3 +198,62 @@ def test_create_issues_cli_empty_dir(tmp_path):
 
     assert result.exit_code == 0
     assert "No pitfalls files found" in result.output
+
+
+def test_create_issues_incremental_identical_open_issue_skips(tmp_path):
+    """Skip creation when previous findings are identical and previous issue is open."""
+    pitfalls_dir = tmp_path / "pitfalls"
+    pitfalls_dir.mkdir()
+    issues_dir = tmp_path / "issues"
+
+    pitfalls_payload = {
+        "dateCreated": "2026-03-05T15:55:22Z",
+        "assessedSoftware": {"url": "https://github.com/example/repo"},
+        "checks": [
+            {
+                "checkId": "hash1",
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
+                "evidence": "P001 detected: missing metadata",
+            }
+        ],
+    }
+    (pitfalls_dir / "sample.jsonld").write_text(json.dumps(pitfalls_payload))
+
+    previous_report = tmp_path / "previous_created_issues_report.json"
+    previous_report.write_text(
+        json.dumps(
+            [
+                {
+                    "repo_url": "https://github.com/example/repo",
+                    "issue_url": "https://github.com/example/repo/issues/7",
+                    "pitfalls_ids": ["P001"],
+                    "warnings_ids": [],
+                }
+            ]
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        create_issues.create_issues_command,
+        [
+            "--pitfalls-output-dir",
+            str(pitfalls_dir),
+            "--issues-dir",
+            str(issues_dir),
+            "--previous-created-report",
+            str(previous_report),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Summary: Created 0 | Skipped 1 | Failed 0" in result.output
+
+    skipped = json.loads((issues_dir / "skipped_issues_report.json").read_text())
+    assert skipped[0]["repo_url"] == "https://github.com/example/repo"
+    assert skipped[0]["reason"] == "identical_and_issue_open"
+
+    actions = json.loads((issues_dir / "actions_report.json").read_text())
+    assert actions[0]["action"] == "stop"
+    assert actions[0]["reason"] == "identical_and_issue_open"
