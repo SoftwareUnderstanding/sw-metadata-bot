@@ -186,6 +186,54 @@ def test_create_issues_cli_created_report_contains_analysis_fields(tmp_path):
     assert created["issue_persistence"] == "simulated"
 
 
+def test_create_issues_cli_extracts_ids_from_new_schema(tmp_path):
+    """Populate report IDs when checks use assessesIndicator.@id schema."""
+    pitfalls_dir = tmp_path / "pitfalls"
+    pitfalls_dir.mkdir()
+    issues_dir = tmp_path / "issues"
+
+    pitfalls_payload = {
+        "dateCreated": "2026-03-11T13:51:04Z",
+        "assessedSoftware": {"url": "https://github.com/example/repo"},
+        "checks": [
+            {
+                "checkId": "hash-w",
+                "assessesIndicator": {
+                    "@id": "https://w3id.org/rsmetacheck/catalog/#W004"
+                },
+                "evidence": "W004 detected",
+            },
+            {
+                "checkId": "hash-p",
+                "assessesIndicator": {
+                    "@id": "https://w3id.org/rsmetacheck/catalog/#P001"
+                },
+                "evidence": "P001 detected",
+            },
+        ],
+    }
+    (pitfalls_dir / "sample.jsonld").write_text(json.dumps(pitfalls_payload))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        create_issues.create_issues_command,
+        [
+            "--pitfalls-output-dir",
+            str(pitfalls_dir),
+            "--issues-dir",
+            str(issues_dir),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+
+    report = json.loads((issues_dir / "report.json").read_text())
+    record = report["records"][0]
+    assert record["pitfalls_ids"] == ["P001"]
+    assert record["warnings_ids"] == ["W004"]
+
+
 def test_create_issues_cli_empty_dir(tmp_path):
     """Handle empty pitfalls directory gracefully."""
     pitfalls_dir = tmp_path / "pitfalls"

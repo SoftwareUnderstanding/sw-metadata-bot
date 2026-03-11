@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import __version__
+from .check_parsing import get_check_catalog_id, get_short_check_code
 
 
 def load_pitfalls(file_path: Path) -> dict:
@@ -19,18 +20,8 @@ def get_repository_url(data: dict) -> str:
 
 
 def _get_check_code(check: dict) -> str:
-    """Extract full check ID (e.g., https://w3id.org/rsmetacheck/catalog/#P001) from a check entry.
-
-    New schema (0.2.1+): ID is in assessesIndicator.@id with catalog URL
-    Old schema: ID is in pitfall field (backwards compatibility)
-    """
-    # New schema: assessesIndicator.@id (contains rsmetacheck catalog URL)
-    id_from_indicator = check.get("assessesIndicator", {}).get("@id", "")
-    if id_from_indicator and "rsmetacheck/catalog" in id_from_indicator:
-        return str(id_from_indicator)
-
-    # Fallback for compatibility with older schema: pitfall field
-    return str(check.get("pitfall", ""))
+    """Extract full check catalog ID from a check entry."""
+    return get_check_catalog_id(check)
 
 
 def _get_short_check_code(check_full_id: str) -> str:
@@ -43,7 +34,7 @@ def get_pitfalls_list(data: dict) -> list[dict]:
     return [
         check
         for check in data.get("checks", [])
-        if _get_short_check_code(_get_check_code(check)).startswith("P")
+        if get_short_check_code(check).startswith("P")
     ]
 
 
@@ -52,7 +43,7 @@ def get_warnings_list(data: dict) -> list[dict]:
     return [
         check
         for check in data.get("checks", [])
-        if _get_short_check_code(_get_check_code(check)).startswith("W")
+        if get_short_check_code(check).startswith("W")
     ]
 
 

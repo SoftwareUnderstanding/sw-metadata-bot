@@ -9,6 +9,7 @@ from typing import Protocol
 import click
 
 from . import github_api, gitlab_api, history, incremental, pitfalls
+from .check_parsing import extract_check_ids
 
 logger = logging.getLogger(__name__)
 
@@ -171,21 +172,7 @@ def _load_repository_list(file_path: Path) -> set[str]:
 
 def _extract_check_ids(checks: list[dict]) -> tuple[list[str], list[str]]:
     """Extract unique pitfall and warning codes from checks."""
-    pitfall_ids: list[str] = []
-    warning_ids: list[str] = []
-
-    for check in checks:
-        pitfall_url = str(check.get("pitfall", ""))
-        code = pitfall_url.split("#")[-1] if "#" in pitfall_url else pitfall_url
-        if not code:
-            continue
-
-        if code.startswith("P") and code not in pitfall_ids:
-            pitfall_ids.append(code)
-        elif code.startswith("W") and code not in warning_ids:
-            warning_ids.append(code)
-
-    return pitfall_ids, warning_ids
+    return extract_check_ids(checks)
 
 
 def _safe_get_metacheck_version(data: dict) -> str:
