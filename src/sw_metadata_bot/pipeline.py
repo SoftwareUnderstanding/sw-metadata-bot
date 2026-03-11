@@ -17,19 +17,25 @@ def _resolve_run_paths(
     input_file: Path,
     run_name: str | None,
     snapshot_tag: str | None,
-) -> tuple[Path, Path, Path]:
+) -> tuple[Path, Path, Path, Path]:
     """Compute dedicated output paths for a pipeline run."""
-    run_folder_name = run_name if run_name else input_file.stem
+    run_folder_name = run_name if run_name else ""
     run_root = output_root / run_folder_name
 
     if snapshot_tag:
         run_root = run_root / snapshot_tag
 
+    somef_output_dir = run_root / "somef_outputs"
     pitfalls_output_dir = run_root / "pitfalls_outputs"
     analysis_output_file = run_root / "analysis_results.json"
     issues_output_dir = run_root / "issues_out"
 
-    return pitfalls_output_dir, analysis_output_file, issues_output_dir
+    return (
+        somef_output_dir,
+        pitfalls_output_dir,
+        analysis_output_file,
+        issues_output_dir,
+    )
 
 
 def run_pipeline(
@@ -42,17 +48,21 @@ def run_pipeline(
     previous_created_report: Path | None,
 ) -> None:
     """Run analysis and issue creation for a repository list."""
-    pitfalls_output_dir, analysis_output_file, issues_output_dir = _resolve_run_paths(
-        output_root=output_root,
-        input_file=input_file,
-        run_name=run_name,
-        snapshot_tag=snapshot_tag,
+    somef_output_dir, pitfalls_output_dir, analysis_output_file, issues_output_dir = (
+        _resolve_run_paths(
+            output_root=output_root,
+            input_file=input_file,
+            run_name=run_name,
+            snapshot_tag=snapshot_tag,
+        )
     )
 
     metacheck_command.main(
         args=[
             "--input",
             str(input_file),
+            "--somef-output",
+            str(somef_output_dir),
             "--pitfalls-output",
             str(pitfalls_output_dir),
             "--analysis-output",

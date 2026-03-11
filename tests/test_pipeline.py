@@ -1,5 +1,7 @@
 """Tests for pipeline module."""
 
+from pathlib import Path
+
 from click.testing import CliRunner
 
 from sw_metadata_bot import pipeline
@@ -7,40 +9,38 @@ from sw_metadata_bot import pipeline
 
 def test_resolve_run_paths_defaults():
     """Use input stem when run_name and snapshot_tag are not provided."""
-    pitfalls_output_dir, analysis_output_file, issues_output_dir = (
+    somef_output, pitfalls_output_dir, analysis_output_file, issues_output_dir = (
         pipeline._resolve_run_paths(
-            output_root=pipeline.Path("outputs"),
-            input_file=pipeline.Path("assets/opt-ins.json"),
+            output_root=Path("outputs"),
+            input_file=Path("assets/opt-ins.json"),
             run_name=None,
             snapshot_tag=None,
         )
     )
 
-    assert pitfalls_output_dir == pipeline.Path("outputs/opt-ins/pitfalls_outputs")
-    assert analysis_output_file == pipeline.Path(
-        "outputs/opt-ins/analysis_results.json"
-    )
-    assert issues_output_dir == pipeline.Path("outputs/opt-ins/issues_out")
+    assert somef_output == Path("outputs/somef_outputs")
+    assert pitfalls_output_dir == Path("outputs/pitfalls_outputs")
+    assert analysis_output_file == Path("outputs/analysis_results.json")
+    assert issues_output_dir == Path("outputs/issues_out")
 
 
 def test_resolve_run_paths_with_run_name_and_snapshot():
     """Use custom run_name and nested snapshot folder when provided."""
-    pitfalls_output_dir, analysis_output_file, issues_output_dir = (
+    somef_output, pitfalls_output_dir, analysis_output_file, issues_output_dir = (
         pipeline._resolve_run_paths(
-            output_root=pipeline.Path("outputs"),
-            input_file=pipeline.Path("assets/ignored.json"),
+            output_root=Path("outputs"),
+            input_file=Path("assets/ignored.json"),
             run_name="ossr-run",
             snapshot_tag="2026-03",
         )
     )
 
-    assert pitfalls_output_dir == pipeline.Path(
-        "outputs/ossr-run/2026-03/pitfalls_outputs"
-    )
-    assert analysis_output_file == pipeline.Path(
+    assert somef_output == Path("outputs/ossr-run/2026-03/somef_outputs")
+    assert pitfalls_output_dir == Path("outputs/ossr-run/2026-03/pitfalls_outputs")
+    assert analysis_output_file == Path(
         "outputs/ossr-run/2026-03/analysis_results.json"
     )
-    assert issues_output_dir == pipeline.Path("outputs/ossr-run/2026-03/issues_out")
+    assert issues_output_dir == Path("outputs/ossr-run/2026-03/issues_out")
 
 
 def test_run_pipeline_invokes_commands_with_expected_args(monkeypatch, tmp_path):
@@ -80,6 +80,8 @@ def test_run_pipeline_invokes_commands_with_expected_args(monkeypatch, tmp_path)
     assert calls["metacheck"]["args"] == [
         "--input",
         str(input_file),
+        "--somef-output",
+        str(output_root / "batch-a" / "202603" / "somef_outputs"),
         "--pitfalls-output",
         str(output_root / "batch-a" / "202603" / "pitfalls_outputs"),
         "--analysis-output",

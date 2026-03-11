@@ -20,6 +20,11 @@ from metacheck import cli as metacheck_cli
     help="Skip SoMEF execution and analyze existing SoMEF output files directly.",
 )
 @click.option(
+    "--somef-output",
+    default="somef_outputs",
+    help="Directory to store SoMEF output files.",
+)
+@click.option(
     "--pitfalls-output",
     default="pitfalls_outputs",
     help="Directory to store pitfall JSON-LD files.",
@@ -35,7 +40,9 @@ from metacheck import cli as metacheck_cli
     default=0.8,
     help="SoMEF confidence threshold (default: 0.8).",
 )
-def metacheck_command(input, skip_somef, pitfalls_output, analysis_output, threshold):
+def metacheck_command(
+    input, skip_somef, somef_output, pitfalls_output, analysis_output, threshold
+):
     """Run metacheck to detect metadata pitfalls in repositories."""
     # Convert click arguments to sys.argv format for metacheck's argparse
     argv = ["metacheck"]
@@ -45,7 +52,7 @@ def metacheck_command(input, skip_somef, pitfalls_output, analysis_output, thres
 
     if skip_somef:
         argv.append("--skip-somef")
-
+    argv.extend(["--somef-output", somef_output])
     argv.extend(["--pitfalls-output", pitfalls_output])
     argv.extend(["--analysis-output", analysis_output])
     argv.extend(["--threshold", str(threshold)])
