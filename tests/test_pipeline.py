@@ -48,9 +48,11 @@ def test_run_pipeline_invokes_commands_with_expected_args(monkeypatch, tmp_path)
     calls: dict[str, dict] = {}
 
     def fake_metacheck_main(*, args, standalone_mode):
+        """Capture metacheck invocation arguments for assertions."""
         calls["metacheck"] = {"args": args, "standalone_mode": standalone_mode}
 
     def fake_create_issues_main(*, args, standalone_mode):
+        """Capture create-issues invocation arguments for assertions."""
         calls["create_issues"] = {"args": args, "standalone_mode": standalone_mode}
 
     monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
@@ -108,9 +110,11 @@ def test_run_pipeline_appends_dry_run_flag(monkeypatch, tmp_path):
     captured_args: dict[str, list[str]] = {}
 
     def fake_metacheck_main(*, args, standalone_mode):
+        """Accept metacheck invocation without side effects."""
         return None
 
     def fake_create_issues_main(*, args, standalone_mode):
+        """Capture create-issues arguments to verify dry-run flag propagation."""
         captured_args["args"] = args
 
     monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
@@ -140,6 +144,7 @@ def test_run_pipeline_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
     captured: dict[str, object] = {}
 
     def fake_run_pipeline(**kwargs):
+        """Capture keyword arguments passed by CLI wrapper."""
         captured.update(kwargs)
 
     monkeypatch.setattr(pipeline, "run_pipeline", fake_run_pipeline)
@@ -211,9 +216,11 @@ def test_run_pipeline_auto_discovers_previous_report(monkeypatch, tmp_path):
     calls: dict[str, dict] = {}
 
     def fake_metacheck_main(*, args, standalone_mode):
+        """Capture metacheck invocation to keep test side-effect free."""
         calls["metacheck"] = {"args": args, "standalone_mode": standalone_mode}
 
     def fake_create_issues_main(*, args, standalone_mode):
+        """Capture create-issues invocation and discovered report arguments."""
         calls["create_issues"] = {"args": args, "standalone_mode": standalone_mode}
 
     monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
