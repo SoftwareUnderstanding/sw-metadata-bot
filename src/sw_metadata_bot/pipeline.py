@@ -12,6 +12,33 @@ DEFAULT_INPUT_FILE = Path("assets/opt-ins.json")
 DEFAULT_OPTOUT_FILE = Path("assets/opt-outs.json")
 DEFAULT_OUTPUT_ROOT = Path("outputs")
 SNAPSHOT_TAG_PATTERN = re.compile(r"^(\d{8})(?:_(\d+))?$")
+SNAPSHOT_INCREMENT_PATTERN = re.compile(r"^(.+?)_(\d+)$")
+
+
+def _resolve_unique_snapshot_tag(
+    run_root: Path, snapshot_tag: str | None
+) -> str | None:
+    """Return a non-colliding snapshot tag by adding or incrementing numeric suffixes."""
+    if snapshot_tag is None:
+        return None
+
+    candidate_path = run_root / snapshot_tag
+    if not candidate_path.exists():
+        return snapshot_tag
+
+    match = SNAPSHOT_INCREMENT_PATTERN.fullmatch(snapshot_tag)
+    if match is None:
+        base_tag = snapshot_tag
+        suffix = 2
+    else:
+        base_tag = match.group(1)
+        suffix = int(match.group(2)) + 1
+
+    while True:
+        candidate = f"{base_tag}_{suffix}"
+        if not (run_root / candidate).exists():
+            return candidate
+        suffix += 1
 
 
 def _resolve_run_paths(
@@ -91,12 +118,19 @@ def run_pipeline(
     previous_report: Path | None,
 ) -> None:
     """Run analysis and issue creation for a repository list."""
+    run_folder_name = run_name if run_name else input_file.stem
+    run_root = output_root / run_folder_name
+    resolved_snapshot_tag = _resolve_unique_snapshot_tag(
+        run_root=run_root,
+        snapshot_tag=snapshot_tag,
+    )
+
     somef_output_dir, pitfalls_output_dir, analysis_output_file, issues_output_dir = (
         _resolve_run_paths(
             output_root=output_root,
             input_file=input_file,
             run_name=run_name,
-            snapshot_tag=snapshot_tag,
+            snapshot_tag=resolved_snapshot_tag,
         )
     )
 
@@ -119,7 +153,7 @@ def run_pipeline(
         resolved_previous_report = find_latest_previous_report(
             output_root=output_root,
             run_name=run_name,
-            current_snapshot_tag=snapshot_tag,
+            current_snapshot_tag=resolved_snapshot_tag,
         )
 
     create_issues_args = [

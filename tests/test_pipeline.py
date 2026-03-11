@@ -43,6 +43,43 @@ def test_resolve_run_paths_with_run_name_and_snapshot():
     assert issues_output_dir == Path("outputs/ossr-run/2026-03/issues_out")
 
 
+def test_resolve_unique_snapshot_tag_uses_requested_when_missing(tmp_path):
+    """Keep requested snapshot tag when the target directory does not exist."""
+    run_root = tmp_path / "outputs" / "batch-a"
+
+    resolved = pipeline._resolve_unique_snapshot_tag(
+        run_root=run_root, snapshot_tag="X"
+    )
+
+    assert resolved == "X"
+
+
+def test_resolve_unique_snapshot_tag_increments_for_existing_base(tmp_path):
+    """Use X_2 when X already exists, and continue to next available suffix."""
+    run_root = tmp_path / "outputs" / "batch-a"
+    (run_root / "X").mkdir(parents=True)
+    (run_root / "X_2").mkdir(parents=True)
+
+    resolved = pipeline._resolve_unique_snapshot_tag(
+        run_root=run_root, snapshot_tag="X"
+    )
+
+    assert resolved == "X_3"
+
+
+def test_resolve_unique_snapshot_tag_increments_existing_suffixed_tag(tmp_path):
+    """Use the next numeric suffix when the requested suffixed tag already exists."""
+    run_root = tmp_path / "outputs" / "batch-a"
+    (run_root / "X_4").mkdir(parents=True)
+
+    resolved = pipeline._resolve_unique_snapshot_tag(
+        run_root=run_root,
+        snapshot_tag="X_4",
+    )
+
+    assert resolved == "X_5"
+
+
 def test_run_pipeline_invokes_commands_with_expected_args(monkeypatch, tmp_path):
     """Invoke metacheck and create-issues with the expected computed arguments."""
     calls: dict[str, dict] = {}
@@ -251,3 +288,52 @@ def test_run_pipeline_auto_discovers_previous_report(monkeypatch, tmp_path):
     assert calls["create_issues"]["args"][idx + 1] == str(
         previous_report / "report.json"
     )
+
+
+def test_run_pipeline_uses_incremented_snapshot_tag_on_collision(monkeypatch, tmp_path):
+    """Write outputs under incremented snapshot tag when requested one already exists."""
+    calls: dict[str, dict] = {}
+
+    def fake_metacheck_main(*, args, standalone_mode):
+        """Capture metacheck invocation arguments for assertions."""
+        calls["metacheck"] = {"args": args, "standalone_mode": standalone_mode}
+
+    def fake_create_issues_main(*, args, standalone_mode):
+        """Capture create-issues invocation arguments for assertions."""
+        calls["create_issues"] = {"args": args, "standalone_mode": standalone_mode}
+
+    monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(
+        pipeline.create_issues_command,
+        "main",
+        fake_create_issues_main,
+    )
+
+    input_file = tmp_path / "opt-ins.json"
+    opt_outs_file = tmp_path / "opt-outs.json"
+    output_root = tmp_path / "outputs"
+    input_file.write_text("{}")
+    opt_outs_file.write_text("{}")
+
+    (output_root / "batch-a" / "X").mkdir(parents=True)
+
+    pipeline.run_pipeline(
+        input_file=input_file,
+        opt_outs_file=opt_outs_file,
+        output_root=output_root,
+        dry_run=False,
+        run_name="batch-a",
+        snapshot_tag="X",
+        previous_report=None,
+    )
+
+    assert calls["metacheck"]["args"] == [
+        "--input",
+        str(input_file),
+        "--somef-output",
+        str(output_root / "batch-a" / "X_2" / "somef_outputs"),
+        "--pitfalls-output",
+        str(output_root / "batch-a" / "X_2" / "pitfalls_outputs"),
+        "--analysis-output",
+        str(output_root / "batch-a" / "X_2" / "analysis_results.json"),
+    ]
