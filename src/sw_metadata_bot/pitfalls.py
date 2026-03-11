@@ -2,7 +2,6 @@
 
 import json
 from datetime import datetime
-from importlib.metadata import version
 from pathlib import Path
 
 from . import __version__
@@ -20,9 +19,18 @@ def get_repository_url(data: dict) -> str:
 
 
 def _get_check_code(check: dict) -> str:
-    """Extract check code (e.g. P001/W004) from a check entry."""
-    PITFALL_ID_KEY = "pitfall"
-    return str(check.get(PITFALL_ID_KEY, ""))
+    """Extract full check ID (e.g., https://w3id.org/rsmetacheck/catalog/#P001) from a check entry.
+
+    New schema (0.2.1+): ID is in assessesIndicator.@id with catalog URL
+    Old schema: ID is in pitfall field (backwards compatibility)
+    """
+    # New schema: assessesIndicator.@id (contains rsmetacheck catalog URL)
+    id_from_indicator = check.get("assessesIndicator", {}).get("@id", "")
+    if id_from_indicator and "rsmetacheck/catalog" in id_from_indicator:
+        return str(id_from_indicator)
+
+    # Fallback for compatibility with older schema: pitfall field
+    return str(check.get("pitfall", ""))
 
 
 def _get_short_check_code(check_full_id: str) -> str:
@@ -49,8 +57,18 @@ def get_warnings_list(data: dict) -> list[dict]:
 
 
 def get_metacheck_version(data: dict) -> str:
-    """Get the version of RSMetacheck used for analysis."""
-    return version("metacheck")
+    """Get the version of RSMetacheck used for analysis.
+
+    New schema (0.2.1+): Version is in checkingSoftware.softwareVersion
+    Falls back to "unknown" if not found.
+    """
+    # New schema: checkingSoftware.softwareVersion
+    version_from_checking = data.get("checkingSoftware", {}).get("softwareVersion", "")
+    if version_from_checking:
+        return version_from_checking
+
+    # If not found in schema, return unknown
+    return "unknown"
 
 
 def format_report(repo_url: str, data: dict) -> str:
