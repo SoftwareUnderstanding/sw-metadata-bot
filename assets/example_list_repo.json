@@ -1,7 +1,6 @@
 {
   "repositories": [
-    "https://gitlab.com/example/example_repo_1",
-    "https://gitlab.com/example/example_repo_2",
-    "https://github.com/example/example_repo_3"
-  ]
+    "https://github.com/SoftwareUnderstanding/sw-metadata-bot"
+  ],
+  "custom-message": "This is a issue created for testing purposes."
 }

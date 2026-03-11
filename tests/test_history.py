@@ -5,30 +5,37 @@ import json
 from sw_metadata_bot import history
 
 
-def test_load_previous_created_report_indexes_by_repo(tmp_path):
-    """Index previous report entries by normalized repository URL."""
-    report_path = tmp_path / "created_issues_report.json"
+def test_load_previous_report_indexes_only_posted_by_repo(tmp_path):
+    """Index only posted records by normalized repository URL."""
+    report_path = tmp_path / "report.json"
     report_path.write_text(
         json.dumps(
-            [
-                {"repo_url": "https://github.com/org/repo/", "issue_url": "x"},
-                {"repo_url": "https://gitlab.com/group/proj", "issue_url": "y"},
-            ]
+            {
+                "records": [
+                    {
+                        "repo_url": "https://github.com/org/repo/",
+                        "issue_url": "x",
+                        "issue_persistence": "posted",
+                    },
+                    {
+                        "repo_url": "https://gitlab.com/group/proj",
+                        "issue_url": "y",
+                        "issue_persistence": "simulated",
+                    },
+                ]
+            }
         )
     )
 
-    result = history.load_previous_created_report(report_path)
+    result = history.load_previous_report(report_path)
 
-    assert set(result.keys()) == {
-        "https://github.com/org/repo",
-        "https://gitlab.com/group/proj",
-    }
+    assert set(result.keys()) == {"https://github.com/org/repo"}
 
 
-def test_load_previous_created_report_handles_missing_file(tmp_path):
+def test_load_previous_report_handles_missing_file(tmp_path):
     """Return empty mapping when previous report file is absent."""
     missing = tmp_path / "missing.json"
-    assert history.load_previous_created_report(missing) == {}
+    assert history.load_previous_report(missing) == {}
 
 
 def test_findings_signature_is_deterministic_and_unique():

@@ -65,7 +65,7 @@ def test_load_repository_list_invalid_format_raises(tmp_path):
 
 
 def test_create_issues_cli_failed_report_contains_analysis_fields(tmp_path):
-    """Failed report contains analysis details when issue creation fails."""
+    """Unified report stores failed action with analysis details."""
     pitfalls_dir = tmp_path / "pitfalls"
     pitfalls_dir.mkdir()
     issues_dir = tmp_path / "issues"
@@ -101,28 +101,30 @@ def test_create_issues_cli_failed_report_contains_analysis_fields(tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "Summary: Created 0 | Skipped 0 | Failed 1" in result.output
+    assert "Failed 1" in result.output
 
-    failed_report_path = issues_dir / "failed_issues_report.json"
-    assert failed_report_path.exists()
+    report_path = issues_dir / "report.json"
+    assert report_path.exists()
 
-    failed = json.loads(failed_report_path.read_text())
-    assert len(failed) == 1
-    assert failed[0]["repo_url"] == "https://gitlab.example.org/example/repo"
-    assert failed[0]["pitfalls_count"] == 1
-    assert failed[0]["warnings_count"] == 1
-    assert failed[0]["platform"] == "gitlab"
-    assert failed[0]["analysis_date"] == "2026-03-05T15:57:03Z"
-    assert failed[0]["sw_metadata_bot_version"]
-    assert failed[0]["rsmetacheck_version"]
-    assert failed[0]["file"].endswith("sample.jsonld")
-    assert failed[0]["pitfalls_ids"] == ["P001"]
-    assert failed[0]["warnings_ids"] == ["W002"]
-    assert "Unsupported platform" in failed[0]["error"]
+    report = json.loads(report_path.read_text())
+    assert report["counters"]["failed"] == 1
+    failed = report["records"][0]
+    assert failed["repo_url"] == "https://gitlab.example.org/example/repo"
+    assert failed["pitfalls_count"] == 1
+    assert failed["warnings_count"] == 1
+    assert failed["platform"] == "gitlab"
+    assert failed["analysis_date"] == "2026-03-05T15:57:03Z"
+    assert failed["sw_metadata_bot_version"]
+    assert failed["rsmetacheck_version"]
+    assert failed["file"].endswith("sample.jsonld")
+    assert failed["pitfalls_ids"] == ["P001"]
+    assert failed["warnings_ids"] == ["W002"]
+    assert failed["action"] == "failed"
+    assert "Unsupported platform" in failed["error"]
 
 
 def test_create_issues_cli_created_report_contains_analysis_fields(tmp_path):
-    """Created report contains metadata and pitfall/warning details."""
+    """Unified report stores simulated_created records for dry-run creation."""
     pitfalls_dir = tmp_path / "pitfalls"
     pitfalls_dir.mkdir()
     issues_dir = tmp_path / "issues"
@@ -159,23 +161,29 @@ def test_create_issues_cli_created_report_contains_analysis_fields(tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "Summary: Created 1 | Skipped 0 | Failed 0" in result.output
+    assert "Simulated 1" in result.output
 
-    created_report_path = issues_dir / "created_issues_report.json"
-    assert created_report_path.exists()
+    report_path = issues_dir / "report.json"
+    assert report_path.exists()
 
-    created = json.loads(created_report_path.read_text())
-    assert len(created) == 1
-    assert created[0]["repo_url"] == "https://github.com/example/repo"
-    assert created[0]["platform"] == "github"
-    assert created[0]["issue_url"] == "https://github.com/example/repo/issues/0"
-    assert created[0]["pitfalls_count"] == 1
-    assert created[0]["warnings_count"] == 1
-    assert created[0]["analysis_date"] == "2026-03-05T15:55:22Z"
-    assert created[0]["sw_metadata_bot_version"]
-    assert created[0]["rsmetacheck_version"]
-    assert created[0]["pitfalls_ids"] == ["P001"]
-    assert created[0]["warnings_ids"] == ["W004"]
+    report = json.loads(report_path.read_text())
+    assert report["counters"]["created"] == 0
+    assert report["counters"]["simulated"] == 1
+
+    created = report["records"][0]
+    assert created["repo_url"] == "https://github.com/example/repo"
+    assert created["platform"] == "github"
+    assert created["issue_url"] is None
+    assert created["simulated_issue_url"] == "https://github.com/example/repo/issues/0"
+    assert created["pitfalls_count"] == 1
+    assert created["warnings_count"] == 1
+    assert created["analysis_date"] == "2026-03-05T15:55:22Z"
+    assert created["sw_metadata_bot_version"]
+    assert created["rsmetacheck_version"]
+    assert created["pitfalls_ids"] == ["P001"]
+    assert created["warnings_ids"] == ["W004"]
+    assert created["action"] == "simulated_created"
+    assert created["issue_persistence"] == "simulated"
 
 
 def test_create_issues_cli_empty_dir(tmp_path):
@@ -219,17 +227,20 @@ def test_create_issues_incremental_identical_open_issue_skips(tmp_path):
     }
     (pitfalls_dir / "sample.jsonld").write_text(json.dumps(pitfalls_payload))
 
-    previous_report = tmp_path / "previous_created_issues_report.json"
+    previous_report = tmp_path / "previous_report.json"
     previous_report.write_text(
         json.dumps(
-            [
-                {
-                    "repo_url": "https://github.com/example/repo",
-                    "issue_url": "https://github.com/example/repo/issues/7",
-                    "pitfalls_ids": ["P001"],
-                    "warnings_ids": [],
-                }
-            ]
+            {
+                "records": [
+                    {
+                        "repo_url": "https://github.com/example/repo",
+                        "issue_url": "https://github.com/example/repo/issues/7",
+                        "pitfalls_ids": ["P001"],
+                        "warnings_ids": [],
+                        "issue_persistence": "posted",
+                    }
+                ]
+            }
         )
     )
 
@@ -241,19 +252,17 @@ def test_create_issues_incremental_identical_open_issue_skips(tmp_path):
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
-            "--previous-created-report",
+            "--previous-report",
             str(previous_report),
             "--dry-run",
         ],
     )
 
     assert result.exit_code == 0
-    assert "Summary: Created 0 | Skipped 1 | Failed 0" in result.output
+    assert "Skipped 1" in result.output
 
-    skipped = json.loads((issues_dir / "skipped_issues_report.json").read_text())
-    assert skipped[0]["repo_url"] == "https://github.com/example/repo"
-    assert skipped[0]["reason"] == "identical_and_issue_open"
-
-    actions = json.loads((issues_dir / "actions_report.json").read_text())
-    assert actions[0]["action"] == "stop"
-    assert actions[0]["reason"] == "identical_and_issue_open"
+    report = json.loads((issues_dir / "report.json").read_text())
+    assert report["counters"]["skipped"] == 1
+    assert report["records"][0]["repo_url"] == "https://github.com/example/repo"
+    assert report["records"][0]["action"] == "skipped"
+    assert report["records"][0]["reason_code"] == "identical_and_issue_open"

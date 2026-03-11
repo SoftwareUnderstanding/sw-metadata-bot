@@ -2,6 +2,7 @@
 
 import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
 
@@ -199,13 +200,16 @@ def _build_report_entry(
     pitfalls_ids: list[str] | None,
     warnings_ids: list[str] | None,
     action: str | None = None,
-    reason: str | None = None,
+    reason_code: str | None = None,
     previous_issue_url: str | None = None,
     previous_issue_state: str | None = None,
     findings_signature: str | None = None,
     current_commit_id: str | None = None,
     previous_commit_id: str | None = None,
     unsubscribe_detected: bool | None = None,
+    dry_run: bool | None = None,
+    issue_persistence: str | None = None,
+    simulated_issue_url: str | None = None,
     file_path: Path | None = None,
     error: str | None = None,
 ) -> dict[str, object]:
@@ -215,19 +219,17 @@ def _build_report_entry(
         "platform": platform,
         "pitfalls_count": pitfalls_count,
         "warnings_count": warnings_count,
+        "issue_url": issue_url,
         "analysis_date": analysis_date,
         "sw_metadata_bot_version": bot_version,
         "rsmetacheck_version": metacheck_version,
         "pitfalls_ids": pitfalls_ids or [],
         "warnings_ids": warnings_ids or [],
     }
-
-    if issue_url is not None:
-        entry["issue_url"] = issue_url
     if action is not None:
         entry["action"] = action
-    if reason is not None:
-        entry["reason"] = reason
+    if reason_code is not None:
+        entry["reason_code"] = reason_code
     if previous_issue_url is not None:
         entry["previous_issue_url"] = previous_issue_url
     if previous_issue_state is not None:
@@ -240,6 +242,12 @@ def _build_report_entry(
         entry["previous_commit_id"] = previous_commit_id
     if unsubscribe_detected is not None:
         entry["unsubscribe_detected"] = unsubscribe_detected
+    if dry_run is not None:
+        entry["dry_run"] = dry_run
+    if issue_persistence is not None:
+        entry["issue_persistence"] = issue_persistence
+    if simulated_issue_url is not None:
+        entry["simulated_issue_url"] = simulated_issue_url
     if file_path is not None:
         entry["file"] = str(file_path)
     if error is not None:
@@ -291,10 +299,10 @@ def _build_report_entry(
     help="Analysis summary JSON file (for commit-aware incremental handling).",
 )
 @click.option(
-    "--previous-created-report",
+    "--previous-report",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     default=None,
-    help="Previous created_issues_report.json to enable incremental issue handling.",
+    help="Previous report.json to enable incremental issue handling.",
 )
 def create_issues_command(
     pitfalls_output_dir: Path,
@@ -304,7 +312,7 @@ def create_issues_command(
     opt_outs_file: Path | None,
     issue_config_file: Path | None,
     analysis_summary_file: Path | None,
-    previous_created_report: Path | None,
+    previous_report: Path | None,
 ):
     """
     Create issues in repositories based on metadata analysis results.
@@ -330,7 +338,7 @@ def create_issues_command(
     click.echo(f"{'=' * 60}\n")
 
     issue_config = load_config(issue_config_file)
-    previous_records = history.load_previous_created_report(previous_created_report)
+    previous_records = history.load_previous_report(previous_report)
 
     if analysis_summary_file is None:
         fallback_summary = pitfalls_output_dir.parent / "analysis_results.json"
@@ -353,10 +361,7 @@ def create_issues_command(
     click.echo(f"Found {len(pitfalls_files)} pitfalls files to process\n")
 
     # Process each file
-    created = []
-    failed = []
-    skipped = []
-    action_report = []
+    records: list[dict[str, object]] = []
     bot_version = pitfalls.__version__
 
     for i, file_path in enumerate(pitfalls_files, 1):
@@ -397,8 +402,7 @@ def create_issues_command(
 
             if normalized_repo in opt_out_repos:
                 click.echo("  ↷ Skipped: repository is in opt-outs list")
-                skipped.append({"repo_url": repo_url, "file": str(file_path)})
-                action_report.append(
+                records.append(
                     _build_report_entry(
                         repo_url=repo_url,
                         platform=platform,
@@ -410,10 +414,13 @@ def create_issues_command(
                         metacheck_version=metacheck_version,
                         pitfalls_ids=pitfalls_ids,
                         warnings_ids=warnings_ids,
-                        action="stop",
-                        reason="in_opt_out_list",
+                        action="skipped",
+                        reason_code="in_opt_out_list",
                         findings_signature=current_signature,
                         current_commit_id=current_commit_id,
+                        dry_run=dry_run,
+                        issue_persistence="none",
+                        file_path=file_path,
                     )
                 )
                 click.echo()
@@ -481,14 +488,7 @@ def create_issues_command(
                 else:
                     click.echo(f"  ↷ Skipped: {decision.reason}")
 
-                skipped.append(
-                    {
-                        "repo_url": repo_url,
-                        "file": str(file_path),
-                        "reason": decision.reason,
-                    }
-                )
-                action_report.append(
+                records.append(
                     _build_report_entry(
                         repo_url=repo_url,
                         platform=platform,
@@ -500,14 +500,17 @@ def create_issues_command(
                         metacheck_version=metacheck_version,
                         pitfalls_ids=pitfalls_ids,
                         warnings_ids=warnings_ids,
-                        action=decision.action,
-                        reason=decision.reason,
+                        action="skipped",
+                        reason_code=decision.reason,
                         previous_issue_url=previous_issue_url,
                         previous_issue_state=previous_issue_state,
                         findings_signature=current_signature,
                         current_commit_id=current_commit_id,
                         previous_commit_id=previous_commit_id,
                         unsubscribe_detected=unsubscribe_detected,
+                        dry_run=dry_run,
+                        issue_persistence="none",
+                        file_path=file_path,
                     )
                 )
                 click.echo()
@@ -531,7 +534,7 @@ def create_issues_command(
                 )
                 click.echo(f"  ✓ Issue updated by comment: {previous_issue_url}")
 
-                action_report.append(
+                records.append(
                     _build_report_entry(
                         repo_url=repo_url,
                         platform=platform,
@@ -543,13 +546,16 @@ def create_issues_command(
                         metacheck_version=metacheck_version,
                         pitfalls_ids=pitfalls_ids,
                         warnings_ids=warnings_ids,
-                        action=decision.action,
-                        reason=decision.reason,
+                        action="updated_by_comment",
+                        reason_code=decision.reason,
                         previous_issue_url=previous_issue_url,
                         previous_issue_state=previous_issue_state,
                         findings_signature=current_signature,
                         current_commit_id=current_commit_id,
                         previous_commit_id=previous_commit_id,
+                        dry_run=dry_run,
+                        issue_persistence="none",
+                        file_path=file_path,
                     )
                 )
                 click.echo()
@@ -570,7 +576,7 @@ def create_issues_command(
                 issue_client.close_issue(previous_issue_url)
                 click.echo(f"  ✓ Issue closed: {previous_issue_url}")
 
-                action_report.append(
+                records.append(
                     _build_report_entry(
                         repo_url=repo_url,
                         platform=platform,
@@ -582,13 +588,16 @@ def create_issues_command(
                         metacheck_version=metacheck_version,
                         pitfalls_ids=pitfalls_ids,
                         warnings_ids=warnings_ids,
-                        action=decision.action,
-                        reason=decision.reason,
+                        action="closed",
+                        reason_code=decision.reason,
                         previous_issue_url=previous_issue_url,
                         previous_issue_state=previous_issue_state,
                         findings_signature=current_signature,
                         current_commit_id=current_commit_id,
                         previous_commit_id=previous_commit_id,
+                        dry_run=dry_run,
+                        issue_persistence="none",
+                        file_path=file_path,
                     )
                 )
                 click.echo()
@@ -629,34 +638,41 @@ def create_issues_command(
             else:
                 raise ValueError(f"Unsupported platform: {platform}")
 
-            click.echo(f"  ✓ Issue created: {issue_url}")
+            is_simulated = dry_run
+            if is_simulated:
+                click.echo(f"  ✓ Issue simulated: {issue_url}")
+            else:
+                click.echo(f"  ✓ Issue created: {issue_url}")
 
-            created.append(
+            records.append(
                 _build_report_entry(
                     repo_url=repo_url,
                     platform=platform,
                     pitfalls_count=pitfalls_count,
                     warnings_count=warnings_count,
-                    issue_url=issue_url,
+                    issue_url=None if is_simulated else issue_url,
                     analysis_date=analysis_date,
                     bot_version=bot_version,
                     metacheck_version=metacheck_version,
                     pitfalls_ids=pitfalls_ids,
                     warnings_ids=warnings_ids,
-                    action="create",
-                    reason=decision.reason,
+                    action="simulated_created" if is_simulated else "created",
+                    reason_code=decision.reason,
                     previous_issue_url=previous_issue_url,
                     previous_issue_state=previous_issue_state,
                     findings_signature=current_signature,
                     current_commit_id=current_commit_id,
                     previous_commit_id=previous_commit_id,
+                    dry_run=dry_run,
+                    issue_persistence="simulated" if is_simulated else "posted",
+                    simulated_issue_url=issue_url if is_simulated else None,
+                    file_path=file_path,
                 )
             )
-            action_report.append(created[-1])
 
         except Exception as e:
             click.echo(f"  ✗ Error: {e}", err=True)
-            failed.append(
+            records.append(
                 _build_report_entry(
                     repo_url=repo_url,
                     platform=platform,
@@ -668,6 +684,10 @@ def create_issues_command(
                     metacheck_version=metacheck_version,
                     pitfalls_ids=pitfalls_ids,
                     warnings_ids=warnings_ids,
+                    action="failed",
+                    reason_code="exception",
+                    dry_run=dry_run,
+                    issue_persistence="none",
                     file_path=file_path,
                     error=str(e),
                 )
@@ -675,36 +695,54 @@ def create_issues_command(
 
         click.echo()
 
-    # Save reports
-    with open(issues_dir / "created_issues_report.json", "w") as f:
-        json.dump(created, f, indent=2)
-    click.echo(f"Created issues report: {issues_dir / 'created_issues_report.json'}")
+    counters = {
+        "total": len(records),
+        "created": sum(1 for r in records if r.get("action") == "created"),
+        "simulated": sum(1 for r in records if r.get("action") == "simulated_created"),
+        "updated_by_comment": sum(
+            1 for r in records if r.get("action") == "updated_by_comment"
+        ),
+        "closed": sum(1 for r in records if r.get("action") == "closed"),
+        "skipped": sum(1 for r in records if r.get("action") == "skipped"),
+        "failed": sum(1 for r in records if r.get("action") == "failed"),
+    }
 
-    if failed:
-        with open(issues_dir / "failed_issues_report.json", "w") as f:
-            json.dump(failed, f, indent=2)
-        click.echo(f"Failed issues report: {issues_dir / 'failed_issues_report.json'}")
-
-    if skipped:
-        with open(issues_dir / "skipped_issues_report.json", "w") as f:
-            json.dump(skipped, f, indent=2)
-        click.echo(
-            f"Skipped issues report: {issues_dir / 'skipped_issues_report.json'}"
-        )
-
-    with open(issues_dir / "actions_report.json", "w") as f:
-        json.dump(action_report, f, indent=2)
-    click.echo(f"Actions report: {issues_dir / 'actions_report.json'}")
+    report = {
+        "run_metadata": {
+            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "dry_run": dry_run,
+            "analysis_summary_file": (
+                str(analysis_summary_file)
+                if analysis_summary_file is not None
+                else None
+            ),
+            "previous_report_source": (
+                str(previous_report) if previous_report is not None else None
+            ),
+        },
+        "counters": counters,
+        "records": records,
+    }
+    report_file = issues_dir / "report.json"
+    with open(report_file, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2)
+    click.echo(f"Run report: {report_file}")
 
     # Display summary
     click.echo(f"\n{'=' * 60}")
     click.echo(
-        f"Summary: Created {len(created)} | Skipped {len(skipped)} | Failed {len(failed)}"
+        "Summary: "
+        f"Created {counters['created']} | "
+        f"Simulated {counters['simulated']} | "
+        f"Updated {counters['updated_by_comment']} | "
+        f"Closed {counters['closed']} | "
+        f"Skipped {counters['skipped']} | "
+        f"Failed {counters['failed']}"
     )
     click.echo(f"{'=' * 60}\n")
 
-    if failed:
-        click.echo(f"⚠️  {len(failed)} issues failed to create.", err=True)
+    if counters["failed"]:
+        click.echo(f"⚠️  {counters['failed']} issues failed to process.", err=True)
         return 1
 
     return 0

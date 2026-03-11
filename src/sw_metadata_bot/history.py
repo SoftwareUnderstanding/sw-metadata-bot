@@ -9,21 +9,32 @@ def normalize_repo_url(url: str) -> str:
     return url.strip().rstrip("/")
 
 
-def load_previous_created_report(report_path: Path | None) -> dict[str, dict]:
-    """Load a created_issues_report-like JSON and index by normalized repo URL."""
+def load_previous_report(report_path: Path | None) -> dict[str, dict]:
+    """Load unified report.json and index actionable entries by repo URL."""
     if report_path is None or not report_path.exists():
         return {}
 
     with open(report_path, encoding="utf-8") as f:
         raw = json.load(f)
 
-    if not isinstance(raw, list):
+    records = raw.get("records") if isinstance(raw, dict) else None
+    if not isinstance(records, list):
         return {}
 
     by_repo: dict[str, dict] = {}
-    for item in raw:
+    for item in records:
         if not isinstance(item, dict):
             continue
+
+        issue_persistence = item.get("issue_persistence")
+        issue_url = item.get("issue_url")
+        if (
+            issue_persistence != "posted"
+            or not isinstance(issue_url, str)
+            or not issue_url
+        ):
+            continue
+
         repo_url = item.get("repo_url")
         if not isinstance(repo_url, str) or not repo_url.strip():
             continue

@@ -1,5 +1,6 @@
 """Pipeline command to run analysis then issue creation."""
 
+import re
 from pathlib import Path
 
 import click
@@ -10,6 +11,7 @@ from .metacheck_wrapper import metacheck_command
 DEFAULT_INPUT_FILE = Path("assets/opt-ins.json")
 DEFAULT_OPTOUT_FILE = Path("assets/opt-outs.json")
 DEFAULT_OUTPUT_ROOT = Path("outputs")
+SNAPSHOT_TAG_PATTERN = re.compile(r"^(\d{8})(?:_(\d+))?$")
 
 
 def _resolve_run_paths(
@@ -19,7 +21,7 @@ def _resolve_run_paths(
     snapshot_tag: str | None,
 ) -> tuple[Path, Path, Path, Path]:
     """Compute dedicated output paths for a pipeline run."""
-    run_folder_name = run_name if run_name else ""
+    run_folder_name = run_name if run_name else input_file.stem
     run_root = output_root / run_folder_name
 
     if snapshot_tag:
@@ -38,6 +40,47 @@ def _resolve_run_paths(
     )
 
 
+def _snapshot_sort_key(snapshot_tag: str) -> tuple[str, int] | None:
+    """Return sortable key for snapshot tags matching YYYYMMDD or YYYYMMDD_N."""
+    match = SNAPSHOT_TAG_PATTERN.fullmatch(snapshot_tag)
+    if match is None:
+        return None
+    date_part, suffix_part = match.group(1), match.group(2)
+    suffix = int(suffix_part) if suffix_part is not None else 0
+    return (date_part, suffix)
+
+
+def find_latest_previous_report(
+    output_root: Path,
+    run_name: str,
+    current_snapshot_tag: str | None,
+) -> Path | None:
+    """Find latest previous report.json from same run folder."""
+    run_root = output_root / run_name
+    if not run_root.exists() or not run_root.is_dir():
+        return None
+
+    candidates: list[tuple[tuple[str, int], Path]] = []
+    for child in run_root.iterdir():
+        if not child.is_dir():
+            continue
+        key = _snapshot_sort_key(child.name)
+        if key is None:
+            continue
+        if current_snapshot_tag is not None and child.name == current_snapshot_tag:
+            continue
+
+        report_path = child / "issues_out" / "report.json"
+        if report_path.exists():
+            candidates.append((key, report_path))
+
+    if not candidates:
+        return None
+
+    candidates.sort(reverse=True)
+    return candidates[0][1]
+
+
 def run_pipeline(
     input_file: Path,
     opt_outs_file: Path,
@@ -45,7 +88,7 @@ def run_pipeline(
     dry_run: bool,
     run_name: str | None,
     snapshot_tag: str | None,
-    previous_created_report: Path | None,
+    previous_report: Path | None,
 ) -> None:
     """Run analysis and issue creation for a repository list."""
     somef_output_dir, pitfalls_output_dir, analysis_output_file, issues_output_dir = (
@@ -71,6 +114,14 @@ def run_pipeline(
         standalone_mode=False,
     )
 
+    resolved_previous_report = previous_report
+    if resolved_previous_report is None and run_name is not None:
+        resolved_previous_report = find_latest_previous_report(
+            output_root=output_root,
+            run_name=run_name,
+            current_snapshot_tag=snapshot_tag,
+        )
+
     create_issues_args = [
         "--pitfalls-output-dir",
         str(pitfalls_output_dir),
@@ -84,10 +135,8 @@ def run_pipeline(
         str(analysis_output_file),
     ]
 
-    if previous_created_report is not None:
-        create_issues_args.extend(
-            ["--previous-created-report", str(previous_created_report)]
-        )
+    if resolved_previous_report is not None:
+        create_issues_args.extend(["--previous-report", str(resolved_previous_report)])
 
     if dry_run:
         create_issues_args.append("--dry-run")
@@ -136,10 +185,10 @@ def run_pipeline(
     help="Run issue creation in dry-run mode without posting issues.",
 )
 @click.option(
-    "--previous-created-report",
+    "--previous-report",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     default=None,
-    help="Previous created_issues_report.json used for incremental issue handling.",
+    help="Previous report.json used for incremental issue handling.",
 )
 def run_pipeline_command(
     input_file: Path,
@@ -148,7 +197,7 @@ def run_pipeline_command(
     run_name: str | None,
     snapshot_tag: str | None,
     dry_run: bool,
-    previous_created_report: Path | None,
+    previous_report: Path | None,
 ) -> None:
     """Run full pipeline: metacheck analysis then issue creation."""
     run_pipeline(
@@ -158,5 +207,5 @@ def run_pipeline_command(
         dry_run=dry_run,
         run_name=run_name,
         snapshot_tag=snapshot_tag,
-        previous_created_report=previous_created_report,
+        previous_report=previous_report,
     )
