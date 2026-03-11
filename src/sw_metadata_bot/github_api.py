@@ -1,9 +1,10 @@
 """GitHub API client."""
 
-import os
 from urllib.parse import ParseResult, urlparse
 
 import requests
+
+from .token_resolver import resolve_token
 
 
 class GitHubAPI:
@@ -11,12 +12,13 @@ class GitHubAPI:
 
     def __init__(self, token: str | None = None, dry_run: bool = False):
         """Initialize GitHub API client."""
-        self.token = token or os.getenv("GITHUB_API_TOKEN")
+        self.token = resolve_token(
+            explicit_token=token,
+            env_var_name="GITHUB_API_TOKEN",
+            dry_run=dry_run,
+        )
         self.dry_run = dry_run
         self.base_url = "https://api.github.com"
-
-        if not self.token and not dry_run:
-            raise ValueError("GITHUB_API_TOKEN required (set in .env or environment)")
 
     @staticmethod
     def parse_url(url: str) -> tuple[str, str]:

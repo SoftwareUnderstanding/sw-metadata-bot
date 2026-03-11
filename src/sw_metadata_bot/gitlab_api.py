@@ -1,9 +1,10 @@
 """GitLab API client."""
 
-import os
 from urllib.parse import urlparse
 
 import requests
+
+from .token_resolver import resolve_token
 
 
 class GitLabAPI:
@@ -11,11 +12,12 @@ class GitLabAPI:
 
     def __init__(self, token: str | None = None, dry_run: bool = False):
         """Initialize GitLab API client."""
-        self.token = token or os.getenv("GITLAB_API_TOKEN")
+        self.token = resolve_token(
+            explicit_token=token,
+            env_var_name="GITLAB_API_TOKEN",
+            dry_run=dry_run,
+        )
         self.dry_run = dry_run
-
-        if not self.token and not dry_run:
-            raise ValueError("GITLAB_API_TOKEN required (set in .env or environment)")
 
     @staticmethod
     def parse_url(url: str) -> tuple[str, str, str]:
