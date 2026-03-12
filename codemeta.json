@@ -18,7 +18,7 @@
     ],
     "codeRepository": "https://github.com/SoftwareUnderstanding/sw-metadata-bot",
     "dateCreated": "2025-12-15",
-    "dateModified": "2026-03-05",
+    "dateModified": "2026-03-12",
     "datePublished": "2026-01-16",
     "description": "A repository to keep the code of the RSMetaCheck bot for pushing issues with existing repository metadata",
     "downloadUrl": "https://github.com/SoftwareUnderstanding/sw-metadata-bot/releases",
@@ -36,7 +36,7 @@
         "metacheck>=0.2.0",
         "requests>=2.32.5"
     ],
-    "version": "0.1.4",
+    "version": "0.2.0",
     "codemeta:contIntegration": {
         "@id": "https://raw.githubusercontent.com/SoftwareUnderstanding/sw-metadata-bot/main/.github/workflows/ci.yml"
     },
