@@ -1,6 +1,20 @@
 {
+  "community": {
+    "name": "testing community",
+    "description": "This is a testing community for the sw-metadata-bot. It is used to test the functionality of the bot and to ensure that it is working correctly. The repositories listed in this community are used for testing purposes only and may not be representative of real-world repositories. The custom message is also used for testing purposes and can be modified as needed."
+  },
   "repositories": [
-    "https://github.com/SoftwareUnderstanding/sw-metadata-bot"
+    "https://github.com/SoftwareUnderstanding/sw-metadata-bot",
+    "https://github.com/SoftwareUnderstanding/RsMetaCheck"
   ],
-  "custom_message": "This is a issue created for testing purposes."
+  "issues": {
+    "custom_message": "This is a issue created for testing purposes. Several metadata issues were identified and could be addressed.",
+    "opt_outs": [
+    ]
+  },
+  "outputs": {
+    "root_dir": "assets",
+    "run_name": "example_run",
+    "snapshot_tag_format": "%Y%m%d"
+  }
 }
