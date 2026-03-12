@@ -60,6 +60,38 @@ def test_resolve_run_paths_with_run_name_and_snapshot():
     assert issues_output_dir == Path("outputs/ossr-run/2026-03/issues_out")
 
 
+def test_resolve_output_root_relative_uses_project_root(tmp_path):
+    """Resolve relative output root from project root rather than config directory."""
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'example'\n")
+    config_dir = tmp_path / "assets"
+    config_dir.mkdir()
+    config_path = config_dir / "community.json"
+    config = {
+        "repositories": [],
+        "outputs": {"root_dir": "assets"},
+    }
+    config_path.write_text(json.dumps(config))
+
+    resolved_output_root = pipeline.resolve_output_root(config, config_path)
+
+    assert resolved_output_root == tmp_path / "assets"
+
+
+def test_resolve_output_root_keeps_absolute_path(tmp_path):
+    """Keep absolute output root unchanged."""
+    config_path = tmp_path / "community.json"
+    absolute_output_root = tmp_path / "custom-output"
+    config = {
+        "repositories": [],
+        "outputs": {"root_dir": str(absolute_output_root)},
+    }
+    config_path.write_text(json.dumps(config))
+
+    resolved_output_root = pipeline.resolve_output_root(config, config_path)
+
+    assert resolved_output_root == absolute_output_root
+
+
 def test_resolve_unique_snapshot_tag_uses_requested_when_missing(tmp_path):
     """Keep requested snapshot tag when the target directory does not exist."""
     run_root = tmp_path / "outputs" / "batch-a"

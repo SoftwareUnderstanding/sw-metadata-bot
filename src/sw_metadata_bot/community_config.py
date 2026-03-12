@@ -8,6 +8,7 @@ import click
 
 DEFAULT_OUTPUT_ROOT = Path("outputs")
 DEFAULT_SNAPSHOT_TAG_FORMAT = "%Y%m%d"
+PROJECT_ROOT_MARKERS = ("pyproject.toml", ".git")
 
 
 def _normalize_repo_url(url: str) -> str:
@@ -118,8 +119,17 @@ def append_opt_out_repository(config_path: Path, repo_url: str) -> bool:
     return True
 
 
+def _find_project_root(config_path: Path) -> Path:
+    """Return the nearest ancestor that looks like the project root."""
+    resolved_config_path = config_path.resolve()
+    for candidate in (resolved_config_path.parent, *resolved_config_path.parents):
+        if any((candidate / marker).exists() for marker in PROJECT_ROOT_MARKERS):
+            return candidate
+    return Path.cwd().resolve()
+
+
 def resolve_output_root(config: dict, config_path: Path) -> Path:
-    """Return the configured output root, resolved relative to the config file."""
+    """Return the configured output root, resolving relative paths from project root."""
     outputs = config.get("outputs", {})
     if not isinstance(outputs, dict):
         raise click.ClickException(
@@ -134,7 +144,7 @@ def resolve_output_root(config: dict, config_path: Path) -> Path:
 
     root_path = Path(root_dir)
     if not root_path.is_absolute():
-        root_path = config_path.parent / root_path
+        root_path = _find_project_root(config_path) / root_path
     return root_path
 
 
