@@ -555,9 +555,11 @@ def test_run_pipeline_uses_config_snapshot_default(monkeypatch, tmp_path):
     calls: dict[str, dict] = {}
 
     def fake_metacheck_main(*, args, standalone_mode):
+        """Record the call arguments for metacheck."""
         calls["metacheck"] = {"args": args, "standalone_mode": standalone_mode}
 
     def fake_create_issues_main(*, args, standalone_mode):
+        """Record the call arguments for create_issues."""
         calls["create_issues"] = {"args": args, "standalone_mode": standalone_mode}
 
     monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
@@ -594,9 +596,11 @@ def test_run_pipeline_skips_analysis_from_previous_dry_run_commit(
     called = {"metacheck": False, "create_issues": False}
 
     def fake_metacheck_main(*, args, standalone_mode):
+        """Mark metacheck as called."""
         called["metacheck"] = True
 
     def fake_create_issues_main(*, args, standalone_mode):
+        """Mark create_issues as called."""
         called["create_issues"] = True
 
     monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
@@ -650,9 +654,11 @@ def test_run_pipeline_unchanged_repo_unsubscribe_updates_opt_out(monkeypatch, tm
     called = {"metacheck": False, "create_issues": False}
 
     def fake_metacheck_main(*, args, standalone_mode):
+        """Mark metacheck as called."""
         called["metacheck"] = True
 
     def fake_create_issues_main(*, args, standalone_mode):
+        """Mark create_issues as called."""
         called["create_issues"] = True
 
     monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)

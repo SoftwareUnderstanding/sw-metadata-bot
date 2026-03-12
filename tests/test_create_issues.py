@@ -29,6 +29,44 @@ def test_detect_platform_unsupported():
         raise AssertionError("Expected ValueError for unsupported platform")
 
 
+class _FakeIssueClient:
+    """Configurable test double for issue client operations."""
+
+    def __init__(self, comments_for=None):
+        """Set up with an optional callable returning comments by issue URL."""
+        self.commented: list[str] = []
+        self._comments_for = comments_for or (lambda url: [])
+
+    def create_issue(self, repo_url: str, title: str, body: str) -> str:
+        """Return a synthetic issue URL."""
+        return f"{repo_url}/issues/0"
+
+    def get_issue(self, issue_url: str) -> dict:
+        """Return an open issue stub."""
+        return {"state": "open"}
+
+    def get_issue_comments(self, issue_url: str) -> list[str]:
+        """Return comments from the configured callback."""
+        return self._comments_for(issue_url)
+
+    def add_issue_comment(self, issue_url: str, body: str) -> None:
+        """Record the commented issue URL."""
+        self.commented.append(issue_url)
+
+    def close_issue(self, issue_url: str) -> None:
+        """No-op stub."""
+        return None
+
+
+def _patch_issue_client(monkeypatch, client: _FakeIssueClient) -> None:
+    """Monkeypatch _get_or_create_client to return the given fake client."""
+    monkeypatch.setattr(
+        create_issues,
+        "_get_or_create_client",
+        lambda platform, dry_run, github, gitlab: (client, None, client),
+    )
+
+
 def _write_community_config(tmp_path, **overrides):
     """Write a minimal community config and return its path."""
     config = {
@@ -283,30 +321,8 @@ def test_create_issues_incremental_identical_open_issue_skips(tmp_path, monkeypa
         )
     )
 
-    class FakeIssueClient:
-        def create_issue(self, repo_url: str, title: str, body: str) -> str:
-            return f"{repo_url}/issues/0"
-
-        def get_issue(self, issue_url: str) -> dict:
-            return {"state": "open"}
-
-        def get_issue_comments(self, issue_url: str) -> list[str]:
-            return []
-
-        def add_issue_comment(self, issue_url: str, body: str) -> None:
-            return None
-
-        def close_issue(self, issue_url: str) -> None:
-            return None
-
-    fake_client = FakeIssueClient()
-
-    def fake_get_or_create_client(platform, dry_run, github, gitlab):
-        return fake_client, None, fake_client
-
-    monkeypatch.setattr(
-        create_issues, "_get_or_create_client", fake_get_or_create_client
-    )
+    fake_client = _FakeIssueClient()
+    _patch_issue_client(monkeypatch, fake_client)
 
     runner = CliRunner()
     community_config = _write_community_config(tmp_path)
@@ -390,30 +406,8 @@ def test_create_issues_incremental_uses_current_commit_id_field(tmp_path, monkey
         )
     )
 
-    class FakeIssueClient:
-        def create_issue(self, repo_url: str, title: str, body: str) -> str:
-            return f"{repo_url}/issues/0"
-
-        def get_issue(self, issue_url: str) -> dict:
-            return {"state": "open"}
-
-        def get_issue_comments(self, issue_url: str) -> list[str]:
-            return []
-
-        def add_issue_comment(self, issue_url: str, body: str) -> None:
-            return None
-
-        def close_issue(self, issue_url: str) -> None:
-            return None
-
-    fake_client = FakeIssueClient()
-
-    def fake_get_or_create_client(platform, dry_run, github, gitlab):
-        return fake_client, None, fake_client
-
-    monkeypatch.setattr(
-        create_issues, "_get_or_create_client", fake_get_or_create_client
-    )
+    fake_client = _FakeIssueClient()
+    _patch_issue_client(monkeypatch, fake_client)
 
     runner = CliRunner()
     community_config = _write_community_config(tmp_path)
@@ -554,40 +548,11 @@ def test_create_issues_mixed_repo_decisions_same_changed_unsubscribe(
         )
     )
 
-    class FakeIssueClient:
-        """Test double for issue operations used by incremental flow."""
-
-        def __init__(self):
-            self.commented: list[str] = []
-
-        def create_issue(self, repo_url: str, title: str, body: str) -> str:
-            return f"{repo_url}/issues/0"
-
-        def get_issue(self, issue_url: str) -> dict:
-            return {"state": "open"}
-
-        def get_issue_comments(self, issue_url: str) -> list[str]:
-            if issue_url.endswith("/3"):
-                return ["unsubscribe"]
-            return []
-
-        def add_issue_comment(self, issue_url: str, body: str) -> None:
-            self.commented.append(issue_url)
-
-        def close_issue(self, issue_url: str) -> None:
-            return None
-
-    fake_client = FakeIssueClient()
-    community_config = _write_community_config(tmp_path)
-
-    def fake_get_or_create_client(platform, dry_run, github, gitlab):
-        return fake_client, None, fake_client
-
-    monkeypatch.setattr(
-        create_issues,
-        "_get_or_create_client",
-        fake_get_or_create_client,
+    fake_client = _FakeIssueClient(
+        comments_for=lambda url: ["unsubscribe"] if url.endswith("/3") else []
     )
+    community_config = _write_community_config(tmp_path)
+    _patch_issue_client(monkeypatch, fake_client)
 
     runner = CliRunner()
     result = runner.invoke(
@@ -677,31 +642,9 @@ def test_create_issues_uses_previous_issue_url_lineage_in_dry_run(
         )
     )
 
-    class FakeIssueClient:
-        def create_issue(self, repo_url: str, title: str, body: str) -> str:
-            return f"{repo_url}/issues/0"
-
-        def get_issue(self, issue_url: str) -> dict:
-            return {"state": "open"}
-
-        def get_issue_comments(self, issue_url: str) -> list[str]:
-            return ["unsubscribe"]
-
-        def add_issue_comment(self, issue_url: str, body: str) -> None:
-            return None
-
-        def close_issue(self, issue_url: str) -> None:
-            return None
-
-    fake_client = FakeIssueClient()
+    fake_client = _FakeIssueClient(comments_for=lambda url: ["unsubscribe"])
     community_config = _write_community_config(tmp_path)
-
-    def fake_get_or_create_client(platform, dry_run, github, gitlab):
-        return fake_client, None, fake_client
-
-    monkeypatch.setattr(
-        create_issues, "_get_or_create_client", fake_get_or_create_client
-    )
+    _patch_issue_client(monkeypatch, fake_client)
 
     runner = CliRunner()
     result = runner.invoke(
