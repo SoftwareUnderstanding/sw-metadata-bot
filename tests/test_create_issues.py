@@ -247,7 +247,7 @@ def test_create_issues_cli_empty_dir(tmp_path):
     assert "No pitfalls files found" in result.output
 
 
-def test_create_issues_incremental_identical_open_issue_skips(tmp_path):
+def test_create_issues_incremental_identical_open_issue_skips(tmp_path, monkeypatch):
     """Skip creation when previous findings are identical and previous issue is open."""
     pitfalls_dir = tmp_path / "pitfalls"
     pitfalls_dir.mkdir()
@@ -283,6 +283,31 @@ def test_create_issues_incremental_identical_open_issue_skips(tmp_path):
         )
     )
 
+    class FakeIssueClient:
+        def create_issue(self, repo_url: str, title: str, body: str) -> str:
+            return f"{repo_url}/issues/0"
+
+        def get_issue(self, issue_url: str) -> dict:
+            return {"state": "open"}
+
+        def get_issue_comments(self, issue_url: str) -> list[str]:
+            return []
+
+        def add_issue_comment(self, issue_url: str, body: str) -> None:
+            return None
+
+        def close_issue(self, issue_url: str) -> None:
+            return None
+
+    fake_client = FakeIssueClient()
+
+    def fake_get_or_create_client(platform, dry_run, github, gitlab):
+        return fake_client, None, fake_client
+
+    monkeypatch.setattr(
+        create_issues, "_get_or_create_client", fake_get_or_create_client
+    )
+
     runner = CliRunner()
     community_config = _write_community_config(tmp_path)
     result = runner.invoke(
@@ -310,7 +335,7 @@ def test_create_issues_incremental_identical_open_issue_skips(tmp_path):
     assert report["records"][0]["reason_code"] == "identical_and_issue_open"
 
 
-def test_create_issues_incremental_uses_current_commit_id_field(tmp_path):
+def test_create_issues_incremental_uses_current_commit_id_field(tmp_path, monkeypatch):
     """Skip as not-updated when previous report stores current_commit_id."""
     pitfalls_dir = tmp_path / "pitfalls"
     pitfalls_dir.mkdir()
@@ -363,6 +388,31 @@ def test_create_issues_incremental_uses_current_commit_id_field(tmp_path):
                 }
             }
         )
+    )
+
+    class FakeIssueClient:
+        def create_issue(self, repo_url: str, title: str, body: str) -> str:
+            return f"{repo_url}/issues/0"
+
+        def get_issue(self, issue_url: str) -> dict:
+            return {"state": "open"}
+
+        def get_issue_comments(self, issue_url: str) -> list[str]:
+            return []
+
+        def add_issue_comment(self, issue_url: str, body: str) -> None:
+            return None
+
+        def close_issue(self, issue_url: str) -> None:
+            return None
+
+    fake_client = FakeIssueClient()
+
+    def fake_get_or_create_client(platform, dry_run, github, gitlab):
+        return fake_client, None, fake_client
+
+    monkeypatch.setattr(
+        create_issues, "_get_or_create_client", fake_get_or_create_client
     )
 
     runner = CliRunner()
@@ -586,3 +636,91 @@ def test_create_issues_mixed_repo_decisions_same_changed_unsubscribe(
     assert updated_config["issues"]["opt_outs"] == [
         "https://github.com/example/repo-unsub"
     ]
+
+
+def test_create_issues_uses_previous_issue_url_lineage_in_dry_run(
+    tmp_path, monkeypatch
+):
+    """Detect unsubscribe when previous report carries previous_issue_url only."""
+    pitfalls_dir = tmp_path / "pitfalls"
+    pitfalls_dir.mkdir()
+    issues_dir = tmp_path / "issues"
+
+    payload = {
+        "dateCreated": "2026-03-12T13:57:53Z",
+        "assessedSoftware": {"url": "https://github.com/example/repo"},
+        "checks": [
+            {
+                "assessesIndicator": {
+                    "@id": "https://w3id.org/rsmetacheck/catalog/#W004"
+                },
+                "evidence": "W004 detected",
+            }
+        ],
+    }
+    (pitfalls_dir / "sample.jsonld").write_text(json.dumps(payload))
+
+    previous_report = tmp_path / "previous_report.json"
+    previous_report.write_text(
+        json.dumps(
+            {
+                "records": [
+                    {
+                        "repo_url": "https://github.com/example/repo",
+                        "previous_issue_url": "https://github.com/example/repo/issues/7",
+                        "issue_persistence": "none",
+                        "pitfalls_ids": [],
+                        "warnings_ids": ["W004"],
+                    }
+                ]
+            }
+        )
+    )
+
+    class FakeIssueClient:
+        def create_issue(self, repo_url: str, title: str, body: str) -> str:
+            return f"{repo_url}/issues/0"
+
+        def get_issue(self, issue_url: str) -> dict:
+            return {"state": "open"}
+
+        def get_issue_comments(self, issue_url: str) -> list[str]:
+            return ["unsubscribe"]
+
+        def add_issue_comment(self, issue_url: str, body: str) -> None:
+            return None
+
+        def close_issue(self, issue_url: str) -> None:
+            return None
+
+    fake_client = FakeIssueClient()
+    community_config = _write_community_config(tmp_path)
+
+    def fake_get_or_create_client(platform, dry_run, github, gitlab):
+        return fake_client, None, fake_client
+
+    monkeypatch.setattr(
+        create_issues, "_get_or_create_client", fake_get_or_create_client
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        create_issues.create_issues_command,
+        [
+            "--pitfalls-output-dir",
+            str(pitfalls_dir),
+            "--issues-dir",
+            str(issues_dir),
+            "--community-config-file",
+            str(community_config),
+            "--previous-report",
+            str(previous_report),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+    report = json.loads((issues_dir / "report.json").read_text())
+    record = report["records"][0]
+    assert record["action"] == "skipped"
+    assert record["reason_code"] == "unsubscribe"

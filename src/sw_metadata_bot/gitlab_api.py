@@ -183,6 +183,13 @@ class GitLabAPI:
 
         return response.json()["web_url"]
 
+    def _build_headers(self) -> dict[str, str]:
+        """Build request headers with optional private token."""
+        headers: dict[str, str] = {}
+        if self.token:
+            headers["PRIVATE-TOKEN"] = self.token
+        return headers
+
     @staticmethod
     def parse_issue_url(issue_url: str) -> tuple[str, str, str, int]:
         """Parse a GitLab issue URL and return host/owner/repo/iid."""
@@ -212,18 +219,23 @@ class GitLabAPI:
         """Fetch issue details from GitLab."""
         host, owner, repo, issue_iid = self.parse_issue_url(issue_url)
 
-        if self.dry_run:
-            return {
-                "state": "opened",
-                "web_url": issue_url,
-                "iid": issue_iid,
-                "project": f"{owner}/{repo}",
-            }
-
         base_url = self.get_base_url(host)
         project_id = requests.utils.quote(f"{owner}/{repo}", safe="")
         url = f"{base_url}/projects/{project_id}/issues/{issue_iid}"
-        headers = {"PRIVATE-TOKEN": self.token}
+        headers = self._build_headers()
+        if self.dry_run:
+            try:
+                response = requests.get(url, headers=headers, timeout=10)
+                response.raise_for_status()
+                return response.json()
+            except Exception:
+                return {
+                    "state": "opened",
+                    "web_url": issue_url,
+                    "iid": issue_iid,
+                    "project": f"{owner}/{repo}",
+                }
+
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         return response.json()
@@ -232,13 +244,21 @@ class GitLabAPI:
         """Fetch issue comments and return note bodies."""
         host, owner, repo, issue_iid = self.parse_issue_url(issue_url)
 
-        if self.dry_run:
-            return []
-
         base_url = self.get_base_url(host)
         project_id = requests.utils.quote(f"{owner}/{repo}", safe="")
         url = f"{base_url}/projects/{project_id}/issues/{issue_iid}/notes"
-        headers = {"PRIVATE-TOKEN": self.token}
+        headers = self._build_headers()
+        if self.dry_run:
+            try:
+                response = requests.get(url, headers=headers, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+                return [
+                    str(item.get("body", "")) for item in data if isinstance(item, dict)
+                ]
+            except Exception:
+                return []
+
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         data = response.json()

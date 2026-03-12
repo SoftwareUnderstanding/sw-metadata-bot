@@ -9,7 +9,9 @@ from tempfile import NamedTemporaryFile
 import click
 import requests
 
+from . import github_api, history
 from .community_config import (
+    append_opt_out_repository,
     get_repositories,
     load_community_config,
     resolve_output_root,
@@ -17,7 +19,6 @@ from .community_config import (
     resolve_snapshot_tag,
 )
 from .create_issues import create_issues_command
-from .history import load_previous_report
 from .metacheck_wrapper import metacheck_command
 
 SNAPSHOT_TAG_PATTERN = re.compile(r"^(\d{8})(?:_(\d+))?$")
@@ -81,10 +82,15 @@ def _build_repo_not_updated_record(
     repo_url: str,
     current_commit_id: str | None,
     previous_commit_id: str | None,
+    *,
+    dry_run: bool,
+    reason_code: str = "repo_not_updated",
+    previous_issue_url: str | None = None,
+    unsubscribe_detected: bool = False,
 ) -> dict[str, object]:
     """Build report record for repositories skipped before analysis."""
     platform = "github" if "github.com" in repo_url.lower() else None
-    return {
+    record: dict[str, object] = {
         "repo_url": repo_url,
         "platform": platform,
         "pitfalls_count": 0,
@@ -96,13 +102,30 @@ def _build_repo_not_updated_record(
         "pitfalls_ids": [],
         "warnings_ids": [],
         "action": "skipped",
-        "reason_code": "repo_not_updated",
+        "reason_code": reason_code,
         "findings_signature": "",
         "current_commit_id": current_commit_id,
         "previous_commit_id": previous_commit_id,
-        "dry_run": False,
+        "dry_run": dry_run,
         "issue_persistence": "none",
     }
+    if previous_issue_url:
+        record["previous_issue_url"] = previous_issue_url
+    if unsubscribe_detected:
+        record["unsubscribe_detected"] = True
+    return record
+
+
+def _is_unsubscribe_comment(comment: str) -> bool:
+    """Return True when a comment is exactly the unsubscribe keyword."""
+    return comment.strip().lower() == "unsubscribe"
+
+
+def _detect_unsubscribe_in_previous_issue(issue_url: str, dry_run: bool) -> bool:
+    """Check whether previous issue comments include an unsubscribe request."""
+    client = github_api.GitHubAPI(dry_run=dry_run)
+    comments = client.get_issue_comments(issue_url)
+    return any(_is_unsubscribe_comment(comment) for comment in comments)
 
 
 def _merge_pre_skipped_records(
@@ -297,14 +320,18 @@ def run_pipeline(
             current_snapshot_tag=resolved_snapshot_tag,
         )
 
-    previous_records = load_previous_report(resolved_previous_report)
+    previous_commit_records = history.load_previous_commit_report(
+        resolved_previous_report
+    )
+    previous_issue_records = history.load_previous_report(resolved_previous_report)
     repositories_to_analyze = repositories
     pre_skipped_records: list[dict[str, object]] = []
 
-    if previous_records:
+    if previous_commit_records:
         repositories_to_analyze = []
         for repo_url in repositories:
-            previous = previous_records.get(_normalize_repo_url(repo_url))
+            normalized_repo = _normalize_repo_url(repo_url)
+            previous = previous_commit_records.get(normalized_repo)
             if previous is None:
                 repositories_to_analyze.append(repo_url)
                 continue
@@ -329,11 +356,44 @@ def run_pipeline(
                 and current_commit_id != "Unknown"
                 and current_commit_id == previous_commit_id
             ):
+                previous_issue = previous_issue_records.get(normalized_repo)
+                previous_issue_url = None
+                if previous_issue is not None:
+                    value = previous_issue.get("issue_url")
+                    if isinstance(value, str) and value:
+                        previous_issue_url = value
+
+                if previous_issue_url:
+                    try:
+                        unsubscribe_detected = _detect_unsubscribe_in_previous_issue(
+                            issue_url=previous_issue_url,
+                            dry_run=dry_run,
+                        )
+                    except Exception:
+                        unsubscribe_detected = False
+
+                    if unsubscribe_detected:
+                        append_opt_out_repository(community_config_file, repo_url)
+                        pre_skipped_records.append(
+                            _build_repo_not_updated_record(
+                                repo_url=repo_url,
+                                current_commit_id=current_commit_id,
+                                previous_commit_id=previous_commit_id,
+                                dry_run=dry_run,
+                                reason_code="unsubscribe",
+                                previous_issue_url=previous_issue_url,
+                                unsubscribe_detected=True,
+                            )
+                        )
+                        continue
+
                 pre_skipped_records.append(
                     _build_repo_not_updated_record(
                         repo_url=repo_url,
                         current_commit_id=current_commit_id,
                         previous_commit_id=previous_commit_id,
+                        dry_run=dry_run,
+                        previous_issue_url=previous_issue_url,
                     )
                 )
                 continue

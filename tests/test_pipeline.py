@@ -585,3 +585,126 @@ def test_run_pipeline_uses_config_snapshot_default(monkeypatch, tmp_path):
         pipeline.load_community_config(community_config), None
     )
     assert args[3] == str(output_root / "batch-a" / expected_snapshot / "somef_outputs")
+
+
+def test_run_pipeline_skips_analysis_from_previous_dry_run_commit(
+    monkeypatch, tmp_path
+):
+    """Skip analysis when previous report is simulated but commit hash is unchanged."""
+    called = {"metacheck": False, "create_issues": False}
+
+    def fake_metacheck_main(*, args, standalone_mode):
+        called["metacheck"] = True
+
+    def fake_create_issues_main(*, args, standalone_mode):
+        called["create_issues"] = True
+
+    monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.create_issues_command, "main", fake_create_issues_main)
+    monkeypatch.setattr(pipeline, "_get_repo_head_commit", lambda repo_url: "abc123")
+
+    output_root = tmp_path / "outputs"
+    community_config = _write_community_config(
+        tmp_path,
+        repositories=["https://github.com/example/repo"],
+        outputs={
+            "root_dir": str(output_root),
+            "run_name": "batch-a",
+            "snapshot_tag_format": None,
+        },
+    )
+
+    prev_dir = output_root / "batch-a" / "20260310" / "issues_out"
+    prev_dir.mkdir(parents=True)
+    (prev_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "records": [
+                    {
+                        "repo_url": "https://github.com/example/repo",
+                        "issue_persistence": "simulated",
+                        "current_commit_id": "abc123",
+                    }
+                ]
+            }
+        )
+    )
+
+    pipeline.run_pipeline(
+        community_config_file=community_config,
+        dry_run=True,
+        snapshot_tag="20260311",
+        previous_report=None,
+    )
+
+    assert called["metacheck"] is False
+    assert called["create_issues"] is False
+
+    report_path = output_root / "batch-a" / "20260311" / "issues_out" / "report.json"
+    report = json.loads(report_path.read_text())
+    assert report["records"][0]["reason_code"] == "repo_not_updated"
+
+
+def test_run_pipeline_unchanged_repo_unsubscribe_updates_opt_out(monkeypatch, tmp_path):
+    """Detect unsubscribe during pre-skip for unchanged repos and persist opt-out."""
+    called = {"metacheck": False, "create_issues": False}
+
+    def fake_metacheck_main(*, args, standalone_mode):
+        called["metacheck"] = True
+
+    def fake_create_issues_main(*, args, standalone_mode):
+        called["create_issues"] = True
+
+    monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.create_issues_command, "main", fake_create_issues_main)
+    monkeypatch.setattr(pipeline, "_get_repo_head_commit", lambda repo_url: "abc123")
+    monkeypatch.setattr(
+        pipeline,
+        "_detect_unsubscribe_in_previous_issue",
+        lambda issue_url, dry_run: True,
+    )
+
+    output_root = tmp_path / "outputs"
+    community_config = _write_community_config(
+        tmp_path,
+        repositories=["https://github.com/example/repo"],
+        outputs={
+            "root_dir": str(output_root),
+            "run_name": "batch-a",
+            "snapshot_tag_format": None,
+        },
+    )
+
+    prev_dir = output_root / "batch-a" / "20260310" / "issues_out"
+    prev_dir.mkdir(parents=True)
+    (prev_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "records": [
+                    {
+                        "repo_url": "https://github.com/example/repo",
+                        "issue_persistence": "none",
+                        "previous_issue_url": "https://github.com/example/repo/issues/7",
+                        "current_commit_id": "abc123",
+                    }
+                ]
+            }
+        )
+    )
+
+    pipeline.run_pipeline(
+        community_config_file=community_config,
+        dry_run=True,
+        snapshot_tag="20260311",
+        previous_report=None,
+    )
+
+    assert called["metacheck"] is False
+    assert called["create_issues"] is False
+
+    report_path = output_root / "batch-a" / "20260311" / "issues_out" / "report.json"
+    report = json.loads(report_path.read_text())
+    assert report["records"][0]["reason_code"] == "unsubscribe"
+
+    updated_config = json.loads(community_config.read_text())
+    assert updated_config["issues"]["opt_outs"] == ["https://github.com/example/repo"]

@@ -32,6 +32,55 @@ def test_load_previous_report_indexes_only_posted_by_repo(tmp_path):
     assert set(result.keys()) == {"https://github.com/org/repo"}
 
 
+def test_load_previous_report_accepts_previous_issue_url(tmp_path):
+    """Index records that carry previous_issue_url lineage from prior actions."""
+    report_path = tmp_path / "report.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "records": [
+                    {
+                        "repo_url": "https://github.com/org/repo",
+                        "previous_issue_url": "https://github.com/org/repo/issues/9",
+                        "issue_persistence": "none",
+                    }
+                ]
+            }
+        )
+    )
+
+    result = history.load_previous_report(report_path)
+
+    assert set(result.keys()) == {"https://github.com/org/repo"}
+    assert (
+        result["https://github.com/org/repo"]["issue_url"]
+        == "https://github.com/org/repo/issues/9"
+    )
+
+
+def test_load_previous_commit_report_keeps_simulated_entries(tmp_path):
+    """Include simulated records for commit-based analysis skipping."""
+    report_path = tmp_path / "report.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "records": [
+                    {
+                        "repo_url": "https://github.com/org/repo",
+                        "issue_persistence": "simulated",
+                        "current_commit_id": "abc123",
+                    }
+                ]
+            }
+        )
+    )
+
+    result = history.load_previous_commit_report(report_path)
+
+    assert set(result.keys()) == {"https://github.com/org/repo"}
+    assert result["https://github.com/org/repo"]["current_commit_id"] == "abc123"
+
+
 def test_load_previous_report_handles_missing_file(tmp_path):
     """Return empty mapping when previous report file is absent."""
     missing = tmp_path / "missing.json"
