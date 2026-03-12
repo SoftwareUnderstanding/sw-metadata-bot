@@ -1,0 +1,61 @@
+name: 'SW Metadata Bot - Run Pipeline'
+description: 'Run full metadata pipeline (metacheck + issue handling) from a community config'
+author: 'Tom François'
+
+inputs:
+  community-config-file:
+    description: 'Path to community configuration JSON file'
+    required: true
+  snapshot-tag:
+    description: 'Optional snapshot tag override (for example 20260312)'
+    required: false
+    default: ''
+  dry-run:
+    description: 'Run issue creation in dry-run mode'
+    required: false
+    default: 'true'
+  previous-report:
+    description: 'Optional path to previous report.json for incremental handling'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version-file: '.python-version'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: true
+
+    - name: Install dependencies
+      shell: bash
+      run: uv sync
+
+    - name: Run pipeline
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        args=(
+          run-pipeline
+          --community-config-file "${{ inputs.community-config-file }}"
+        )
+
+        if [[ "${{ inputs.snapshot-tag }}" != "" ]]; then
+          args+=(--snapshot-tag "${{ inputs.snapshot-tag }}")
+        fi
+
+        if [[ "${{ inputs.previous-report }}" != "" ]]; then
+          args+=(--previous-report "${{ inputs.previous-report }}")
+        fi
+
+        if [[ "${{ inputs.dry-run }}" == "true" ]]; then
+          args+=(--dry-run)
+        fi
+
+        uv run sw-metadata-bot "${args[@]}"

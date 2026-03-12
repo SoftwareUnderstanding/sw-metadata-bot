@@ -16,33 +16,45 @@ jobs:
   analyze-and-create-issues:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      COMMUNITY_CONFIG_FILE: assets/ossr_list_url.json
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Run metacheck analysis
-        uses: ./.github/actions/metacheck-analysis
-        id: analysis
-        with:
-          input: assets/ossr_list_url.json
-          pitfalls-output: pitfalls_outputs
-          analysis-output: analysis_results.json
+      - name: Resolve run metadata
+        id: run_meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          SNAPSHOT_TAG="$(date -u +%Y%m%d)"
 
-      - name: Run create-issues in dry-run mode
-        uses: ./.github/actions/create-issues
+          OUTPUT_ROOT="$(python -c 'import json, os; p=os.environ["COMMUNITY_CONFIG_FILE"]; d=json.load(open(p, encoding="utf-8")); print(d.get("outputs", {}).get("root_dir", "outputs"))')"
+          RUN_NAME="$(python -c 'import json, os, pathlib; p=os.environ["COMMUNITY_CONFIG_FILE"]; d=json.load(open(p, encoding="utf-8")); print(d.get("outputs", {}).get("run_name", d.get("community", {}).get("name", pathlib.Path(p).stem)))')"
+
+          RUN_ROOT="${OUTPUT_ROOT}/${RUN_NAME}/${SNAPSHOT_TAG}"
+
+          echo "snapshot_tag=${SNAPSHOT_TAG}" >> "$GITHUB_OUTPUT"
+          echo "run_root=${RUN_ROOT}" >> "$GITHUB_OUTPUT"
+          echo "analysis_output=${RUN_ROOT}/analysis_results.json" >> "$GITHUB_OUTPUT"
+          echo "pitfalls_output=${RUN_ROOT}/pitfalls_outputs" >> "$GITHUB_OUTPUT"
+          echo "issues_output=${RUN_ROOT}/issues_out" >> "$GITHUB_OUTPUT"
+
+      - name: Run full pipeline in dry-run mode
+        uses: ./.github/actions/run-pipeline
         with:
-          pitfalls-output-dir: ${{ steps.analysis.outputs.pitfalls-output-dir }}
-          issues-dir: issues_output
+          community-config-file: ${{ env.COMMUNITY_CONFIG_FILE }}
+          snapshot-tag: ${{ steps.run_meta.outputs.snapshot_tag }}
           dry-run: 'true'
-          log-level: INFO
 
       - name: Upload analysis results
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: analysis-results
-          path: analysis_results.json
+          path: ${{ steps.run_meta.outputs.analysis_output }}
+          if-no-files-found: ignore
           retention-days: 30
 
       - name: Upload pitfalls files
@@ -50,7 +62,8 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: pitfalls-files
-          path: pitfalls_outputs/
+          path: ${{ steps.run_meta.outputs.pitfalls_output }}/
+          if-no-files-found: ignore
           retention-days: 30
 
       - name: Upload generated issues
@@ -58,7 +71,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: generated-issues
-          path: issues_output/
+          path: ${{ steps.run_meta.outputs.issues_output }}/
           retention-days: 30
 
       - name: Generate summary
@@ -66,14 +79,14 @@ jobs:
         run: |
           echo "## Analysis Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -f analysis_results.json ]; then
+          if [ -f "${{ steps.run_meta.outputs.analysis_output }}" ]; then
             echo "### Analysis Results" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
-            head -100 analysis_results.json >> $GITHUB_STEP_SUMMARY
+            head -100 "${{ steps.run_meta.outputs.analysis_output }}" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Output Artifacts" >> $GITHUB_STEP_SUMMARY
-          echo "- Analysis results: \`analysis_results.json\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Pitfalls files: \`pitfalls-files/\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Generated issues: \`generated-issues/\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Analysis results: \`${{ steps.run_meta.outputs.analysis_output }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Pitfalls files: \`${{ steps.run_meta.outputs.pitfalls_output }}/\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Generated issues: \`${{ steps.run_meta.outputs.issues_output }}/\`" >> $GITHUB_STEP_SUMMARY

@@ -6,6 +6,21 @@ inputs:
   pitfalls-output-dir:
     description: 'Directory containing pitfalls JSON-LD files from metacheck analysis'
     required: true
+  community-config-file:
+    description: 'Unified community JSON configuration file'
+    required: true
+  analysis-summary-file:
+    description: 'Optional analysis summary JSON path for commit-aware incremental handling'
+    required: false
+    default: ''
+  previous-report:
+    description: 'Optional previous report.json path for incremental issue handling'
+    required: false
+    default: ''
+  dependency-group:
+    description: 'Dependency group used during installation'
+    required: false
+    default: 'dev'
   issues-dir:
     description: 'Directory to save issue bodies and reports'
     required: false
@@ -27,31 +42,19 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        clean: false
-
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
-        python-version: '3.11'
+        python-version-file: '.python-version'
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v3
+      uses: astral-sh/setup-uv@v7
       with:
-        version: "latest"
+        enable-cache: true
 
     - name: Install dependencies
       shell: bash
-      run: uv sync
-
-    # Download the artifacts from Job 1
-    - name: Download pitfalls artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: pitfalls-outputs
-        path: pitfalls_outputs/
+      run: uv sync --group "${{ inputs.dependency-group }}"
 
     - name: Create output directory
       shell: bash
@@ -60,8 +63,26 @@ runs:
     - name: Create issues
       shell: bash
       run: |
-        uv run sw-metadata-bot create-issues \
-          --pitfalls-output-dir "${{ inputs.pitfalls-output-dir }}" \
-          --issues-dir "${{ inputs.issues-dir }}" \
-          --log-level "${{ inputs.log-level }}" \
-          ${{ inputs.dry-run == 'true' && '--dry-run' || '' }}
+        set -euo pipefail
+
+        args=(
+          create-issues
+          --pitfalls-output-dir "${{ inputs.pitfalls-output-dir }}"
+          --issues-dir "${{ inputs.issues-dir }}"
+          --community-config-file "${{ inputs.community-config-file }}"
+          --log-level "${{ inputs.log-level }}"
+        )
+
+        if [[ "${{ inputs.analysis-summary-file }}" != "" ]]; then
+          args+=(--analysis-summary-file "${{ inputs.analysis-summary-file }}")
+        fi
+
+        if [[ "${{ inputs.previous-report }}" != "" ]]; then
+          args+=(--previous-report "${{ inputs.previous-report }}")
+        fi
+
+        if [[ "${{ inputs.dry-run }}" == "true" ]]; then
+          args+=(--dry-run)
+        fi
+
+        uv run sw-metadata-bot "${args[@]}"

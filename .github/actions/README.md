@@ -14,7 +14,22 @@ Part of the [CodeMetaSoft](https://w3id.org/codemetasoft) project to improve res
 
 ## Available Actions
 
+### `run-pipeline` (recommended)
+
+Run the full config-first pipeline (`metacheck` + `create-issues`) in one step.
+
+```yaml
+uses: codemetasoft/sw-metadata-bot/.github/actions/run-pipeline@v1
+with:
+  community-config-file: 'assets/ossr_list_url.json' # Required
+  snapshot-tag: '20260312'                           # Optional
+  dry-run: 'true'                                    # Optional (default: true)
+  previous-report: ''                                # Optional
+```
+
 ### `metacheck-analysis`
+
+Legacy split action for analysis-only workflows.
 
 Run metadata analysis on repositories to detect pitfalls.
 
@@ -29,10 +44,13 @@ with:
 ```
 
 **Outputs:**
+
 - `pitfalls-output-dir`: Path to directory with pitfalls JSON-LD files
 - `analysis-output-file`: Path to analysis summary JSON file
 
 ### `create-issues`
+
+Legacy split action for issue handling only.
 
 Create GitHub/GitLab issues based on analysis results.
 
@@ -40,12 +58,16 @@ Create GitHub/GitLab issues based on analysis results.
 uses: codemetasoft/sw-metadata-bot/.github/actions/create-issues@v1
 with:
   pitfalls-output-dir: 'pitfalls'  # Required: Directory with pitfalls files
+  community-config-file: 'assets/ossr_list_url.json' # Required
+  analysis-summary-file: 'analysis_results.json'      # Optional
+  previous-report: ''                                 # Optional
   issues-dir: 'issues'             # Optional: Output directory (default: issues_output)
   dry-run: 'true'                  # Optional: Dry-run mode (default: true)
   log-level: 'INFO'                # Optional: Logging level (default: INFO)
 ```
 
 **Outputs:**
+
 - `issues-dir`: Path to directory with generated issue files
 
 ## Usage Examples
@@ -65,16 +87,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Analyze metadata
-        uses: codemetasoft/sw-metadata-bot/.github/actions/metacheck-analysis@v1
-        id: analysis
+      - name: Run full pipeline
+        uses: codemetasoft/sw-metadata-bot/.github/actions/run-pipeline@v1
         with:
-          input: 'repos.json'
-
-      - name: Generate issues
-        uses: codemetasoft/sw-metadata-bot/.github/actions/create-issues@v1
-        with:
-          pitfalls-output-dir: ${{ steps.analysis.outputs.pitfalls-output-dir }}
+          community-config-file: 'assets/ossr_list_url.json'
           dry-run: 'true'
 
       - name: Upload results
@@ -103,6 +119,7 @@ jobs:
   uses: codemetasoft/sw-metadata-bot/.github/actions/create-issues@v1
   with:
     pitfalls-output-dir: 'pitfalls'
+    community-config-file: 'assets/ossr_list_url.json'
     dry-run: 'false'  # Actually create issues
     log-level: 'DEBUG'
 ```
@@ -136,6 +153,7 @@ Generated issue bodies ready to be posted to repositories. Each file corresponds
 ## Authentication
 
 When creating actual issues (dry-run: false):
+
 - **GitHub**: Set `GITHUB_TOKEN` environment variable
 - **GitLab**: Set `GITLAB_TOKEN` environment variable
 
@@ -147,6 +165,7 @@ When creating actual issues (dry-run: false):
     GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
   with:
     pitfalls-output-dir: 'pitfalls'
+    community-config-file: 'assets/ossr_list_url.json'
     dry-run: 'false'
 ```
 
@@ -162,5 +181,6 @@ MIT
 ## Questions?
 
 For issues, suggestions, or questions about the bot:
+
 - GitHub: [codemetasoft/sw-metadata-bot](https://github.com/codemetasoft/sw-metadata-bot)
 - Documentation: [CodeMetaSoft](https://w3id.org/codemetasoft)

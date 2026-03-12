@@ -14,21 +14,45 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Run metacheck analysis (current repo)
-        uses: SoftwareUnderstanding/sw-metadata-bot/.github/actions/metacheck-analysis@v1
-        id: analysis
-        with:
-          input: https://github.com/${{ github.repository }}
-          pitfalls-output: pitfalls_outputs
-          analysis-output: analysis_results.json
+      - name: Build temporary community config
+        id: community
+        shell: bash
+        run: |
+          set -euo pipefail
+          SNAPSHOT_TAG="$(date -u +%Y%m%d)"
+          COMMUNITY_CONFIG_FILE="assets/workflow_example_community.json"
 
-      - name: Create issues (dry-run)
-        uses: SoftwareUnderstanding/sw-metadata-bot/.github/actions/create-issues@v1
+          mkdir -p assets
+          cat > "${COMMUNITY_CONFIG_FILE}" << EOF
+          {
+            "community": {
+              "name": "${{ github.event.repository.name }}"
+            },
+            "repositories": [
+              "https://github.com/${{ github.repository }}"
+            ],
+            "issues": {
+              "custom_message": "This repository was analyzed via the sw-metadata-bot example workflow.",
+              "opt_outs": []
+            },
+            "outputs": {
+              "root_dir": "outputs",
+              "run_name": "example",
+              "snapshot_tag_format": null
+            }
+          }
+          EOF
+
+          echo "community_config=${COMMUNITY_CONFIG_FILE}" >> "$GITHUB_OUTPUT"
+          echo "snapshot_tag=${SNAPSHOT_TAG}" >> "$GITHUB_OUTPUT"
+          echo "run_root=outputs/example/${SNAPSHOT_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Run full pipeline (dry-run)
+        uses: ./.github/actions/run-pipeline
         with:
-          pitfalls-output-dir: ${{ steps.analysis.outputs.pitfalls-output-dir }}
-          issues-dir: issues_output
+          community-config-file: ${{ steps.community.outputs.community_config }}
+          snapshot-tag: ${{ steps.community.outputs.snapshot_tag }}
           dry-run: 'true'
-          log-level: INFO
 
       - name: Upload analysis artifacts
         if: always()
@@ -36,6 +60,7 @@ jobs:
         with:
           name: sw-metadata-bot-results
           path: |
-            analysis_results.json
-            pitfalls_outputs/
-            issues_output/
+            ${{ steps.community.outputs.run_root }}/analysis_results.json
+            ${{ steps.community.outputs.run_root }}/pitfalls_outputs/
+            ${{ steps.community.outputs.run_root }}/issues_out/
+          if-no-files-found: ignore
