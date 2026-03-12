@@ -437,9 +437,12 @@ def create_issues_command(
             if previous_exists:
                 previous_data = previous if previous is not None else {}
                 previous_issue_url = str(previous_data.get("issue_url", "") or "")
+                previous_commit_value = previous_data.get("current_commit_id")
+                if previous_commit_value is None:
+                    previous_commit_value = previous_data.get("commit_id")
                 previous_commit_id = (
-                    str(previous_data.get("commit_id"))
-                    if previous_data.get("commit_id") is not None
+                    str(previous_commit_value)
+                    if previous_commit_value is not None
                     else None
                 )
                 previous_signature = history.findings_signature(

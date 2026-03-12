@@ -314,3 +314,270 @@ def test_create_issues_incremental_identical_open_issue_skips(tmp_path):
     assert report["records"][0]["repo_url"] == "https://github.com/example/repo"
     assert report["records"][0]["action"] == "skipped"
     assert report["records"][0]["reason_code"] == "identical_and_issue_open"
+
+
+def test_create_issues_incremental_uses_current_commit_id_field(tmp_path):
+    """Skip as not-updated when previous report stores current_commit_id."""
+    pitfalls_dir = tmp_path / "pitfalls"
+    pitfalls_dir.mkdir()
+    issues_dir = tmp_path / "issues"
+
+    pitfalls_payload = {
+        "dateCreated": "2026-03-11T13:51:04Z",
+        "assessedSoftware": {"url": "https://github.com/example/repo"},
+        "checks": [
+            {
+                "checkId": "hash-p",
+                "assessesIndicator": {
+                    "@id": "https://w3id.org/rsmetacheck/catalog/#P001"
+                },
+                "evidence": "P001 detected",
+            }
+        ],
+    }
+    (pitfalls_dir / "sample.jsonld").write_text(json.dumps(pitfalls_payload))
+
+    previous_report = tmp_path / "previous_report.json"
+    previous_report.write_text(
+        json.dumps(
+            {
+                "records": [
+                    {
+                        "repo_url": "https://github.com/example/repo",
+                        "issue_url": "https://github.com/example/repo/issues/7",
+                        "pitfalls_ids": ["P001"],
+                        "warnings_ids": [],
+                        "issue_persistence": "posted",
+                        "current_commit_id": "abc123",
+                    }
+                ]
+            }
+        )
+    )
+
+    analysis_summary = tmp_path / "analysis_results.json"
+    analysis_summary.write_text(
+        json.dumps(
+            {
+                "summary": {
+                    "evaluated_repositories": {
+                        "example/repo": {
+                            "url": "https://github.com/example/repo",
+                            "commit_id": "abc123",
+                        }
+                    }
+                }
+            }
+        )
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        create_issues.create_issues_command,
+        [
+            "--pitfalls-output-dir",
+            str(pitfalls_dir),
+            "--issues-dir",
+            str(issues_dir),
+            "--previous-report",
+            str(previous_report),
+            "--analysis-summary-file",
+            str(analysis_summary),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+
+    report = json.loads((issues_dir / "report.json").read_text())
+    assert report["counters"]["skipped"] == 1
+    assert report["records"][0]["reason_code"] == "repo_not_updated"
+
+
+def test_create_issues_mixed_repo_decisions_same_changed_unsubscribe(
+    tmp_path, monkeypatch
+):
+    """Handle mixed repositories: unchanged commit, changed findings, and unsubscribe."""
+    pitfalls_dir = tmp_path / "pitfalls"
+    pitfalls_dir.mkdir()
+    issues_dir = tmp_path / "issues"
+
+    payload_same = {
+        "dateCreated": "2026-03-11T13:51:04Z",
+        "assessedSoftware": {"url": "https://github.com/example/repo-same"},
+        "checks": [
+            {
+                "assessesIndicator": {
+                    "@id": "https://w3id.org/rsmetacheck/catalog/#P001"
+                },
+                "evidence": "P001 detected",
+            }
+        ],
+    }
+    payload_changed = {
+        "dateCreated": "2026-03-11T13:51:04Z",
+        "assessedSoftware": {"url": "https://github.com/example/repo-changed"},
+        "checks": [
+            {
+                "assessesIndicator": {
+                    "@id": "https://w3id.org/rsmetacheck/catalog/#P001"
+                },
+                "evidence": "P001 detected",
+            },
+            {
+                "assessesIndicator": {
+                    "@id": "https://w3id.org/rsmetacheck/catalog/#W004"
+                },
+                "evidence": "W004 detected",
+            },
+        ],
+    }
+    payload_unsub = {
+        "dateCreated": "2026-03-11T13:51:04Z",
+        "assessedSoftware": {"url": "https://github.com/example/repo-unsub"},
+        "checks": [
+            {
+                "assessesIndicator": {
+                    "@id": "https://w3id.org/rsmetacheck/catalog/#P001"
+                },
+                "evidence": "P001 detected",
+            }
+        ],
+    }
+
+    (pitfalls_dir / "a_same.jsonld").write_text(json.dumps(payload_same))
+    (pitfalls_dir / "b_changed.jsonld").write_text(json.dumps(payload_changed))
+    (pitfalls_dir / "c_unsub.jsonld").write_text(json.dumps(payload_unsub))
+
+    previous_report = tmp_path / "previous_report.json"
+    previous_report.write_text(
+        json.dumps(
+            {
+                "records": [
+                    {
+                        "repo_url": "https://github.com/example/repo-same",
+                        "issue_url": "https://github.com/example/repo-same/issues/1",
+                        "pitfalls_ids": ["P001"],
+                        "warnings_ids": [],
+                        "issue_persistence": "posted",
+                        "current_commit_id": "abc123",
+                    },
+                    {
+                        "repo_url": "https://github.com/example/repo-changed",
+                        "issue_url": "https://github.com/example/repo-changed/issues/2",
+                        "pitfalls_ids": ["P001"],
+                        "warnings_ids": [],
+                        "issue_persistence": "posted",
+                        "current_commit_id": "old222",
+                    },
+                    {
+                        "repo_url": "https://github.com/example/repo-unsub",
+                        "issue_url": "https://github.com/example/repo-unsub/issues/3",
+                        "pitfalls_ids": ["P001"],
+                        "warnings_ids": [],
+                        "issue_persistence": "posted",
+                        "current_commit_id": "old333",
+                    },
+                ]
+            }
+        )
+    )
+
+    analysis_summary = tmp_path / "analysis_results.json"
+    analysis_summary.write_text(
+        json.dumps(
+            {
+                "summary": {
+                    "evaluated_repositories": {
+                        "same": {
+                            "url": "https://github.com/example/repo-same",
+                            "commit_id": "abc123",
+                        },
+                        "changed": {
+                            "url": "https://github.com/example/repo-changed",
+                            "commit_id": "new222",
+                        },
+                        "unsub": {
+                            "url": "https://github.com/example/repo-unsub",
+                            "commit_id": "new333",
+                        },
+                    }
+                }
+            }
+        )
+    )
+
+    class FakeIssueClient:
+        """Test double for issue operations used by incremental flow."""
+
+        def __init__(self):
+            self.commented: list[str] = []
+
+        def create_issue(self, repo_url: str, title: str, body: str) -> str:
+            return f"{repo_url}/issues/0"
+
+        def get_issue(self, issue_url: str) -> dict:
+            return {"state": "open"}
+
+        def get_issue_comments(self, issue_url: str) -> list[str]:
+            if issue_url.endswith("/3"):
+                return ["unsubscribe"]
+            return []
+
+        def add_issue_comment(self, issue_url: str, body: str) -> None:
+            self.commented.append(issue_url)
+
+        def close_issue(self, issue_url: str) -> None:
+            return None
+
+    fake_client = FakeIssueClient()
+
+    def fake_get_or_create_client(platform, dry_run, github, gitlab):
+        return fake_client, None, fake_client
+
+    monkeypatch.setattr(
+        create_issues,
+        "_get_or_create_client",
+        fake_get_or_create_client,
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        create_issues.create_issues_command,
+        [
+            "--pitfalls-output-dir",
+            str(pitfalls_dir),
+            "--issues-dir",
+            str(issues_dir),
+            "--previous-report",
+            str(previous_report),
+            "--analysis-summary-file",
+            str(analysis_summary),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+
+    report = json.loads((issues_dir / "report.json").read_text())
+    by_repo = {record["repo_url"]: record for record in report["records"]}
+
+    assert (
+        by_repo["https://github.com/example/repo-same"]["reason_code"]
+        == "repo_not_updated"
+    )
+    assert by_repo["https://github.com/example/repo-same"]["action"] == "skipped"
+
+    assert (
+        by_repo["https://github.com/example/repo-changed"]["reason_code"]
+        == "changed_and_issue_open"
+    )
+    assert (
+        by_repo["https://github.com/example/repo-changed"]["action"]
+        == "updated_by_comment"
+    )
+
+    assert (
+        by_repo["https://github.com/example/repo-unsub"]["reason_code"] == "unsubscribe"
+    )
+    assert by_repo["https://github.com/example/repo-unsub"]["action"] == "skipped"

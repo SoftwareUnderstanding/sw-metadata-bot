@@ -1,11 +1,16 @@
 """Pipeline command to run analysis then issue creation."""
 
+import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 import click
+import requests
 
 from .create_issues import create_issues_command
+from .history import load_previous_report
 from .metacheck_wrapper import metacheck_command
 
 DEFAULT_INPUT_FILE = Path("assets/opt-ins.json")
@@ -13,6 +18,177 @@ DEFAULT_OPTOUT_FILE = Path("assets/opt-outs.json")
 DEFAULT_OUTPUT_ROOT = Path("outputs")
 SNAPSHOT_TAG_PATTERN = re.compile(r"^(\d{8})(?:_(\d+))?$")
 SNAPSHOT_INCREMENT_PATTERN = re.compile(r"^(.+?)_(\d+)$")
+
+
+def _normalize_repo_url(url: str) -> str:
+    """Normalize repository URL for cross-report matching."""
+    return url.strip().rstrip("/")
+
+
+def _load_repositories_from_input(input_file: Path) -> list[str] | None:
+    """Load repositories from input JSON file, preserving order and uniqueness.
+
+    Returns None when input does not expose a valid repositories list.
+    """
+    with open(input_file, encoding="utf-8") as f:
+        data = json.load(f)
+
+    repositories = data.get("repositories") if isinstance(data, dict) else None
+    if not isinstance(repositories, list):
+        return None
+
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for item in repositories:
+        if not isinstance(item, str):
+            continue
+        normalized = _normalize_repo_url(item)
+        if normalized not in seen:
+            seen.add(normalized)
+            ordered.append(normalized)
+    return ordered
+
+
+def _extract_previous_commit(record: dict) -> str | None:
+    """Return previous commit id from report records with compatibility fallback."""
+    current_commit = record.get("current_commit_id")
+    if isinstance(current_commit, str) and current_commit:
+        return current_commit
+
+    legacy_commit = record.get("commit_id")
+    if isinstance(legacy_commit, str) and legacy_commit:
+        return legacy_commit
+
+    return None
+
+
+def _is_supported_for_commit_skip(repo_url: str) -> bool:
+    """Return whether pre-analysis commit lookup is supported for a repo URL."""
+    return "github.com" in repo_url.lower()
+
+
+def _parse_github_repo(repo_url: str) -> tuple[str, str] | None:
+    """Parse owner/repo from a GitHub repository URL."""
+    match = re.match(r"^https?://github\.com/([^/]+)/([^/]+)$", repo_url, re.IGNORECASE)
+    if match is None:
+        return None
+    owner = match.group(1)
+    repo = match.group(2).removesuffix(".git")
+    return owner, repo
+
+
+def _get_repo_head_commit(repo_url: str) -> str | None:
+    """Fetch current head commit for a GitHub repository."""
+    parsed = _parse_github_repo(repo_url)
+    if parsed is None:
+        return None
+
+    owner, repo = parsed
+    url = f"https://api.github.com/repos/{owner}/{repo}/commits"
+    response = requests.get(url, params={"per_page": 1}, timeout=10)
+    response.raise_for_status()
+    data = response.json()
+    if not isinstance(data, list) or not data:
+        return None
+    first = data[0]
+    if not isinstance(first, dict):
+        return None
+    sha = first.get("sha")
+    return str(sha) if isinstance(sha, str) and sha else None
+
+
+def _build_repo_not_updated_record(
+    repo_url: str,
+    current_commit_id: str | None,
+    previous_commit_id: str | None,
+) -> dict[str, object]:
+    """Build report record for repositories skipped before analysis."""
+    platform = "github" if "github.com" in repo_url.lower() else None
+    return {
+        "repo_url": repo_url,
+        "platform": platform,
+        "pitfalls_count": 0,
+        "warnings_count": 0,
+        "issue_url": None,
+        "analysis_date": "not-run",
+        "sw_metadata_bot_version": "unknown",
+        "rsmetacheck_version": "unknown",
+        "pitfalls_ids": [],
+        "warnings_ids": [],
+        "action": "skipped",
+        "reason_code": "repo_not_updated",
+        "findings_signature": "",
+        "current_commit_id": current_commit_id,
+        "previous_commit_id": previous_commit_id,
+        "dry_run": False,
+        "issue_persistence": "none",
+    }
+
+
+def _merge_pre_skipped_records(
+    report_file: Path,
+    skipped_records: list[dict[str, object]],
+) -> None:
+    """Merge pre-analysis skipped records into create-issues report output."""
+    if not skipped_records:
+        return
+
+    with open(report_file, encoding="utf-8") as f:
+        report = json.load(f)
+
+    records = report.get("records")
+    if not isinstance(records, list):
+        records = []
+    records = [*skipped_records, *records]
+    report["records"] = records
+
+    counters = report.get("counters")
+    if not isinstance(counters, dict):
+        counters = {}
+    counters["skipped"] = int(counters.get("skipped", 0)) + len(skipped_records)
+    counters["total"] = int(counters.get("total", 0)) + len(skipped_records)
+    report["counters"] = counters
+
+    with open(report_file, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2)
+
+
+def _write_pre_skipped_only_report(
+    report_file: Path,
+    *,
+    dry_run: bool,
+    analysis_summary_file: Path,
+    previous_report_source: Path | None,
+    skipped_records: list[dict[str, object]],
+) -> None:
+    """Write report.json when all repositories are skipped before analysis."""
+    report_file.parent.mkdir(parents=True, exist_ok=True)
+
+    report = {
+        "run_metadata": {
+            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "dry_run": dry_run,
+            "analysis_summary_file": str(analysis_summary_file),
+            "previous_report_source": (
+                str(previous_report_source)
+                if previous_report_source is not None
+                else None
+            ),
+        },
+        "counters": {
+            "total": len(skipped_records),
+            "created": 0,
+            "simulated": 0,
+            "updated_by_comment": 0,
+            "closed": 0,
+            "skipped": len(skipped_records),
+            "failed": 0,
+        },
+        "records": skipped_records,
+    }
+
+    with open(report_file, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2)
 
 
 def _resolve_unique_snapshot_tag(
@@ -134,26 +310,93 @@ def run_pipeline(
         )
     )
 
-    metacheck_command.main(
-        args=[
-            "--input",
-            str(input_file),
-            "--somef-output",
-            str(somef_output_dir),
-            "--pitfalls-output",
-            str(pitfalls_output_dir),
-            "--analysis-output",
-            str(analysis_output_file),
-        ],
-        standalone_mode=False,
-    )
-
     resolved_previous_report = previous_report
     if resolved_previous_report is None and run_name is not None:
         resolved_previous_report = find_latest_previous_report(
             output_root=output_root,
             run_name=run_name,
             current_snapshot_tag=resolved_snapshot_tag,
+        )
+
+    repositories = _load_repositories_from_input(input_file)
+    previous_records = load_previous_report(resolved_previous_report)
+    repositories_to_analyze: list[str] | None = repositories
+    pre_skipped_records: list[dict[str, object]] = []
+
+    if repositories is not None and previous_records:
+        repositories_to_analyze = []
+        for repo_url in repositories:
+            previous = previous_records.get(_normalize_repo_url(repo_url))
+            if previous is None:
+                repositories_to_analyze.append(repo_url)
+                continue
+
+            previous_commit_id = _extract_previous_commit(previous)
+            if (
+                previous_commit_id is None
+                or previous_commit_id == "Unknown"
+                or not _is_supported_for_commit_skip(repo_url)
+            ):
+                repositories_to_analyze.append(repo_url)
+                continue
+
+            try:
+                current_commit_id = _get_repo_head_commit(repo_url)
+            except Exception:
+                repositories_to_analyze.append(repo_url)
+                continue
+
+            if (
+                current_commit_id is not None
+                and current_commit_id != "Unknown"
+                and current_commit_id == previous_commit_id
+            ):
+                pre_skipped_records.append(
+                    _build_repo_not_updated_record(
+                        repo_url=repo_url,
+                        current_commit_id=current_commit_id,
+                        previous_commit_id=previous_commit_id,
+                    )
+                )
+                continue
+
+            repositories_to_analyze.append(repo_url)
+
+    analysis_input_file = input_file
+    temp_input_file: Path | None = None
+    if repositories_to_analyze is not None and repositories is not None:
+        if repositories_to_analyze:
+            with NamedTemporaryFile(
+                mode="w",
+                suffix=".json",
+                prefix="pipeline_filtered_",
+                delete=False,
+                encoding="utf-8",
+            ) as temp_file:
+                json.dump(
+                    {"repositories": repositories_to_analyze}, temp_file, indent=2
+                )
+                temp_input_file = Path(temp_file.name)
+                analysis_input_file = temp_input_file
+        else:
+            analysis_input_file = input_file
+
+    ran_analysis = True
+    if repositories_to_analyze is not None and not repositories_to_analyze:
+        ran_analysis = False
+    else:
+        metacheck_command.main(
+            args=[
+                "--input",
+                str(analysis_input_file),
+                "--somef-output",
+                str(somef_output_dir),
+                "--pitfalls-output",
+                str(pitfalls_output_dir),
+                "--analysis-output",
+                str(analysis_output_file),
+            ],
+            standalone_mode=False,
         )
 
     create_issues_args = [
@@ -175,7 +418,25 @@ def run_pipeline(
     if dry_run:
         create_issues_args.append("--dry-run")
 
-    create_issues_command.main(args=create_issues_args, standalone_mode=False)
+    if ran_analysis:
+        create_issues_command.main(args=create_issues_args, standalone_mode=False)
+
+    report_file = issues_output_dir / "report.json"
+    if ran_analysis and pre_skipped_records:
+        _merge_pre_skipped_records(
+            report_file=report_file, skipped_records=pre_skipped_records
+        )
+    elif not ran_analysis:
+        _write_pre_skipped_only_report(
+            report_file=report_file,
+            dry_run=dry_run,
+            analysis_summary_file=analysis_output_file,
+            previous_report_source=resolved_previous_report,
+            skipped_records=pre_skipped_records,
+        )
+
+    if temp_input_file is not None and temp_input_file.exists():
+        temp_input_file.unlink()
 
 
 @click.command()
