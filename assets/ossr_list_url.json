@@ -1,4 +1,9 @@
 {
+  "community": {
+    "name": "ossr",
+    "url": "https://escape-ossr.gitlab.io/ossr-pages/",
+    "description": "ESCAPE Open Source Software Repository (OSSR) is a collection of software repositories related to the ESCAPE project, which focuses on open science and data management in astronomy and astrophysics. The OSSR serves as a central hub for sharing and collaborating on software tools, libraries, and applications developed within the ESCAPE community. It provides a platform for researchers, developers, and users to access, contribute to, and maintain software resources that support the goals of the ESCAPE project."
+  },
   "repositories": [
     "https://atlas.cern/updates/press-statement/13-tev-open-data",
     "https://git.astron.nl/astron-sdc/escape-wp5/esap-deployment",
@@ -30,5 +35,13 @@
     "https://gitlab.in2p3.fr/escape2020/wp3/zenodoci",
     "https://gitlab.in2p3.fr/gammalearn/gammalearn"
   ],
-  "custom_message": "Your repository was analyzed as part of the ESCAPE OSSR metadata quality initiative. Several metadata issues were identified and could be addressed."
+  "issues": {
+    "custom_message": "Your repository was analyzed as part of the ESCAPE OSSR metadata quality initiative. Several metadata issues were identified and could be addressed.",
+    "opt_outs": []
+  },
+  "outputs": {
+    "root_dir": "outputs",
+    "run_name": "ossr",
+    "snapshot_tag_format": "%Y%m%d"
+  }
 }

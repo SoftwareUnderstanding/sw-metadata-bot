@@ -2,7 +2,6 @@
 
 import json
 
-import click
 from click.testing import CliRunner
 
 from sw_metadata_bot import create_issues
@@ -30,38 +29,18 @@ def test_detect_platform_unsupported():
         raise AssertionError("Expected ValueError for unsupported platform")
 
 
-def test_load_repository_list_normalizes_and_filters(tmp_path):
-    """Normalize URLs and ignore non-string entries."""
-    file_path = tmp_path / "opt-outs.json"
-    file_path.write_text(
-        json.dumps(
-            {
-                "repositories": [
-                    "https://github.com/a/b/",
-                    "https://gitlab.com/x/y",
-                    123,
-                    None,
-                ]
-            }
-        )
-    )
-
-    result = create_issues._load_repository_list(file_path)
-
-    assert result == {"https://github.com/a/b", "https://gitlab.com/x/y"}
-
-
-def test_load_repository_list_invalid_format_raises(tmp_path):
-    """Reject invalid repositories format."""
-    file_path = tmp_path / "opt-outs.json"
-    file_path.write_text(json.dumps({"repositories": "not-a-list"}))
-
-    try:
-        create_issues._load_repository_list(file_path)
-    except click.ClickException as exc:
-        assert "repositories' must be a list" in str(exc)
-    else:
-        raise AssertionError("Expected ClickException for invalid repositories format")
+def _write_community_config(tmp_path, **overrides):
+    """Write a minimal community config and return its path."""
+    config = {
+        "community": {"name": "ossr"},
+        "repositories": ["https://github.com/example/repo"],
+        "issues": {"custom_message": None, "opt_outs": []},
+        "outputs": {"root_dir": "outputs", "run_name": "ossr"},
+    }
+    config.update(overrides)
+    config_path = tmp_path / "community.json"
+    config_path.write_text(json.dumps(config))
+    return config_path
 
 
 def test_create_issues_cli_failed_report_contains_analysis_fields(tmp_path):
@@ -89,6 +68,7 @@ def test_create_issues_cli_failed_report_contains_analysis_fields(tmp_path):
     (pitfalls_dir / "sample.jsonld").write_text(json.dumps(pitfalls_payload))
 
     runner = CliRunner()
+    community_config = _write_community_config(tmp_path)
     result = runner.invoke(
         create_issues.create_issues_command,
         [
@@ -96,6 +76,8 @@ def test_create_issues_cli_failed_report_contains_analysis_fields(tmp_path):
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
+            "--community-config-file",
+            str(community_config),
             "--dry-run",
         ],
     )
@@ -149,6 +131,7 @@ def test_create_issues_cli_created_report_contains_analysis_fields(tmp_path):
     (pitfalls_dir / "sample.jsonld").write_text(json.dumps(pitfalls_payload))
 
     runner = CliRunner()
+    community_config = _write_community_config(tmp_path)
     result = runner.invoke(
         create_issues.create_issues_command,
         [
@@ -156,6 +139,8 @@ def test_create_issues_cli_created_report_contains_analysis_fields(tmp_path):
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
+            "--community-config-file",
+            str(community_config),
             "--dry-run",
         ],
     )
@@ -215,6 +200,7 @@ def test_create_issues_cli_extracts_ids_from_new_schema(tmp_path):
     (pitfalls_dir / "sample.jsonld").write_text(json.dumps(pitfalls_payload))
 
     runner = CliRunner()
+    community_config = _write_community_config(tmp_path)
     result = runner.invoke(
         create_issues.create_issues_command,
         [
@@ -222,6 +208,8 @@ def test_create_issues_cli_extracts_ids_from_new_schema(tmp_path):
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
+            "--community-config-file",
+            str(community_config),
             "--dry-run",
         ],
     )
@@ -241,6 +229,7 @@ def test_create_issues_cli_empty_dir(tmp_path):
     issues_dir = tmp_path / "issues"
 
     runner = CliRunner()
+    community_config = _write_community_config(tmp_path)
     result = runner.invoke(
         create_issues.create_issues_command,
         [
@@ -248,6 +237,8 @@ def test_create_issues_cli_empty_dir(tmp_path):
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
+            "--community-config-file",
+            str(community_config),
             "--dry-run",
         ],
     )
@@ -293,6 +284,7 @@ def test_create_issues_incremental_identical_open_issue_skips(tmp_path):
     )
 
     runner = CliRunner()
+    community_config = _write_community_config(tmp_path)
     result = runner.invoke(
         create_issues.create_issues_command,
         [
@@ -300,6 +292,8 @@ def test_create_issues_incremental_identical_open_issue_skips(tmp_path):
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
+            "--community-config-file",
+            str(community_config),
             "--previous-report",
             str(previous_report),
             "--dry-run",
@@ -372,6 +366,7 @@ def test_create_issues_incremental_uses_current_commit_id_field(tmp_path):
     )
 
     runner = CliRunner()
+    community_config = _write_community_config(tmp_path)
     result = runner.invoke(
         create_issues.create_issues_command,
         [
@@ -379,6 +374,8 @@ def test_create_issues_incremental_uses_current_commit_id_field(tmp_path):
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
+            "--community-config-file",
+            str(community_config),
             "--previous-report",
             str(previous_report),
             "--analysis-summary-file",
@@ -531,6 +528,7 @@ def test_create_issues_mixed_repo_decisions_same_changed_unsubscribe(
             return None
 
     fake_client = FakeIssueClient()
+    community_config = _write_community_config(tmp_path)
 
     def fake_get_or_create_client(platform, dry_run, github, gitlab):
         return fake_client, None, fake_client
@@ -549,6 +547,8 @@ def test_create_issues_mixed_repo_decisions_same_changed_unsubscribe(
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
+            "--community-config-file",
+            str(community_config),
             "--previous-report",
             str(previous_report),
             "--analysis-summary-file",
@@ -581,3 +581,8 @@ def test_create_issues_mixed_repo_decisions_same_changed_unsubscribe(
         by_repo["https://github.com/example/repo-unsub"]["reason_code"] == "unsubscribe"
     )
     assert by_repo["https://github.com/example/repo-unsub"]["action"] == "skipped"
+
+    updated_config = json.loads(community_config.read_text())
+    assert updated_config["issues"]["opt_outs"] == [
+        "https://github.com/example/repo-unsub"
+    ]

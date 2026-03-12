@@ -14,7 +14,7 @@ Self-contained steps to install, configure, and run `sw-metadata-bot`.
 - Python 3.11 or 3.12
 - GitHub or GitLab personal access token with permission to create issues
 - RSMetaCheck analysis output (pitfalls `*.jsonld` files)
-- Optional: `uv` (recommended) https://docs.astral.sh/uv
+- Optional: [`uv`](https://docs.astral.sh/uv) (recommended)
 
 ## Install
 
@@ -76,7 +76,7 @@ uv run sw-metadata-bot metacheck \
   --analysis-output analysis_results.json
 ```
 
-This produces `pitfalls_outputs/*.jsonld`, which the bot consumes. 
+This produces `pitfalls_outputs/*.jsonld`, which the bot consumes.
 You can also provide a json file as input listing mulitple repositories you want to analyse (see `assets/example_list_repo.json`).
 
 ## Create issues
@@ -106,20 +106,47 @@ Key options:
 
 ## Run complete pipeline
 
-To run the bot on the opt-ins list of repos. Please use dry-run flag to avoid spamming these repositories.
+The pipeline now uses a single community configuration file as its source of truth for:
+
+- repository list
+- custom issue message
+- inline opt-outs
+- output root and run name
+- default snapshot-tag format
+
+Example community config:
+
+```json
+{
+  "community": {"name": "ossr"},
+  "repositories": [
+    "https://github.com/owner/repo"
+  ],
+  "issues": {
+    "custom_message": "Your repository was analyzed as part of our metadata quality initiative.",
+    "opt_outs": []
+  },
+  "outputs": {
+    "root_dir": "outputs",
+    "run_name": "ossr",
+    "snapshot_tag_format": "%Y%m%d"
+  }
+}
+```
+
+To run the bot on a configured community, use dry-run first.
 
 ```bash
 uv run sw-metadata-bot run-pipeline \
+  --community-config-file assets/ossr_list_url.json \
   --dry-run
 ```
 
-To run the bot on a custom list of repositories you can add your own list as input
+You can override the generated snapshot tag when needed.
 
 ```bash
 uv run sw-metadata-bot run-pipeline \
-  --input-file <path_to_your_list.json> \
-  --output-root <output_dir> \
-  --run-name <subdir_name> \
+  --community-config-file <path_to_your_community.json> \
   --snapshot-tag <example_suffix> \
   --dry-run
 ```
@@ -162,8 +189,7 @@ Run the same pipeline on another repository list with dedicated outputs:
 
 ```bash
 uv run python -m sw_metadata_bot.scripts.run_bot \
-  --input-file data/state-capture-list.json \
-  --run-name state-capture \
+  --community-config-file assets/ossr_list_url.json \
   --snapshot-tag 2026-03 \
   --dry-run
 ```

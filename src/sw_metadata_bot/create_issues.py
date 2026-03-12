@@ -10,6 +10,12 @@ import click
 
 from . import github_api, gitlab_api, history, incremental, pitfalls
 from .check_parsing import extract_check_ids
+from .community_config import (
+    append_opt_out_repository,
+    get_custom_message,
+    get_opt_out_repositories,
+    load_community_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -81,34 +87,6 @@ def _load_analysis_commit_map(analysis_summary_file: Path | None) -> dict[str, s
     return commit_map
 
 
-def _append_opt_out_repo(opt_outs_file: Path | None, repo_url: str) -> bool:
-    """Append repository URL to the configured opt-out file if missing."""
-    if opt_outs_file is None:
-        return False
-
-    with open(opt_outs_file, encoding="utf-8") as f:
-        data = json.load(f)
-
-    repositories = data.get("repositories", [])
-    if not isinstance(repositories, list):
-        raise click.ClickException(
-            f"Invalid format in {opt_outs_file}: 'repositories' must be a list"
-        )
-
-    normalized_existing = {
-        _normalize_repo_url(url) for url in repositories if isinstance(url, str)
-    }
-    normalized_repo = _normalize_repo_url(repo_url)
-    if normalized_repo in normalized_existing:
-        return False
-
-    repositories.append(normalized_repo)
-    data["repositories"] = repositories
-    with open(opt_outs_file, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-    return True
-
-
 def _is_unsubscribe_comment(comment: str) -> bool:
     """Return True when a comment is exactly the unsubscribe keyword."""
     return comment.strip().lower() == "unsubscribe"
@@ -146,28 +124,6 @@ def _get_or_create_client(
         return github, gitlab_client, gitlab_client
 
     raise ValueError(f"Unsupported platform: {platform}")
-
-
-def load_config(config_path: Path | None) -> dict:
-    """Load issue configuration from JSON file."""
-    if config_path is None:
-        return {"custom_message": None}
-    with open(config_path, encoding="utf-8") as f:
-        return json.load(f)
-
-
-def _load_repository_list(file_path: Path) -> set[str]:
-    """Load repository URLs from a JSON file with a 'repositories' key."""
-    with open(file_path, encoding="utf-8") as f:
-        data = json.load(f)
-
-    repositories = data.get("repositories", [])
-    if not isinstance(repositories, list):
-        raise click.ClickException(
-            f"Invalid format in {file_path}: 'repositories' must be a list"
-        )
-
-    return {_normalize_repo_url(url) for url in repositories if isinstance(url, str)}
 
 
 def _extract_check_ids(checks: list[dict]) -> tuple[list[str], list[str]]:
@@ -282,16 +238,10 @@ def _build_report_entry(
     help="Logging level.",
 )
 @click.option(
-    "--opt-outs-file",
+    "--community-config-file",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
-    default=None,
-    help="JSON file containing repositories to exclude from issue creation.",
-)
-@click.option(
-    "--issue-config-file",
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
-    default=None,
-    help="JSON file containing issue configuration.",
+    required=True,
+    help="Unified community JSON configuration file.",
 )
 @click.option(
     "--analysis-summary-file",
@@ -310,8 +260,7 @@ def create_issues_command(
     issues_dir: Path,
     dry_run: bool,
     log_level: str,
-    opt_outs_file: Path | None,
-    issue_config_file: Path | None,
+    community_config_file: Path,
     analysis_summary_file: Path | None,
     previous_report: Path | None,
 ):
@@ -338,7 +287,8 @@ def create_issues_command(
     click.echo(f"Creating issues [{mode}]")
     click.echo(f"{'=' * 60}\n")
 
-    issue_config = load_config(issue_config_file)
+    community_config = load_community_config(community_config_file)
+    custom_message = get_custom_message(community_config)
     previous_records = history.load_previous_report(previous_report)
 
     if analysis_summary_file is None:
@@ -346,12 +296,11 @@ def create_issues_command(
         analysis_summary_file = fallback_summary if fallback_summary.exists() else None
     current_commit_map = _load_analysis_commit_map(analysis_summary_file)
 
-    opt_out_repos: set[str] = set()
-    if opt_outs_file is not None:
-        opt_out_repos = _load_repository_list(opt_outs_file)
-        click.echo(
-            f"Loaded {len(opt_out_repos)} opt-out repositories from: {opt_outs_file}\n"
-        )
+    opt_out_repos = get_opt_out_repositories(community_config)
+    click.echo(
+        "Loaded "
+        f"{len(opt_out_repos)} opt-out repositories from: {community_config_file}\n"
+    )
 
     # Find pitfalls files
     pitfalls_files = sorted(pitfalls_output_dir.glob("*.jsonld"))
@@ -485,7 +434,9 @@ def create_issues_command(
 
             if decision.action == "stop":
                 if decision.reason == "unsubscribe":
-                    added_to_opt_out = _append_opt_out_repo(opt_outs_file, repo_url)
+                    added_to_opt_out = append_opt_out_repository(
+                        community_config_file, repo_url
+                    )
                     if added_to_opt_out:
                         opt_out_repos.add(normalized_repo)
                     click.echo("  ↷ Skipped: unsubscribe detected in previous issue")
@@ -529,9 +480,7 @@ def create_issues_command(
                 )
 
                 report = pitfalls.format_report(repo_url, data)
-                body = pitfalls.create_issue_body(
-                    report, issue_config.get("custom_message")
-                )
+                body = pitfalls.create_issue_body(report, custom_message)
                 issue_client.add_issue_comment(
                     previous_issue_url,
                     f"New analysis detected updated findings.\n\n{body}",
@@ -609,9 +558,7 @@ def create_issues_command(
 
             # Generate issue content
             report = pitfalls.format_report(repo_url, data)
-            body = pitfalls.create_issue_body(
-                report, issue_config.get("custom_message")
-            )
+            body = pitfalls.create_issue_body(report, custom_message)
 
             # Save issue body
             body_file = issues_dir / f"issue_body_{file_path.stem}.md"
