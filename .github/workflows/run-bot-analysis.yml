@@ -50,7 +50,7 @@ jobs:
 
       - name: Upload analysis results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: analysis-results
           path: ${{ steps.run_meta.outputs.analysis_output }}
@@ -59,7 +59,7 @@ jobs:
 
       - name: Upload pitfalls files
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: pitfalls-files
           path: ${{ steps.run_meta.outputs.pitfalls_output }}/
@@ -68,7 +68,7 @@ jobs:
 
       - name: Upload generated issues
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: generated-issues
           path: ${{ steps.run_meta.outputs.issues_output }}/
