@@ -2,7 +2,8 @@
 
 import click
 
-from .pipeline import publish_command, run_analysis_command
+from .pipeline import run_analysis_command
+from .publish import publish_command
 from .verify_tokens import verify_tokens_command
 
 
