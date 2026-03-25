@@ -134,21 +134,26 @@ Example community config:
 }
 ```
 
-To run the bot on a configured community, use dry-run first.
+To run the bot on a configured community, start with analysis.
 
 ```bash
-uv run sw-metadata-bot run-pipeline \
-  --community-config-file assets/ossr_list_url.json \
-  --dry-run
+uv run sw-metadata-bot run-analysis \
+  --community-config-file assets/ossr_list_url.json
 ```
 
 You can override the generated snapshot tag when needed.
 
 ```bash
-uv run sw-metadata-bot run-pipeline \
+uv run sw-metadata-bot run-analysis \
   --community-config-file <path_to_your_community.json> \
-  --snapshot-tag <example_suffix> \
-  --dry-run
+  --snapshot-tag <example_suffix>
+```
+
+Publish from an existing analysis snapshot (no new analysis is generated):
+
+```bash
+uv run sw-metadata-bot publish \
+  --analysis-root outputs/ossr/<snapshot_tag>
 ```
 
 ## Minimal examples (Python)
@@ -179,19 +184,18 @@ print(f"Issue URL: {issue_url}")
 
 ## Full pipeline runner (list-based campaigns)
 
-Run the full pipeline with the default opt-ins list:
+Run analysis with the default opt-ins list:
 
 ```bash
-uv run python -m sw_metadata_bot.scripts.run_bot --dry-run
+uv run python -m sw_metadata_bot.scripts.run_bot
 ```
 
-Run the same pipeline on another repository list with dedicated outputs:
+Run the same analysis on another repository list with dedicated outputs:
 
 ```bash
 uv run python -m sw_metadata_bot.scripts.run_bot \
   --community-config-file assets/ossr_list_url.json \
-  --snapshot-tag 2026-03 \
-  --dry-run
+  --snapshot-tag 2026-03
 ```
 
 This stores outputs in:
@@ -208,7 +212,7 @@ Six months later, run with another snapshot tag (for example `2026-09`) and comp
 - **403 / 404 on issue creation**: You need write/triage permissions on the repository. Test with repos you own first.
 - **Platform not supported**: Repo must be GitHub or GitLab (self-hosted GitLab is auto-detected).
 - **No pitfalls found**: Ensure `--pitfalls-output-dir` points to metacheck JSON-LD outputs.
-- **Review before posting**: Always run with `--dry-run` first and inspect files in `--issues-dir`.
+- **Review before posting**: Inspect snapshot reports after `run-analysis`, then run `publish` on the selected analysis root.
 
 ## Supported platforms
 

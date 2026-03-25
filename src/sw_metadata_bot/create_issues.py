@@ -543,19 +543,28 @@ def create_issues_command(
                     repo_updated = previous_commit_id != current_commit_id
 
                 if previous_issue_url:
-                    github, gitlab, issue_client = _get_or_create_client(
-                        platform,
-                        dry_run,
-                        github,
-                        gitlab,
-                    )
-                    issue_data = issue_client.get_issue(previous_issue_url)
-                    previous_issue_state = str(issue_data.get("state", ""))
-                    previous_issue_open = _is_issue_open(platform, issue_data)
-                    comments = issue_client.get_issue_comments(previous_issue_url)
-                    unsubscribe_detected = any(
-                        _is_unsubscribe_comment(comment) for comment in comments
-                    )
+                    previous_issue_persistence = previous_data.get("issue_persistence")
+                    is_simulated_issue = previous_issue_persistence == "simulated"
+
+                    if not is_simulated_issue:
+                        github, gitlab, issue_client = _get_or_create_client(
+                            platform,
+                            dry_run,
+                            github,
+                            gitlab,
+                        )
+                        issue_data = issue_client.get_issue(previous_issue_url)
+                        previous_issue_state = str(issue_data.get("state", ""))
+                        previous_issue_open = _is_issue_open(platform, issue_data)
+                        comments = issue_client.get_issue_comments(previous_issue_url)
+                        unsubscribe_detected = any(
+                            _is_unsubscribe_comment(comment) for comment in comments
+                        )
+                    else:
+                        previous_issue_state = previous_data.get(
+                            "previous_issue_state", ""
+                        )
+                        previous_issue_open = False
 
             # Unsubscribe acts like dry-run publication suppression, not hard stop.
             effective_dry_run = dry_run or unsubscribe_detected

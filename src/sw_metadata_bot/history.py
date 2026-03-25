@@ -24,7 +24,11 @@ def _read_report_records(report_path: Path | None) -> list[dict]:
 
 
 def _extract_issue_reference(record: dict) -> str | None:
-    """Return a reusable issue URL from current or previous issue fields."""
+    """Return a reusable issue URL from current, previous, or simulated issue fields.
+
+    Prioritizes actual posted issues, then falls back to simulated URLs
+    so that dry-run records become valid for incremental analysis.
+    """
     issue_url = record.get("issue_url")
     if isinstance(issue_url, str) and issue_url:
         issue_persistence = record.get("issue_persistence")
@@ -34,6 +38,10 @@ def _extract_issue_reference(record: dict) -> str | None:
     previous_issue_url = record.get("previous_issue_url")
     if isinstance(previous_issue_url, str) and previous_issue_url:
         return previous_issue_url
+
+    simulated_issue_url = record.get("simulated_issue_url")
+    if isinstance(simulated_issue_url, str) and simulated_issue_url:
+        return simulated_issue_url
 
     return None
 

@@ -1,5 +1,5 @@
 name: 'SW Metadata Bot - Run Pipeline'
-description: 'Run full metadata pipeline (metacheck + issue handling) from a community config'
+description: 'Run analysis and optionally publish issues from a community config'
 author: 'Tom François'
 
 inputs:
@@ -11,7 +11,7 @@ inputs:
     required: false
     default: ''
   dry-run:
-    description: 'Run issue creation in dry-run mode'
+    description: 'If true, run analysis only; if false, run analysis then publish'
     required: false
     default: 'true'
   previous-report:
@@ -36,13 +36,13 @@ runs:
       shell: bash
       run: uv sync
 
-    - name: Run pipeline
+    - name: Run analysis
       shell: bash
       run: |
         set -euo pipefail
 
         args=(
-          run-pipeline
+          run-analysis
           --community-config-file "${{ inputs.community-config-file }}"
         )
 
@@ -54,8 +54,57 @@ runs:
           args+=(--previous-report "${{ inputs.previous-report }}")
         fi
 
-        if [[ "${{ inputs.dry-run }}" == "true" ]]; then
-          args+=(--dry-run)
-        fi
-
         uv run sw-metadata-bot "${args[@]}"
+
+    - name: Resolve analysis snapshot
+      id: resolve-analysis-root
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        analysis_root=$(uv run python - <<'PY'
+        import json
+        from pathlib import Path
+
+        config_file = Path("${{ inputs.community-config-file }}")
+        with open(config_file, encoding="utf-8") as f:
+            data = json.load(f)
+
+        outputs = data.get("outputs", {}) if isinstance(data, dict) else {}
+        root_dir = outputs.get("root_dir", "outputs")
+        run_name = outputs.get("run_name")
+        if not run_name:
+            community = data.get("community", {}) if isinstance(data, dict) else {}
+            run_name = community.get("name") or config_file.stem
+
+        run_root = Path(root_dir) / run_name
+        if not run_root.exists():
+            raise SystemExit(f"Run root not found: {run_root}")
+
+        requested = "${{ inputs.snapshot-tag }}".strip()
+        candidates = [p for p in run_root.iterdir() if p.is_dir()]
+        if requested:
+            prefixed = [
+                p
+                for p in candidates
+                if p.name == requested or p.name.startswith(f"{requested}_")
+            ]
+            if prefixed:
+                candidates = prefixed
+
+        if not candidates:
+            raise SystemExit(f"No snapshot folders found under: {run_root}")
+
+        latest = sorted(candidates, key=lambda p: p.name)[-1]
+        print(latest)
+        PY
+        )
+
+        echo "analysis-root=$analysis_root" >> "$GITHUB_OUTPUT"
+
+    - name: Publish issues
+      if: ${{ inputs.dry-run != 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        uv run sw-metadata-bot publish --analysis-root "${{ steps.resolve-analysis-root.outputs.analysis-root }}"

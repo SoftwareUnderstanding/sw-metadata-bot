@@ -2,22 +2,24 @@
 
 import click
 
-from .create_issues import create_issues_command
-from .metacheck_wrapper import metacheck_command
-from .pipeline import run_pipeline_command
+from .pipeline import publish_command, run_analysis_command
 from .verify_tokens import verify_tokens_command
 
 
 @click.group()
 def cli():
-    """RSMetaCheck bot for pushing issues with existing repository metadata."""
+    """RSMetaCheck bot for metadata issue lifecycle.
+
+    Recommended workflow:
+        1) Run analysis and review outputs.
+        2) Publish if you are satisfied with the analysis decisions.
+    """
     pass
 
 
-cli.add_command(metacheck_command, name="metacheck")
-cli.add_command(create_issues_command, name="create-issues")
 cli.add_command(verify_tokens_command, name="verify-tokens")
-cli.add_command(run_pipeline_command, name="run-pipeline")
+cli.add_command(run_analysis_command, name="run-analysis")
+cli.add_command(publish_command, name="publish")
 
 
 def main():

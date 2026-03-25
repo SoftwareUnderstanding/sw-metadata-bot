@@ -205,8 +205,8 @@ def test_run_pipeline_appends_dry_run_flag(monkeypatch, tmp_path):
     assert captured_args["args"][-1] == "--dry-run"
 
 
-def test_run_pipeline_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
-    """CLI wrapper passes parsed values to run_pipeline()."""
+def test_run_analysis_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
+    """run-analysis CLI wrapper forwards arguments and enforces dry-run mode."""
     captured: dict[str, object] = {}
 
     def fake_run_pipeline(**kwargs):
@@ -226,13 +226,12 @@ def test_run_pipeline_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
 
     runner = CliRunner()
     result = runner.invoke(
-        pipeline.run_pipeline_command,
+        pipeline.run_analysis_command,
         [
             "--community-config-file",
             str(community_config),
             "--snapshot-tag",
             "2026-03",
-            "--dry-run",
             "--previous-report",
             str(community_config),
         ],
@@ -245,6 +244,31 @@ def test_run_pipeline_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
         "snapshot_tag": "2026-03",
         "previous_report": community_config,
     }
+
+
+def test_publish_command_forwards_to_publish_analysis(monkeypatch, tmp_path):
+    """publish CLI wrapper passes the analysis root to publish executor."""
+    captured: dict[str, Path] = {}
+
+    def fake_publish_analysis(analysis_root: Path) -> None:
+        captured["analysis_root"] = analysis_root
+
+    monkeypatch.setattr(pipeline, "publish_analysis", fake_publish_analysis)
+
+    analysis_root = tmp_path / "outputs" / "ossr" / "20260325"
+    analysis_root.mkdir(parents=True)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        pipeline.publish_command,
+        [
+            "--analysis-root",
+            str(analysis_root),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["analysis_root"] == analysis_root
 
 
 def test_find_latest_previous_report_prefers_latest_snapshot(tmp_path):
