@@ -1,8 +1,4 @@
 {
-  "community": {
-    "name": "testing community",
-    "description": "This is a testing community for the sw-metadata-bot. It is used to test the functionality of the bot and to ensure that it is working correctly. The repositories listed in this community are used for testing purposes only and may not be representative of real-world repositories. The custom message is also used for testing purposes and can be modified as needed."
-  },
   "repositories": [
     "https://github.com/SoftwareUnderstanding/sw-metadata-bot",
     "https://github.com/SoftwareUnderstanding/RsMetaCheck"

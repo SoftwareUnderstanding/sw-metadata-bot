@@ -11,12 +11,12 @@ import click
 import requests
 
 from . import github_api, gitlab_api, pitfalls
-from .community_config import (
+from .config_utils import (
     append_opt_out_repository,
     copy_config_to_analysis_root,
     get_custom_message,
     get_repositories,
-    load_community_config,
+    load_config,
     resolve_output_root,
     resolve_run_name,
     resolve_snapshot_tag,
@@ -428,12 +428,10 @@ def _load_publish_body(analysis_root: Path, repo_url: str) -> str:
         )
 
     data = pitfalls.load_pitfalls(pitfall_file)
-    community_config_file = analysis_root / "config.json"
+    config_file = analysis_root / "config.json"
     custom_message = None
-    if community_config_file.exists():
-        custom_message = get_custom_message(
-            load_community_config(community_config_file)
-        )
+    if config_file.exists():
+        custom_message = get_custom_message(load_config(config_file))
     report = pitfalls.format_report(repo_url, data)
     return pitfalls.create_issue_body(report, custom_message)
 
@@ -656,17 +654,17 @@ def publish_analysis(analysis_root: Path) -> None:
 
 
 def run_pipeline(
-    community_config_file: Path,
+    config_file: Path,
     dry_run: bool,
     snapshot_tag: str | None,
     previous_report: Path | None,
 ) -> None:
-    """Run analysis and issue creation for a community configuration."""
-    community_config = load_community_config(community_config_file)
-    repositories = get_repositories(community_config)
-    output_root = resolve_output_root(community_config, community_config_file)
-    run_folder_name = resolve_run_name(community_config, community_config_file)
-    requested_snapshot_tag = resolve_snapshot_tag(community_config, snapshot_tag)
+    """Run analysis and issue creation for a configuration."""
+    config = load_config(config_file)
+    repositories = get_repositories(config)
+    output_root = resolve_output_root(config, config_file)
+    run_folder_name = resolve_run_name(config, config_file)
+    requested_snapshot_tag = resolve_snapshot_tag(config, snapshot_tag)
 
     run_root = output_root / run_folder_name
     resolved_snapshot_tag = _resolve_unique_snapshot_tag(
@@ -679,7 +677,7 @@ def run_pipeline(
     )
     analysis_output_file = analysis_root / "analysis_results.json"
 
-    copy_config_to_analysis_root(community_config_file, analysis_root)
+    copy_config_to_analysis_root(config_file, analysis_root)
     analysis_root.mkdir(parents=True, exist_ok=True)
 
     resolved_previous_report = previous_report
@@ -733,7 +731,7 @@ def run_pipeline(
                         if _detect_unsubscribe_in_previous_issue(
                             previous_issue_url, dry_run
                         ):
-                            append_opt_out_repository(community_config_file, repo_url)
+                            append_opt_out_repository(config_file, repo_url)
                     except Exception:
                         pass
 
@@ -755,8 +753,8 @@ def run_pipeline(
     create_issues_args = [
         "--analysis-root",
         str(analysis_root),
-        "--community-config-file",
-        str(community_config_file),
+        "--config-file",
+        str(config_file),
         "--analysis-summary-file",
         str(analysis_output_file),
     ]
@@ -780,10 +778,10 @@ def run_pipeline(
 
 @click.command()
 @click.option(
-    "--community-config-file",
+    "--config-file",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
-    help="Unified community JSON configuration file.",
+    help="Unified JSON configuration file.",
 )
 @click.option(
     "--snapshot-tag",
@@ -798,13 +796,13 @@ def run_pipeline(
     help="Previous run_report.json used for incremental issue handling.",
 )
 def run_analysis_command(
-    community_config_file: Path,
+    config_file: Path,
     snapshot_tag: str | None,
     previous_report: Path | None,
 ) -> None:
     """Run analysis and compute issue lifecycle decisions in dry-run mode."""
     run_pipeline(
-        community_config_file=community_config_file,
+        config_file=config_file,
         dry_run=True,
         snapshot_tag=snapshot_tag,
         previous_report=previous_report,

@@ -6,8 +6,8 @@ inputs:
   pitfalls-output-dir:
     description: 'Directory containing pitfalls JSON-LD files from metacheck analysis'
     required: true
-  community-config-file:
-    description: 'Unified community JSON configuration file'
+  config-file:
+    description: 'Unified JSON configuration file'
     required: true
   analysis-summary-file:
     description: 'Optional analysis summary JSON path for commit-aware incremental handling'
@@ -69,7 +69,7 @@ runs:
           create-issues
           --pitfalls-output-dir "${{ inputs.pitfalls-output-dir }}"
           --issues-dir "${{ inputs.issues-dir }}"
-          --community-config-file "${{ inputs.community-config-file }}"
+          --config-file "${{ inputs.config-file }}"
           --log-level "${{ inputs.log-level }}"
         )
 

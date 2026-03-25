@@ -106,7 +106,7 @@ Key options:
 
 ## Run complete pipeline
 
-The pipeline now uses a single community configuration file as its source of truth for:
+The pipeline now uses a single configuration file as its source of truth for:
 
 - repository list
 - custom issue message
@@ -114,14 +114,10 @@ The pipeline now uses a single community configuration file as its source of tru
 - output root and run name
 - default snapshot-tag format
 
-Example community config:
+Example config:
 
 ```json
 {
-  "community": {"name": "ossr"},
-  "repositories": [
-    "https://github.com/owner/repo"
-  ],
   "issues": {
     "custom_message": "Your repository was analyzed as part of our metadata quality initiative.",
     "opt_outs": []
@@ -134,22 +130,22 @@ Example community config:
 }
 ```
 
-To run the bot on a configured community, start with analysis.
+To run the bot, start with analysis.
 
 ```bash
 uv run sw-metadata-bot run-analysis \
-  --community-config-file assets/ossr_list_url.json
+  --config-file assets/ossr_list_url.json
 ```
 
 You can override the generated snapshot tag when needed.
 
 ```bash
 uv run sw-metadata-bot run-analysis \
-  --community-config-file <path_to_your_community.json> \
+  --config-file <path_to_your_config.json> \
   --snapshot-tag <example_suffix>
 ```
 
-Publish from an existing analysis snapshot (no new analysis is generated):
+If you want to submit the analysis to the actual repositories, you can publish from an existing analysis snapshot (no new analysis is generated):
 
 ```bash
 uv run sw-metadata-bot publish \
@@ -194,7 +190,7 @@ Run the same analysis on another repository list with dedicated outputs:
 
 ```bash
 uv run python -m sw_metadata_bot.scripts.run_bot \
-  --community-config-file assets/ossr_list_url.json \
+  --config-file assets/ossr_list_url.json \
   --snapshot-tag 2026-03
 ```
 

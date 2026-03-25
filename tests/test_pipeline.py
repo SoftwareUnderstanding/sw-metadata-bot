@@ -8,10 +8,9 @@ from click.testing import CliRunner
 from sw_metadata_bot import pipeline
 
 
-def _write_community_config(tmp_path, **overrides):
-    """Write a minimal community config and return its path."""
+def _write_config(tmp_path, **overrides):
+    """Write a minimal config and return its path."""
     config = {
-        "community": {"name": "ossr"},
         "repositories": ["https://github.com/example/repo"],
         "issues": {"custom_message": None, "opt_outs": []},
         "outputs": {
@@ -21,7 +20,7 @@ def _write_community_config(tmp_path, **overrides):
         },
     }
     config.update(overrides)
-    config_path = tmp_path / "community.json"
+    config_path = tmp_path / "config.json"
     config_path.write_text(json.dumps(config))
     return config_path
 
@@ -48,7 +47,7 @@ def test_resolve_output_root_relative_uses_project_root(tmp_path):
     (tmp_path / "pyproject.toml").write_text("[project]\nname = 'example'\n")
     config_dir = tmp_path / "assets"
     config_dir.mkdir()
-    config_path = config_dir / "community.json"
+    config_path = config_dir / "config.json"
     config = {
         "repositories": [],
         "outputs": {"root_dir": "assets"},
@@ -62,7 +61,7 @@ def test_resolve_output_root_relative_uses_project_root(tmp_path):
 
 def test_resolve_output_root_keeps_absolute_path(tmp_path):
     """Keep absolute output root unchanged."""
-    config_path = tmp_path / "community.json"
+    config_path = tmp_path / "config.json"
     absolute_output_root = tmp_path / "custom-output"
     config = {
         "repositories": [],
@@ -132,7 +131,7 @@ def test_run_pipeline_invokes_commands_with_expected_args(monkeypatch, tmp_path)
     )
 
     output_root = tmp_path / "outputs"
-    community_config = _write_community_config(
+    config = _write_config(
         tmp_path,
         repositories=["https://github.com/example/repo"],
         outputs={
@@ -143,7 +142,7 @@ def test_run_pipeline_invokes_commands_with_expected_args(monkeypatch, tmp_path)
     )
 
     pipeline.run_pipeline(
-        community_config_file=community_config,
+        config_file=config,
         dry_run=False,
         snapshot_tag="202603",
         previous_report=None,
@@ -163,8 +162,8 @@ def test_run_pipeline_invokes_commands_with_expected_args(monkeypatch, tmp_path)
     assert calls["create_issues"]["args"] == [
         "--analysis-root",
         str(output_root / "batch-a" / "202603"),
-        "--community-config-file",
-        str(community_config),
+        "--config-file",
+        str(config),
         "--analysis-summary-file",
         str(output_root / "batch-a" / "202603" / "analysis_results.json"),
     ]
@@ -186,7 +185,7 @@ def test_run_pipeline_appends_dry_run_flag(monkeypatch, tmp_path):
     monkeypatch.setattr(pipeline.create_issues_command, "main", fake_create_issues_main)
 
     output_root = tmp_path / "outputs"
-    community_config = _write_community_config(
+    config = _write_config(
         tmp_path,
         outputs={
             "root_dir": str(output_root),
@@ -196,7 +195,7 @@ def test_run_pipeline_appends_dry_run_flag(monkeypatch, tmp_path):
     )
 
     pipeline.run_pipeline(
-        community_config_file=community_config,
+        config_file=config,
         dry_run=True,
         snapshot_tag=None,
         previous_report=None,
@@ -215,7 +214,7 @@ def test_run_analysis_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
 
     monkeypatch.setattr(pipeline, "run_pipeline", fake_run_pipeline)
 
-    community_config = _write_community_config(
+    config = _write_config(
         tmp_path,
         outputs={
             "root_dir": str(tmp_path / "results"),
@@ -228,21 +227,21 @@ def test_run_analysis_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
     result = runner.invoke(
         pipeline.run_analysis_command,
         [
-            "--community-config-file",
-            str(community_config),
+            "--config-file",
+            str(config),
             "--snapshot-tag",
             "2026-03",
             "--previous-report",
-            str(community_config),
+            str(config),
         ],
     )
 
     assert result.exit_code == 0
     assert captured == {
-        "community_config_file": community_config,
+        "config_file": config,
         "dry_run": True,
         "snapshot_tag": "2026-03",
-        "previous_report": community_config,
+        "previous_report": config,
     }
 
 
@@ -311,7 +310,7 @@ def test_run_pipeline_auto_discovers_previous_report(monkeypatch, tmp_path):
     monkeypatch.setattr(pipeline.create_issues_command, "main", fake_create_issues_main)
 
     output_root = tmp_path / "outputs"
-    community_config = _write_community_config(
+    config = _write_config(
         tmp_path,
         outputs={
             "root_dir": str(output_root),
@@ -325,7 +324,7 @@ def test_run_pipeline_auto_discovers_previous_report(monkeypatch, tmp_path):
     (previous_snapshot / "run_report.json").write_text("{}")
 
     pipeline.run_pipeline(
-        community_config_file=community_config,
+        config_file=config,
         dry_run=False,
         snapshot_tag="20260311",
         previous_report=None,
@@ -358,7 +357,7 @@ def test_run_pipeline_uses_incremented_snapshot_tag_on_collision(monkeypatch, tm
     )
 
     output_root = tmp_path / "outputs"
-    community_config = _write_community_config(
+    config = _write_config(
         tmp_path,
         outputs={
             "root_dir": str(output_root),
@@ -370,7 +369,7 @@ def test_run_pipeline_uses_incremented_snapshot_tag_on_collision(monkeypatch, tm
     (output_root / "batch-a" / "X").mkdir(parents=True)
 
     pipeline.run_pipeline(
-        community_config_file=community_config,
+        config_file=config,
         dry_run=False,
         snapshot_tag="X",
         previous_report=None,
@@ -401,7 +400,7 @@ def test_run_pipeline_skips_analysis_when_all_repos_unchanged(monkeypatch, tmp_p
     monkeypatch.setattr(pipeline, "_get_repo_head_commit", lambda repo_url: "abc123")
 
     output_root = tmp_path / "outputs"
-    community_config = _write_community_config(
+    config = _write_config(
         tmp_path,
         repositories=["https://github.com/example/repo"],
         outputs={
@@ -451,7 +450,7 @@ def test_run_pipeline_skips_analysis_when_all_repos_unchanged(monkeypatch, tmp_p
     )
 
     pipeline.run_pipeline(
-        community_config_file=community_config,
+        config_file=config,
         dry_run=False,
         snapshot_tag="20260311",
         previous_report=None,
@@ -516,7 +515,7 @@ def test_run_pipeline_merges_pre_skipped_with_analyzed_results(monkeypatch, tmp_
     monkeypatch.setattr(pipeline, "_get_repo_head_commit", fake_get_head)
 
     output_root = tmp_path / "outputs"
-    community_config = _write_community_config(
+    config = _write_config(
         tmp_path,
         repositories=[
             "https://github.com/example/old-repo",
@@ -569,7 +568,7 @@ def test_run_pipeline_merges_pre_skipped_with_analyzed_results(monkeypatch, tmp_
     )
 
     pipeline.run_pipeline(
-        community_config_file=community_config,
+        config_file=config,
         dry_run=False,
         snapshot_tag="20260311",
         previous_report=None,
@@ -603,7 +602,7 @@ def test_run_pipeline_uses_config_snapshot_default(monkeypatch, tmp_path):
     monkeypatch.setattr(pipeline.create_issues_command, "main", fake_create_issues_main)
 
     output_root = tmp_path / "outputs"
-    community_config = _write_community_config(
+    config = _write_config(
         tmp_path,
         outputs={
             "root_dir": str(output_root),
@@ -613,7 +612,7 @@ def test_run_pipeline_uses_config_snapshot_default(monkeypatch, tmp_path):
     )
 
     pipeline.run_pipeline(
-        community_config_file=community_config,
+        config_file=config,
         dry_run=False,
         snapshot_tag=None,
         previous_report=None,
@@ -621,7 +620,7 @@ def test_run_pipeline_uses_config_snapshot_default(monkeypatch, tmp_path):
 
     args = calls["metacheck"]["args"]
     expected_snapshot = pipeline.resolve_snapshot_tag(
-        pipeline.load_community_config(community_config), None
+        pipeline.load_config(config), None
     )
     assert "/batch-a/" in args[3]
     assert args[3].endswith(f"/{expected_snapshot}/example_repo")
@@ -646,7 +645,7 @@ def test_run_pipeline_skips_analysis_from_previous_dry_run_commit(
     monkeypatch.setattr(pipeline, "_get_repo_head_commit", lambda repo_url: "abc123")
 
     output_root = tmp_path / "outputs"
-    community_config = _write_community_config(
+    config = _write_config(
         tmp_path,
         repositories=["https://github.com/example/repo"],
         outputs={
@@ -695,7 +694,7 @@ def test_run_pipeline_skips_analysis_from_previous_dry_run_commit(
     )
 
     pipeline.run_pipeline(
-        community_config_file=community_config,
+        config_file=config,
         dry_run=True,
         snapshot_tag="20260311",
         previous_report=None,
@@ -730,7 +729,7 @@ def test_run_pipeline_unchanged_repo_unsubscribe_updates_opt_out(monkeypatch, tm
     )
 
     output_root = tmp_path / "outputs"
-    community_config = _write_community_config(
+    config = _write_config(
         tmp_path,
         repositories=["https://github.com/example/repo"],
         outputs={
@@ -781,7 +780,7 @@ def test_run_pipeline_unchanged_repo_unsubscribe_updates_opt_out(monkeypatch, tm
     )
 
     pipeline.run_pipeline(
-        community_config_file=community_config,
+        config_file=config,
         dry_run=True,
         snapshot_tag="20260311",
         previous_report=None,
@@ -793,5 +792,5 @@ def test_run_pipeline_unchanged_repo_unsubscribe_updates_opt_out(monkeypatch, tm
     report_path = output_root / "batch-a" / "20260311" / "example_repo" / "report.json"
     assert report_path.exists()
 
-    updated_config = json.loads(community_config.read_text())
+    updated_config = json.loads(config.read_text())
     assert updated_config["issues"]["opt_outs"] == ["https://github.com/example/repo"]

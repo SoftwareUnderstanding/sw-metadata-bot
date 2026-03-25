@@ -10,11 +10,11 @@ import click
 
 from . import github_api, gitlab_api, history, incremental, pitfalls
 from .check_parsing import extract_check_ids
-from .community_config import (
+from .config_utils import (
     append_opt_out_repository,
     get_custom_message,
     get_opt_out_repositories,
-    load_community_config,
+    load_config,
 )
 
 logger = logging.getLogger(__name__)
@@ -335,10 +335,10 @@ def _build_report_entry(
     help="Logging level.",
 )
 @click.option(
-    "--community-config-file",
+    "--config-file",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
-    help="Unified community JSON configuration file.",
+    help="Unified JSON configuration file.",
 )
 @click.option(
     "--analysis-summary-file",
@@ -358,7 +358,7 @@ def create_issues_command(
     issues_dir: Path,
     dry_run: bool,
     log_level: str,
-    community_config_file: Path,
+    config_file: Path,
     analysis_summary_file: Path | None,
     previous_report: Path | None,
 ):
@@ -385,8 +385,8 @@ def create_issues_command(
     click.echo(f"Creating issues [{mode}]")
     click.echo(f"{'=' * 60}\n")
 
-    community_config = load_community_config(community_config_file)
-    custom_message = get_custom_message(community_config)
+    config = load_config(config_file)
+    custom_message = get_custom_message(config)
     previous_records = history.load_previous_report(previous_report)
 
     if analysis_summary_file is None:
@@ -405,10 +405,9 @@ def create_issues_command(
 
     current_commit_map = _load_analysis_commit_map(analysis_summary_file)
 
-    opt_out_repos = get_opt_out_repositories(community_config)
+    opt_out_repos = get_opt_out_repositories(config)
     click.echo(
-        "Loaded "
-        f"{len(opt_out_repos)} opt-out repositories from: {community_config_file}\n"
+        f"Loaded {len(opt_out_repos)} opt-out repositories from: {config_file}\n"
     )
 
     # Find pitfalls files using per-repo discovery or fallback to flat directory
@@ -581,9 +580,7 @@ def create_issues_command(
 
             if decision.action == "stop":
                 if decision.reason == "unsubscribe":
-                    added_to_opt_out = append_opt_out_repository(
-                        community_config_file, repo_url
-                    )
+                    added_to_opt_out = append_opt_out_repository(config_file, repo_url)
                     if added_to_opt_out:
                         opt_out_repos.add(normalized_repo)
                     click.echo("  ↷ Skipped: unsubscribe detected in previous issue")

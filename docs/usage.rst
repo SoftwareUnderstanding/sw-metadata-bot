@@ -30,29 +30,29 @@ Create issues from metacheck JSON-LD outputs:
    sw-metadata-bot create-issues \
      --pitfalls-output-dir pitfalls_outputs \
      --issues-dir issues_out \
-     --community-config-file assets/ossr_list_url.json \
+     --config-file assets/ossr_list_url.json \
      --dry-run
 
 Options:
 
 - ``--pitfalls-output-dir``: Directory containing the JSON-LD files produced by ``metacheck``
 - ``--issues-dir``: Directory where issue bodies and ``report.json`` are written
-- ``--community-config-file``: Community configuration file containing issue message and inline opt-outs
+- ``--config-file``: Community configuration file containing issue message and inline opt-outs
 - ``--dry-run``: Preview the issues without creating them
 
 Run Analysis and Publish
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Run analysis and decision generation from a single community configuration file:
+Run analysis and decision generation from a single configuration file:
 
 .. code-block:: bash
 
    sw-metadata-bot run-analysis \
-     --community-config-file assets/ossr_list_url.json
+     --config-file assets/ossr_list_url.json
 
 Options:
 
-- ``--community-config-file``: Unified campaign configuration with repositories, issue settings, and output layout
+- ``--config-file``: Unified campaign configuration with repositories, issue settings, and output layout
 - ``--snapshot-tag``: Optional snapshot folder override; otherwise the config default is used
 - ``--previous-report``: Optional previous ``report.json`` for incremental issue handling
 
@@ -69,7 +69,7 @@ Options:
 Example Workflow
 ----------------
 
-1. Prepare a community configuration file listing repositories, issue settings, and outputs.
+1. Prepare a configuration file listing repositories, issue settings, and outputs.
 
    .. code-block:: bash
 
@@ -79,7 +79,7 @@ Example Workflow
 
    .. code-block:: bash
 
-   sw-metadata-bot run-analysis --community-config-file assets/ossr_list_url.json
+   sw-metadata-bot run-analysis --config-file assets/ossr_list_url.json
 
 3. Review the generated files under the configured output directory.
 

@@ -21,7 +21,7 @@ Run the full config-first pipeline (`metacheck` + `create-issues`) in one step.
 ```yaml
 uses: codemetasoft/sw-metadata-bot/.github/actions/run-pipeline@v1
 with:
-  community-config-file: 'assets/ossr_list_url.json' # Required
+  config-file: 'assets/ossr_list_url.json' # Required
   snapshot-tag: '20260312'                           # Optional
   dry-run: 'true'                                    # Optional (default: true)
   previous-report: ''                                # Optional
@@ -58,7 +58,7 @@ Create GitHub/GitLab issues based on analysis results.
 uses: codemetasoft/sw-metadata-bot/.github/actions/create-issues@v1
 with:
   pitfalls-output-dir: 'pitfalls'  # Required: Directory with pitfalls files
-  community-config-file: 'assets/ossr_list_url.json' # Required
+  config-file: 'assets/ossr_list_url.json' # Required
   analysis-summary-file: 'analysis_results.json'      # Optional
   previous-report: ''                                 # Optional
   issues-dir: 'issues'             # Optional: Output directory (default: issues_output)
@@ -90,7 +90,7 @@ jobs:
       - name: Run full pipeline
         uses: codemetasoft/sw-metadata-bot/.github/actions/run-pipeline@v1
         with:
-          community-config-file: 'assets/ossr_list_url.json'
+          config-file: 'assets/ossr_list_url.json'
           dry-run: 'true'
 
       - name: Upload results
@@ -119,7 +119,7 @@ jobs:
   uses: codemetasoft/sw-metadata-bot/.github/actions/create-issues@v1
   with:
     pitfalls-output-dir: 'pitfalls'
-    community-config-file: 'assets/ossr_list_url.json'
+    config-file: 'assets/ossr_list_url.json'
     dry-run: 'false'  # Actually create issues
     log-level: 'DEBUG'
 ```
@@ -165,7 +165,7 @@ When creating actual issues (dry-run: false):
     GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
   with:
     pitfalls-output-dir: 'pitfalls'
-    community-config-file: 'assets/ossr_list_url.json'
+    config-file: 'assets/ossr_list_url.json'
     dry-run: 'false'
 ```
 

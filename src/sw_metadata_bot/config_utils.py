@@ -1,4 +1,4 @@
-"""Helpers for the unified community configuration file."""
+"""Helpers for the unified configuration file."""
 
 import json
 from datetime import datetime, timezone
@@ -16,8 +16,8 @@ def _normalize_repo_url(url: str) -> str:
     return url.strip().rstrip("/")
 
 
-def load_community_config(config_path: Path) -> dict:
-    """Load and validate a unified community configuration file."""
+def load_config(config_path: Path) -> dict:
+    """Load and validate a unified configuration file."""
     with open(config_path, encoding="utf-8") as f:
         data = json.load(f)
 
@@ -39,9 +39,7 @@ def get_repositories(config: dict) -> list[str]:
     """Return normalized repositories preserving order and uniqueness."""
     repositories = config.get("repositories", [])
     if not isinstance(repositories, list):
-        raise click.ClickException(
-            "Invalid community config: 'repositories' must be a list"
-        )
+        raise click.ClickException("Invalid config: 'repositories' must be a list")
 
     seen: set[str] = set()
     ordered: list[str] = []
@@ -60,16 +58,14 @@ def get_custom_message(config: dict) -> str | None:
     """Return the configured issue custom message if present."""
     issues = config.get("issues", {})
     if not isinstance(issues, dict):
-        raise click.ClickException(
-            "Invalid community config: 'issues' must be an object"
-        )
+        raise click.ClickException("Invalid config: 'issues' must be an object")
 
     custom_message = issues.get("custom_message")
     if custom_message is None:
         return None
     if not isinstance(custom_message, str):
         raise click.ClickException(
-            "Invalid community config: 'issues.custom_message' must be a string"
+            "Invalid config: 'issues.custom_message' must be a string"
         )
     return custom_message
 
@@ -78,33 +74,25 @@ def get_opt_out_repositories(config: dict) -> set[str]:
     """Return normalized repository URLs configured as inline opt-outs."""
     issues = config.get("issues", {})
     if not isinstance(issues, dict):
-        raise click.ClickException(
-            "Invalid community config: 'issues' must be an object"
-        )
+        raise click.ClickException("Invalid config: 'issues' must be an object")
 
     opt_outs = issues.get("opt_outs", [])
     if not isinstance(opt_outs, list):
-        raise click.ClickException(
-            "Invalid community config: 'issues.opt_outs' must be a list"
-        )
+        raise click.ClickException("Invalid config: 'issues.opt_outs' must be a list")
 
     return {_normalize_repo_url(url) for url in opt_outs if isinstance(url, str)}
 
 
 def append_opt_out_repository(config_path: Path, repo_url: str) -> bool:
     """Persist a repository to the inline opt-outs list when not already present."""
-    data = load_community_config(config_path)
+    data = load_config(config_path)
     issues = data.setdefault("issues", {})
     if not isinstance(issues, dict):
-        raise click.ClickException(
-            "Invalid community config: 'issues' must be an object"
-        )
+        raise click.ClickException("Invalid config: 'issues' must be an object")
 
     opt_outs = issues.setdefault("opt_outs", [])
     if not isinstance(opt_outs, list):
-        raise click.ClickException(
-            "Invalid community config: 'issues.opt_outs' must be a list"
-        )
+        raise click.ClickException("Invalid config: 'issues.opt_outs' must be a list")
 
     normalized_repo = _normalize_repo_url(repo_url)
     normalized_existing = {
@@ -132,14 +120,12 @@ def resolve_output_root(config: dict, config_path: Path) -> Path:
     """Return the configured output root, resolving relative paths from project root."""
     outputs = config.get("outputs", {})
     if not isinstance(outputs, dict):
-        raise click.ClickException(
-            "Invalid community config: 'outputs' must be an object"
-        )
+        raise click.ClickException("Invalid config: 'outputs' must be an object")
 
     root_dir = outputs.get("root_dir", str(DEFAULT_OUTPUT_ROOT))
     if not isinstance(root_dir, str) or not root_dir.strip():
         raise click.ClickException(
-            "Invalid community config: 'outputs.root_dir' must be a non-empty string"
+            "Invalid config: 'outputs.root_dir' must be a non-empty string"
         )
 
     root_path = Path(root_dir)
@@ -152,27 +138,15 @@ def resolve_run_name(config: dict, config_path: Path) -> str:
     """Return the configured run name or a sensible default."""
     outputs = config.get("outputs", {})
     if not isinstance(outputs, dict):
-        raise click.ClickException(
-            "Invalid community config: 'outputs' must be an object"
-        )
+        raise click.ClickException("Invalid config: 'outputs' must be an object")
 
     run_name = outputs.get("run_name")
     if run_name is not None:
         if not isinstance(run_name, str) or not run_name.strip():
             raise click.ClickException(
-                "Invalid community config: 'outputs.run_name' must be a non-empty string"
+                "Invalid config: 'outputs.run_name' must be a non-empty string"
             )
         return run_name
-
-    community = config.get("community", {})
-    if community is not None and not isinstance(community, dict):
-        raise click.ClickException(
-            "Invalid community config: 'community' must be an object"
-        )
-
-    community_name = community.get("name") if isinstance(community, dict) else None
-    if isinstance(community_name, str) and community_name.strip():
-        return community_name
 
     return config_path.stem
 
@@ -187,9 +161,7 @@ def resolve_snapshot_tag(
 
     outputs = config.get("outputs", {})
     if not isinstance(outputs, dict):
-        raise click.ClickException(
-            "Invalid community config: 'outputs' must be an object"
-        )
+        raise click.ClickException("Invalid config: 'outputs' must be an object")
 
     snapshot_tag_format = outputs.get(
         "snapshot_tag_format", DEFAULT_SNAPSHOT_TAG_FORMAT
@@ -198,7 +170,7 @@ def resolve_snapshot_tag(
         return None
     if not isinstance(snapshot_tag_format, str) or not snapshot_tag_format.strip():
         raise click.ClickException(
-            "Invalid community config: 'outputs.snapshot_tag_format' must be a string or null"
+            "Invalid config: 'outputs.snapshot_tag_format' must be a string or null"
         )
 
     return datetime.now(timezone.utc).strftime(snapshot_tag_format)

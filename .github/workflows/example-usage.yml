@@ -14,20 +14,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Build temporary community config
-        id: community
+      - name: Build temporary config
+        id: analysis
         shell: bash
         run: |
           set -euo pipefail
           SNAPSHOT_TAG="$(date -u +%Y%m%d)"
-          COMMUNITY_CONFIG_FILE="assets/workflow_example_community.json"
+          CONFIG_FILE="assets/workflow_example.json"
 
           mkdir -p assets
-          cat > "${COMMUNITY_CONFIG_FILE}" << EOF
+          cat > "${CONFIG_FILE}" << EOF
           {
-            "community": {
-              "name": "${{ github.event.repository.name }}"
-            },
             "repositories": [
               "https://github.com/${{ github.repository }}"
             ],
@@ -43,15 +40,15 @@ jobs:
           }
           EOF
 
-          echo "community_config=${COMMUNITY_CONFIG_FILE}" >> "$GITHUB_OUTPUT"
+          echo "config=${CONFIG_FILE}" >> "$GITHUB_OUTPUT"
           echo "snapshot_tag=${SNAPSHOT_TAG}" >> "$GITHUB_OUTPUT"
           echo "run_root=outputs/example/${SNAPSHOT_TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Run full pipeline (dry-run)
         uses: ./.github/actions/run-pipeline
         with:
-          community-config-file: ${{ steps.community.outputs.community_config }}
-          snapshot-tag: ${{ steps.community.outputs.snapshot_tag }}
+          config-file: ${{ steps.analysis.outputs.config }}
+          snapshot-tag: ${{ steps.analysis.outputs.snapshot_tag }}
           dry-run: 'true'
 
       - name: Upload analysis artifacts
@@ -60,7 +57,7 @@ jobs:
         with:
           name: sw-metadata-bot-results
           path: |
-            ${{ steps.community.outputs.run_root }}/analysis_results.json
-            ${{ steps.community.outputs.run_root }}/pitfalls_outputs/
-            ${{ steps.community.outputs.run_root }}/issues_out/
+            ${{ steps.analysis.outputs.run_root }}/analysis_results.json
+            ${{ steps.analysis.outputs.run_root }}/pitfalls_outputs/
+            ${{ steps.analysis.outputs.run_root }}/issues_out/
           if-no-files-found: ignore

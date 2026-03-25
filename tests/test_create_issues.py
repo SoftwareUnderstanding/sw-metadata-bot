@@ -67,16 +67,15 @@ def _patch_issue_client(monkeypatch, client: _FakeIssueClient) -> None:
     )
 
 
-def _write_community_config(tmp_path, **overrides):
-    """Write a minimal community config and return its path."""
+def _write_config(tmp_path, **overrides):
+    """Write a minimal config and return its path."""
     config = {
-        "community": {"name": "ossr"},
         "repositories": ["https://github.com/example/repo"],
         "issues": {"custom_message": None, "opt_outs": []},
         "outputs": {"root_dir": "outputs", "run_name": "ossr"},
     }
     config.update(overrides)
-    config_path = tmp_path / "community.json"
+    config_path = tmp_path / "config.json"
     config_path.write_text(json.dumps(config))
     return config_path
 
@@ -106,7 +105,7 @@ def test_create_issues_cli_failed_report_contains_analysis_fields(tmp_path):
     (pitfalls_dir / "sample.jsonld").write_text(json.dumps(pitfalls_payload))
 
     runner = CliRunner()
-    community_config = _write_community_config(tmp_path)
+    config = _write_config(tmp_path)
     result = runner.invoke(
         create_issues.create_issues_command,
         [
@@ -114,8 +113,8 @@ def test_create_issues_cli_failed_report_contains_analysis_fields(tmp_path):
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
-            "--community-config-file",
-            str(community_config),
+            "--config-file",
+            str(config),
             "--dry-run",
         ],
     )
@@ -169,7 +168,7 @@ def test_create_issues_cli_created_report_contains_analysis_fields(tmp_path):
     (pitfalls_dir / "sample.jsonld").write_text(json.dumps(pitfalls_payload))
 
     runner = CliRunner()
-    community_config = _write_community_config(tmp_path)
+    config = _write_config(tmp_path)
     result = runner.invoke(
         create_issues.create_issues_command,
         [
@@ -177,8 +176,8 @@ def test_create_issues_cli_created_report_contains_analysis_fields(tmp_path):
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
-            "--community-config-file",
-            str(community_config),
+            "--config-file",
+            str(config),
             "--dry-run",
         ],
     )
@@ -238,7 +237,7 @@ def test_create_issues_cli_extracts_ids_from_new_schema(tmp_path):
     (pitfalls_dir / "sample.jsonld").write_text(json.dumps(pitfalls_payload))
 
     runner = CliRunner()
-    community_config = _write_community_config(tmp_path)
+    config = _write_config(tmp_path)
     result = runner.invoke(
         create_issues.create_issues_command,
         [
@@ -246,8 +245,8 @@ def test_create_issues_cli_extracts_ids_from_new_schema(tmp_path):
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
-            "--community-config-file",
-            str(community_config),
+            "--config-file",
+            str(config),
             "--dry-run",
         ],
     )
@@ -267,7 +266,7 @@ def test_create_issues_cli_empty_dir(tmp_path):
     issues_dir = tmp_path / "issues"
 
     runner = CliRunner()
-    community_config = _write_community_config(tmp_path)
+    config = _write_config(tmp_path)
     result = runner.invoke(
         create_issues.create_issues_command,
         [
@@ -275,8 +274,8 @@ def test_create_issues_cli_empty_dir(tmp_path):
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
-            "--community-config-file",
-            str(community_config),
+            "--config-file",
+            str(config),
             "--dry-run",
         ],
     )
@@ -325,7 +324,7 @@ def test_create_issues_incremental_identical_open_issue_skips(tmp_path, monkeypa
     _patch_issue_client(monkeypatch, fake_client)
 
     runner = CliRunner()
-    community_config = _write_community_config(tmp_path)
+    config = _write_config(tmp_path)
     result = runner.invoke(
         create_issues.create_issues_command,
         [
@@ -333,8 +332,8 @@ def test_create_issues_incremental_identical_open_issue_skips(tmp_path, monkeypa
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
-            "--community-config-file",
-            str(community_config),
+            "--config-file",
+            str(config),
             "--previous-report",
             str(previous_report),
             "--dry-run",
@@ -410,7 +409,7 @@ def test_create_issues_incremental_uses_current_commit_id_field(tmp_path, monkey
     _patch_issue_client(monkeypatch, fake_client)
 
     runner = CliRunner()
-    community_config = _write_community_config(tmp_path)
+    config = _write_config(tmp_path)
     result = runner.invoke(
         create_issues.create_issues_command,
         [
@@ -418,8 +417,8 @@ def test_create_issues_incremental_uses_current_commit_id_field(tmp_path, monkey
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
-            "--community-config-file",
-            str(community_config),
+            "--config-file",
+            str(config),
             "--previous-report",
             str(previous_report),
             "--analysis-summary-file",
@@ -551,7 +550,7 @@ def test_create_issues_mixed_repo_decisions_same_changed_unsubscribe(
     fake_client = _FakeIssueClient(
         comments_for=lambda url: ["unsubscribe"] if url.endswith("/3") else []
     )
-    community_config = _write_community_config(tmp_path)
+    config = _write_config(tmp_path)
     _patch_issue_client(monkeypatch, fake_client)
 
     runner = CliRunner()
@@ -562,8 +561,8 @@ def test_create_issues_mixed_repo_decisions_same_changed_unsubscribe(
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
-            "--community-config-file",
-            str(community_config),
+            "--config-file",
+            str(config),
             "--previous-report",
             str(previous_report),
             "--analysis-summary-file",
@@ -597,7 +596,7 @@ def test_create_issues_mixed_repo_decisions_same_changed_unsubscribe(
     )
     assert by_repo["https://github.com/example/repo-unsub"]["action"] == "skipped"
 
-    updated_config = json.loads(community_config.read_text())
+    updated_config = json.loads(config.read_text())
     assert updated_config["issues"]["opt_outs"] == []
 
 
@@ -641,7 +640,7 @@ def test_create_issues_uses_previous_issue_url_lineage_in_dry_run(
     )
 
     fake_client = _FakeIssueClient(comments_for=lambda url: ["unsubscribe"])
-    community_config = _write_community_config(tmp_path)
+    config = _write_config(tmp_path)
     _patch_issue_client(monkeypatch, fake_client)
 
     runner = CliRunner()
@@ -652,8 +651,8 @@ def test_create_issues_uses_previous_issue_url_lineage_in_dry_run(
             str(pitfalls_dir),
             "--issues-dir",
             str(issues_dir),
-            "--community-config-file",
-            str(community_config),
+            "--config-file",
+            str(config),
             "--previous-report",
             str(previous_report),
             "--dry-run",

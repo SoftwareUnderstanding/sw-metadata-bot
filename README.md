@@ -79,7 +79,7 @@ The bot **does not**:
 
 See [QUICKSTART.md](QUICKSTART.md) for setup and usage instructions.
 
-The pipeline is community-config driven: one JSON file defines the repository list, issue message, inline opt-outs, and output layout for a campaign.
+The pipeline is config driven: one JSON file defines the repository list, issue message, inline opt-outs, and output layout.
 
 Supported platforms:
 
