@@ -34,7 +34,7 @@ def test_resolve_per_repo_paths_uses_analysis_root(tmp_path):
         repo_url="https://github.com/example/repo",
     )
 
-    repo_root = analysis_root / "example_repo"
+    repo_root = analysis_root / "github_com_example_repo"
     assert paths["repo_folder"] == repo_root
     assert paths["somef_output"] == repo_root / "somef_output.json"
     assert paths["pitfall_output"] == repo_root / "pitfall.jsonld"
@@ -154,9 +154,9 @@ def test_run_pipeline_invokes_commands_with_expected_args(monkeypatch, tmp_path)
         "https://github.com/example/repo",
     ]
     assert calls["metacheck"]["args"][2] == "--somef-output"
-    assert calls["metacheck"]["args"][3].endswith("/202603/example_repo")
+    assert calls["metacheck"]["args"][3].endswith("/202603/github_com_example_repo")
     assert calls["metacheck"]["args"][4] == "--pitfalls-output"
-    assert calls["metacheck"]["args"][5].endswith("/202603/example_repo")
+    assert calls["metacheck"]["args"][5].endswith("/202603/github_com_example_repo")
 
     assert calls["create_issues"]["standalone_mode"] is False
     assert calls["create_issues"]["args"] == [
@@ -380,7 +380,18 @@ def test_run_pipeline_uses_incremented_snapshot_tag_on_collision(monkeypatch, tm
         "https://github.com/example/repo",
     ]
     assert calls["metacheck"]["args"][2] == "--somef-output"
-    assert calls["metacheck"]["args"][3].endswith("/batch-a/X_2/example_repo")
+    assert calls["metacheck"]["args"][3].endswith(
+        "/batch-a/X_2/github_com_example_repo"
+    )
+
+
+def test_sanitize_repo_name_handles_non_standard_url_path():
+    """Convert mixed host/path/hyphen URL inputs to deterministic snake-style names."""
+    value = pipeline.sanitize_repo_name(
+        "https://atlas.cern/updates/press-statement/13-tev-open-data"
+    )
+
+    assert value == "atlas_cern_updates_press_statement_13_tev_open_data"
 
 
 def test_run_pipeline_skips_analysis_when_all_repos_unchanged(monkeypatch, tmp_path):
@@ -411,7 +422,7 @@ def test_run_pipeline_skips_analysis_when_all_repos_unchanged(monkeypatch, tmp_p
     )
 
     prev_root = output_root / "batch-a" / "20260310"
-    prev_repo = prev_root / "example_repo"
+    prev_repo = prev_root / "github_com_example_repo"
     prev_repo.mkdir(parents=True)
     (prev_repo / "somef_output.json").write_text("{}")
     (prev_repo / "pitfall.jsonld").write_text(
@@ -459,7 +470,9 @@ def test_run_pipeline_skips_analysis_when_all_repos_unchanged(monkeypatch, tmp_p
     assert called["metacheck"] is False
     assert called["create_issues"] is True
 
-    report_path = output_root / "batch-a" / "20260311" / "example_repo" / "report.json"
+    report_path = (
+        output_root / "batch-a" / "20260311" / "github_com_example_repo" / "report.json"
+    )
     assert report_path.exists()
 
 
@@ -475,7 +488,7 @@ def test_run_pipeline_merges_pre_skipped_with_analyzed_results(monkeypatch, tmp_
         """Write minimal per-repo report for analyzed subset results."""
         calls["create_issues"] = {"args": args, "standalone_mode": standalone_mode}
         analysis_root = Path(args[args.index("--analysis-root") + 1])
-        repo_dir = analysis_root / "example_new_repo"
+        repo_dir = analysis_root / "github_com_example_new_repo"
         repo_dir.mkdir(parents=True, exist_ok=True)
         report = {
             "run_metadata": {
@@ -529,7 +542,7 @@ def test_run_pipeline_merges_pre_skipped_with_analyzed_results(monkeypatch, tmp_
     )
 
     prev_root = output_root / "batch-a" / "20260310"
-    prev_repo = prev_root / "example_old_repo"
+    prev_repo = prev_root / "github_com_example_old_repo"
     prev_repo.mkdir(parents=True)
     (prev_repo / "somef_output.json").write_text("{}")
     (prev_repo / "pitfall.jsonld").write_text(
@@ -577,10 +590,18 @@ def test_run_pipeline_merges_pre_skipped_with_analyzed_results(monkeypatch, tmp_
     assert calls["metacheck"]["args"][1] == "https://github.com/example/new-repo"
 
     old_repo_report = (
-        output_root / "batch-a" / "20260311" / "example_old_repo" / "report.json"
+        output_root
+        / "batch-a"
+        / "20260311"
+        / "github_com_example_old_repo"
+        / "report.json"
     )
     new_repo_report = (
-        output_root / "batch-a" / "20260311" / "example_new_repo" / "report.json"
+        output_root
+        / "batch-a"
+        / "20260311"
+        / "github_com_example_new_repo"
+        / "report.json"
     )
     assert old_repo_report.exists()
     assert new_repo_report.exists()
@@ -623,7 +644,7 @@ def test_run_pipeline_uses_config_snapshot_default(monkeypatch, tmp_path):
         pipeline.load_config(config), None
     )
     assert "/batch-a/" in args[3]
-    assert args[3].endswith(f"/{expected_snapshot}/example_repo")
+    assert args[3].endswith(f"/{expected_snapshot}/github_com_example_repo")
 
 
 def test_run_pipeline_skips_analysis_from_previous_dry_run_commit(
@@ -656,7 +677,7 @@ def test_run_pipeline_skips_analysis_from_previous_dry_run_commit(
     )
 
     prev_root = output_root / "batch-a" / "20260310"
-    prev_repo = prev_root / "example_repo"
+    prev_repo = prev_root / "github_com_example_repo"
     prev_repo.mkdir(parents=True)
     (prev_repo / "somef_output.json").write_text("{}")
     (prev_repo / "pitfall.jsonld").write_text(
@@ -703,7 +724,9 @@ def test_run_pipeline_skips_analysis_from_previous_dry_run_commit(
     assert called["metacheck"] is False
     assert called["create_issues"] is True
 
-    report_path = output_root / "batch-a" / "20260311" / "example_repo" / "report.json"
+    report_path = (
+        output_root / "batch-a" / "20260311" / "github_com_example_repo" / "report.json"
+    )
     assert report_path.exists()
 
 
@@ -740,7 +763,7 @@ def test_run_pipeline_unchanged_repo_unsubscribe_updates_opt_out(monkeypatch, tm
     )
 
     prev_root = output_root / "batch-a" / "20260310"
-    prev_repo = prev_root / "example_repo"
+    prev_repo = prev_root / "github_com_example_repo"
     prev_repo.mkdir(parents=True)
     (prev_repo / "somef_output.json").write_text("{}")
     (prev_repo / "pitfall.jsonld").write_text(
@@ -789,7 +812,9 @@ def test_run_pipeline_unchanged_repo_unsubscribe_updates_opt_out(monkeypatch, tm
     assert called["metacheck"] is False
     assert called["create_issues"] is True
 
-    report_path = output_root / "batch-a" / "20260311" / "example_repo" / "report.json"
+    report_path = (
+        output_root / "batch-a" / "20260311" / "github_com_example_repo" / "report.json"
+    )
     assert report_path.exists()
 
     updated_config = json.loads(config.read_text())
