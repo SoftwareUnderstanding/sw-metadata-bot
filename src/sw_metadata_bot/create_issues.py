@@ -107,7 +107,7 @@ def _discover_pitfalls_files(
 
     # Try per-repo discovery first
     if analysis_root is not None and analysis_root.exists():
-        # Look for pitfalls_output.jsonld in each repo subfolder
+        # Look for pitfall.jsonld (new layout) in each repo subfolder
         for repo_folder in sorted(analysis_root.iterdir()):
             if not repo_folder.is_dir():
                 continue
@@ -115,9 +115,11 @@ def _discover_pitfalls_files(
             if repo_folder.name.startswith("."):
                 continue
 
-            pitfalls_file = repo_folder / "pitfalls_output.jsonld"
+            pitfalls_file = repo_folder / "pitfall.jsonld"
+            if not pitfalls_file.exists():
+                pitfalls_file = repo_folder / "pitfalls_output.jsonld"
             if pitfalls_file.exists():
-                per_repo_issues_dir = repo_folder / "issues_out"
+                per_repo_issues_dir = repo_folder
                 discovered.append((pitfalls_file, per_repo_issues_dir))
 
     # Fall back to flat directory if no per-repo structure found
@@ -186,6 +188,51 @@ def _safe_get_metacheck_version(data: dict) -> str:
 def _get_analysis_date(data: dict) -> str:
     """Get analysis date from pitfalls payload."""
     return str(data.get("dateCreated", "unknown"))
+
+
+def _build_counters(records: list[dict[str, object]]) -> dict[str, int]:
+    """Build counters from report records."""
+    return {
+        "total": len(records),
+        "created": sum(1 for r in records if r.get("action") == "created"),
+        "simulated": sum(1 for r in records if r.get("action") == "simulated_created"),
+        "updated_by_comment": sum(
+            1 for r in records if r.get("action") == "updated_by_comment"
+        ),
+        "closed": sum(1 for r in records if r.get("action") == "closed"),
+        "skipped": sum(1 for r in records if r.get("action") == "skipped"),
+        "failed": sum(1 for r in records if r.get("action") == "failed"),
+    }
+
+
+def _write_repo_report(
+    repo_dir: Path,
+    record: dict[str, object],
+    *,
+    dry_run: bool,
+    analysis_summary_file: Path | None,
+    previous_report: Path | None,
+) -> None:
+    """Write per-repository report.json containing a single record."""
+    report = {
+        "run_metadata": {
+            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "dry_run": dry_run,
+            "analysis_summary_file": (
+                str(analysis_summary_file)
+                if analysis_summary_file is not None
+                else None
+            ),
+            "previous_report_source": (
+                str(previous_report) if previous_report is not None else None
+            ),
+        },
+        "counters": _build_counters([record]),
+        "records": [record],
+    }
+    report_file = repo_dir / "report.json"
+    with open(report_file, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2)
 
 
 def _build_report_entry(
@@ -327,7 +374,7 @@ def create_issues_command(
         format="%(levelname)s: %(message)s",
     )
 
-    # Create output directory
+    # Create output directory (legacy flat mode)
     issues_dir.mkdir(parents=True, exist_ok=True)
 
     # Initialize API clients
@@ -345,7 +392,9 @@ def create_issues_command(
     if analysis_summary_file is None:
         # Try to find analysis_results.json in likely locations
         if analysis_root is not None and analysis_root.exists():
-            fallback_summary = analysis_root / "analysis_results.json"
+            fallback_summary = analysis_root.parent / "analysis_results.json"
+            if not fallback_summary.exists():
+                fallback_summary = analysis_root / "analysis_results.json"
         elif pitfalls_output_dir is not None and pitfalls_output_dir.exists():
             fallback_summary = pitfalls_output_dir.parent / "analysis_results.json"
         else:
@@ -375,6 +424,10 @@ def create_issues_command(
 
     click.echo(
         f"Found {len(pitfalls_files_with_issues_dir)} pitfalls files to process\n"
+    )
+
+    using_per_repo_mode = all(
+        per_repo_dir is not None for _, per_repo_dir in pitfalls_files_with_issues_dir
     )
 
     # Process each file
@@ -504,9 +557,13 @@ def create_issues_command(
                         _is_unsubscribe_comment(comment) for comment in comments
                     )
 
+            # Unsubscribe acts like dry-run publication suppression, not hard stop.
+            effective_dry_run = dry_run or unsubscribe_detected
+            reason_override = "unsubscribe" if unsubscribe_detected else None
+
             decision = incremental.evaluate(
                 previous_exists=previous_exists,
-                unsubscribed=unsubscribe_detected,
+                unsubscribed=False,
                 repo_updated=repo_updated,
                 has_findings=has_findings,
                 identical_findings=current_signature == previous_signature,
@@ -524,38 +581,45 @@ def create_issues_command(
                 else:
                     click.echo(f"  ↷ Skipped: {decision.reason}")
 
-                records.append(
-                    _build_report_entry(
-                        repo_url=repo_url,
-                        platform=platform,
-                        pitfalls_count=pitfalls_count,
-                        warnings_count=warnings_count,
-                        issue_url=None,
-                        analysis_date=analysis_date,
-                        bot_version=bot_version,
-                        metacheck_version=metacheck_version,
-                        pitfalls_ids=pitfalls_ids,
-                        warnings_ids=warnings_ids,
-                        action="skipped",
-                        reason_code=decision.reason,
-                        previous_issue_url=previous_issue_url,
-                        previous_issue_state=previous_issue_state,
-                        findings_signature=current_signature,
-                        current_commit_id=current_commit_id,
-                        previous_commit_id=previous_commit_id,
-                        unsubscribe_detected=unsubscribe_detected,
-                        dry_run=dry_run,
-                        issue_persistence="none",
-                        file_path=file_path,
-                    )
+                record = _build_report_entry(
+                    repo_url=repo_url,
+                    platform=platform,
+                    pitfalls_count=pitfalls_count,
+                    warnings_count=warnings_count,
+                    issue_url=None,
+                    analysis_date=analysis_date,
+                    bot_version=bot_version,
+                    metacheck_version=metacheck_version,
+                    pitfalls_ids=pitfalls_ids,
+                    warnings_ids=warnings_ids,
+                    action="skipped",
+                    reason_code=reason_override or decision.reason,
+                    previous_issue_url=previous_issue_url,
+                    previous_issue_state=previous_issue_state,
+                    findings_signature=current_signature,
+                    current_commit_id=current_commit_id,
+                    previous_commit_id=previous_commit_id,
+                    unsubscribe_detected=unsubscribe_detected,
+                    dry_run=effective_dry_run,
+                    issue_persistence="none",
+                    file_path=file_path,
                 )
+                records.append(record)
+                if per_repo_issues_dir is not None:
+                    _write_repo_report(
+                        per_repo_issues_dir,
+                        record,
+                        dry_run=effective_dry_run,
+                        analysis_summary_file=analysis_summary_file,
+                        previous_report=previous_report,
+                    )
                 click.echo()
                 continue
 
             if decision.action == "comment" and previous_issue_url:
                 github, gitlab, issue_client = _get_or_create_client(
                     platform,
-                    dry_run,
+                    effective_dry_run,
                     github,
                     gitlab,
                 )
@@ -568,37 +632,44 @@ def create_issues_command(
                 )
                 click.echo(f"  ✓ Issue updated by comment: {previous_issue_url}")
 
-                records.append(
-                    _build_report_entry(
-                        repo_url=repo_url,
-                        platform=platform,
-                        pitfalls_count=pitfalls_count,
-                        warnings_count=warnings_count,
-                        issue_url=previous_issue_url,
-                        analysis_date=analysis_date,
-                        bot_version=bot_version,
-                        metacheck_version=metacheck_version,
-                        pitfalls_ids=pitfalls_ids,
-                        warnings_ids=warnings_ids,
-                        action="updated_by_comment",
-                        reason_code=decision.reason,
-                        previous_issue_url=previous_issue_url,
-                        previous_issue_state=previous_issue_state,
-                        findings_signature=current_signature,
-                        current_commit_id=current_commit_id,
-                        previous_commit_id=previous_commit_id,
-                        dry_run=dry_run,
-                        issue_persistence="none",
-                        file_path=file_path,
-                    )
+                record = _build_report_entry(
+                    repo_url=repo_url,
+                    platform=platform,
+                    pitfalls_count=pitfalls_count,
+                    warnings_count=warnings_count,
+                    issue_url=previous_issue_url,
+                    analysis_date=analysis_date,
+                    bot_version=bot_version,
+                    metacheck_version=metacheck_version,
+                    pitfalls_ids=pitfalls_ids,
+                    warnings_ids=warnings_ids,
+                    action="updated_by_comment",
+                    reason_code=reason_override or decision.reason,
+                    previous_issue_url=previous_issue_url,
+                    previous_issue_state=previous_issue_state,
+                    findings_signature=current_signature,
+                    current_commit_id=current_commit_id,
+                    previous_commit_id=previous_commit_id,
+                    dry_run=effective_dry_run,
+                    issue_persistence="simulated" if effective_dry_run else "none",
+                    file_path=file_path,
                 )
+                records.append(record)
+                if per_repo_issues_dir is not None:
+                    _write_repo_report(
+                        per_repo_issues_dir,
+                        record,
+                        dry_run=effective_dry_run,
+                        analysis_summary_file=analysis_summary_file,
+                        previous_report=previous_report,
+                    )
                 click.echo()
                 continue
 
             if decision.action == "close" and previous_issue_url:
                 github, gitlab, issue_client = _get_or_create_client(
                     platform,
-                    dry_run,
+                    effective_dry_run,
                     github,
                     gitlab,
                 )
@@ -610,30 +681,37 @@ def create_issues_command(
                 issue_client.close_issue(previous_issue_url)
                 click.echo(f"  ✓ Issue closed: {previous_issue_url}")
 
-                records.append(
-                    _build_report_entry(
-                        repo_url=repo_url,
-                        platform=platform,
-                        pitfalls_count=pitfalls_count,
-                        warnings_count=warnings_count,
-                        issue_url=previous_issue_url,
-                        analysis_date=analysis_date,
-                        bot_version=bot_version,
-                        metacheck_version=metacheck_version,
-                        pitfalls_ids=pitfalls_ids,
-                        warnings_ids=warnings_ids,
-                        action="closed",
-                        reason_code=decision.reason,
-                        previous_issue_url=previous_issue_url,
-                        previous_issue_state=previous_issue_state,
-                        findings_signature=current_signature,
-                        current_commit_id=current_commit_id,
-                        previous_commit_id=previous_commit_id,
-                        dry_run=dry_run,
-                        issue_persistence="none",
-                        file_path=file_path,
-                    )
+                record = _build_report_entry(
+                    repo_url=repo_url,
+                    platform=platform,
+                    pitfalls_count=pitfalls_count,
+                    warnings_count=warnings_count,
+                    issue_url=previous_issue_url,
+                    analysis_date=analysis_date,
+                    bot_version=bot_version,
+                    metacheck_version=metacheck_version,
+                    pitfalls_ids=pitfalls_ids,
+                    warnings_ids=warnings_ids,
+                    action="closed",
+                    reason_code=reason_override or decision.reason,
+                    previous_issue_url=previous_issue_url,
+                    previous_issue_state=previous_issue_state,
+                    findings_signature=current_signature,
+                    current_commit_id=current_commit_id,
+                    previous_commit_id=previous_commit_id,
+                    dry_run=effective_dry_run,
+                    issue_persistence="simulated" if effective_dry_run else "none",
+                    file_path=file_path,
                 )
+                records.append(record)
+                if per_repo_issues_dir is not None:
+                    _write_repo_report(
+                        per_repo_issues_dir,
+                        record,
+                        dry_run=effective_dry_run,
+                        analysis_summary_file=analysis_summary_file,
+                        previous_report=previous_report,
+                    )
                 click.echo()
                 continue
 
@@ -642,7 +720,7 @@ def create_issues_command(
             body = pitfalls.create_issue_body(report, custom_message)
 
             # Save issue body
-            body_file = current_issues_dir / f"issue_body_{file_path.stem}.md"
+            body_file = current_issues_dir / "issue_report.md"
             with open(body_file, "w", encoding="utf-8") as f:
                 f.write(body)
             click.echo(f"  Issue body saved to: {body_file}")
@@ -654,7 +732,7 @@ def create_issues_command(
             if platform == "github":
                 github, gitlab, issue_client = _get_or_create_client(
                     platform,
-                    dry_run,
+                    effective_dry_run,
                     github,
                     gitlab,
                 )
@@ -662,7 +740,7 @@ def create_issues_command(
             elif platform == "gitlab.com":
                 github, gitlab, issue_client = _get_or_create_client(
                     platform,
-                    dry_run,
+                    effective_dry_run,
                     github,
                     gitlab,
                 )
@@ -670,74 +748,78 @@ def create_issues_command(
             else:
                 raise ValueError(f"Unsupported platform: {platform}")
 
-            is_simulated = dry_run
+            is_simulated = effective_dry_run
             if is_simulated:
                 click.echo(f"  ✓ Issue simulated: {issue_url}")
             else:
                 click.echo(f"  ✓ Issue created: {issue_url}")
 
-            records.append(
-                _build_report_entry(
-                    repo_url=repo_url,
-                    platform=platform,
-                    pitfalls_count=pitfalls_count,
-                    warnings_count=warnings_count,
-                    issue_url=None if is_simulated else issue_url,
-                    analysis_date=analysis_date,
-                    bot_version=bot_version,
-                    metacheck_version=metacheck_version,
-                    pitfalls_ids=pitfalls_ids,
-                    warnings_ids=warnings_ids,
-                    action="simulated_created" if is_simulated else "created",
-                    reason_code=decision.reason,
-                    previous_issue_url=previous_issue_url,
-                    previous_issue_state=previous_issue_state,
-                    findings_signature=current_signature,
-                    current_commit_id=current_commit_id,
-                    previous_commit_id=previous_commit_id,
-                    dry_run=dry_run,
-                    issue_persistence="simulated" if is_simulated else "posted",
-                    simulated_issue_url=issue_url if is_simulated else None,
-                    file_path=file_path,
-                )
+            record = _build_report_entry(
+                repo_url=repo_url,
+                platform=platform,
+                pitfalls_count=pitfalls_count,
+                warnings_count=warnings_count,
+                issue_url=None if is_simulated else issue_url,
+                analysis_date=analysis_date,
+                bot_version=bot_version,
+                metacheck_version=metacheck_version,
+                pitfalls_ids=pitfalls_ids,
+                warnings_ids=warnings_ids,
+                action="simulated_created" if is_simulated else "created",
+                reason_code=reason_override or decision.reason,
+                previous_issue_url=previous_issue_url,
+                previous_issue_state=previous_issue_state,
+                findings_signature=current_signature,
+                current_commit_id=current_commit_id,
+                previous_commit_id=previous_commit_id,
+                dry_run=effective_dry_run,
+                issue_persistence="simulated" if is_simulated else "posted",
+                simulated_issue_url=issue_url if is_simulated else None,
+                file_path=file_path,
             )
+            records.append(record)
+            if per_repo_issues_dir is not None:
+                _write_repo_report(
+                    per_repo_issues_dir,
+                    record,
+                    dry_run=effective_dry_run,
+                    analysis_summary_file=analysis_summary_file,
+                    previous_report=previous_report,
+                )
 
         except Exception as e:
             click.echo(f"  ✗ Error: {e}", err=True)
-            records.append(
-                _build_report_entry(
-                    repo_url=repo_url,
-                    platform=platform,
-                    pitfalls_count=pitfalls_count,
-                    warnings_count=warnings_count,
-                    issue_url=None,
-                    analysis_date=analysis_date,
-                    bot_version=bot_version,
-                    metacheck_version=metacheck_version,
-                    pitfalls_ids=pitfalls_ids,
-                    warnings_ids=warnings_ids,
-                    action="failed",
-                    reason_code="exception",
-                    dry_run=dry_run,
-                    issue_persistence="none",
-                    file_path=file_path,
-                    error=str(e),
-                )
+            record = _build_report_entry(
+                repo_url=repo_url,
+                platform=platform,
+                pitfalls_count=pitfalls_count,
+                warnings_count=warnings_count,
+                issue_url=None,
+                analysis_date=analysis_date,
+                bot_version=bot_version,
+                metacheck_version=metacheck_version,
+                pitfalls_ids=pitfalls_ids,
+                warnings_ids=warnings_ids,
+                action="failed",
+                reason_code="exception",
+                dry_run=dry_run,
+                issue_persistence="none",
+                file_path=file_path,
+                error=str(e),
             )
+            records.append(record)
+            if per_repo_issues_dir is not None:
+                _write_repo_report(
+                    per_repo_issues_dir,
+                    record,
+                    dry_run=dry_run,
+                    analysis_summary_file=analysis_summary_file,
+                    previous_report=previous_report,
+                )
 
         click.echo()
 
-    counters = {
-        "total": len(records),
-        "created": sum(1 for r in records if r.get("action") == "created"),
-        "simulated": sum(1 for r in records if r.get("action") == "simulated_created"),
-        "updated_by_comment": sum(
-            1 for r in records if r.get("action") == "updated_by_comment"
-        ),
-        "closed": sum(1 for r in records if r.get("action") == "closed"),
-        "skipped": sum(1 for r in records if r.get("action") == "skipped"),
-        "failed": sum(1 for r in records if r.get("action") == "failed"),
-    }
+    counters = _build_counters(records)
 
     report = {
         "run_metadata": {
@@ -755,10 +837,11 @@ def create_issues_command(
         "counters": counters,
         "records": records,
     }
-    report_file = issues_dir / "report.json"
-    with open(report_file, "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2)
-    click.echo(f"Run report: {report_file}")
+    if not using_per_repo_mode:
+        report_file = issues_dir / "report.json"
+        with open(report_file, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2)
+        click.echo(f"Run report: {report_file}")
 
     # Display summary
     click.echo(f"\n{'=' * 60}")

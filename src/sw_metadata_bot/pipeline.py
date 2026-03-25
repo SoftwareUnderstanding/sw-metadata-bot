@@ -2,6 +2,7 @@
 
 import json
 import re
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -9,7 +10,7 @@ from tempfile import NamedTemporaryFile
 import click
 import requests
 
-from . import github_api, history, pitfalls
+from . import github_api
 from .community_config import (
     append_opt_out_repository,
     copy_config_to_analysis_root,
@@ -18,6 +19,7 @@ from .community_config import (
     resolve_output_root,
     resolve_run_name,
     resolve_snapshot_tag,
+    sanitize_repo_name,
 )
 from .create_issues import create_issues_command
 from .metacheck_wrapper import metacheck_command
@@ -42,6 +44,18 @@ def _extract_previous_commit(record: dict) -> str | None:
         return legacy_commit
 
     return None
+
+
+def _is_unsubscribe_comment(comment: str) -> bool:
+    """Return True when a comment is exactly the unsubscribe keyword."""
+    return comment.strip().lower() == "unsubscribe"
+
+
+def _detect_unsubscribe_in_previous_issue(issue_url: str, dry_run: bool) -> bool:
+    """Check whether previous issue comments include an unsubscribe request."""
+    client = github_api.GitHubAPI(dry_run=dry_run)
+    comments = client.get_issue_comments(issue_url)
+    return any(_is_unsubscribe_comment(comment) for comment in comments)
 
 
 def _is_supported_for_commit_skip(repo_url: str) -> bool:
@@ -79,122 +93,6 @@ def _get_repo_head_commit(repo_url: str) -> str | None:
     return str(sha) if isinstance(sha, str) and sha else None
 
 
-def _build_repo_not_updated_record(
-    repo_url: str,
-    current_commit_id: str | None,
-    previous_commit_id: str | None,
-    *,
-    dry_run: bool,
-    reason_code: str = "repo_not_updated",
-    previous_issue_url: str | None = None,
-    unsubscribe_detected: bool = False,
-) -> dict[str, object]:
-    """Build report record for repositories skipped before analysis."""
-    platform = "github" if "github.com" in repo_url.lower() else None
-    record: dict[str, object] = {
-        "repo_url": repo_url,
-        "platform": platform,
-        "pitfalls_count": 0,
-        "warnings_count": 0,
-        "issue_url": None,
-        "analysis_date": "not-run",
-        "sw_metadata_bot_version": "unknown",
-        "rsmetacheck_version": "unknown",
-        "pitfalls_ids": [],
-        "warnings_ids": [],
-        "action": "skipped",
-        "reason_code": reason_code,
-        "findings_signature": "",
-        "current_commit_id": current_commit_id,
-        "previous_commit_id": previous_commit_id,
-        "dry_run": dry_run,
-        "issue_persistence": "none",
-    }
-    if previous_issue_url:
-        record["previous_issue_url"] = previous_issue_url
-    if unsubscribe_detected:
-        record["unsubscribe_detected"] = True
-    return record
-
-
-def _is_unsubscribe_comment(comment: str) -> bool:
-    """Return True when a comment is exactly the unsubscribe keyword."""
-    return comment.strip().lower() == "unsubscribe"
-
-
-def _detect_unsubscribe_in_previous_issue(issue_url: str, dry_run: bool) -> bool:
-    """Check whether previous issue comments include an unsubscribe request."""
-    client = github_api.GitHubAPI(dry_run=dry_run)
-    comments = client.get_issue_comments(issue_url)
-    return any(_is_unsubscribe_comment(comment) for comment in comments)
-
-
-def _merge_pre_skipped_records(
-    report_file: Path,
-    skipped_records: list[dict[str, object]],
-) -> None:
-    """Merge pre-analysis skipped records into create-issues report output."""
-    if not skipped_records:
-        return
-
-    with open(report_file, encoding="utf-8") as f:
-        report = json.load(f)
-
-    records = report.get("records")
-    if not isinstance(records, list):
-        records = []
-    records = [*skipped_records, *records]
-    report["records"] = records
-
-    counters = report.get("counters")
-    if not isinstance(counters, dict):
-        counters = {}
-    counters["skipped"] = int(counters.get("skipped", 0)) + len(skipped_records)
-    counters["total"] = int(counters.get("total", 0)) + len(skipped_records)
-    report["counters"] = counters
-
-    with open(report_file, "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2)
-
-
-def _write_pre_skipped_only_report(
-    report_file: Path,
-    *,
-    dry_run: bool,
-    analysis_summary_file: Path,
-    previous_report_source: Path | None,
-    skipped_records: list[dict[str, object]],
-) -> None:
-    """Write report.json when all repositories are skipped before analysis."""
-    report_file.parent.mkdir(parents=True, exist_ok=True)
-
-    report = {
-        "run_metadata": {
-            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "dry_run": dry_run,
-            "analysis_summary_file": str(analysis_summary_file),
-            "previous_report_source": (
-                str(previous_report_source)
-                if previous_report_source is not None
-                else None
-            ),
-        },
-        "counters": {
-            "total": len(skipped_records),
-            "created": 0,
-            "simulated": 0,
-            "updated_by_comment": 0,
-            "closed": 0,
-            "skipped": len(skipped_records),
-            "failed": 0,
-        },
-        "records": skipped_records,
-    }
-
-    with open(report_file, "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2)
-
-
 def _resolve_unique_snapshot_tag(
     run_root: Path, snapshot_tag: str | None
 ) -> str | None:
@@ -221,148 +119,6 @@ def _resolve_unique_snapshot_tag(
         suffix += 1
 
 
-def _resolve_run_paths(
-    output_root: Path,
-    run_name: str,
-    snapshot_tag: str | None,
-) -> tuple[Path, Path, Path, Path]:
-    """Compute dedicated output paths for a pipeline run."""
-    run_root = output_root / run_name
-
-    if snapshot_tag:
-        run_root = run_root / snapshot_tag
-
-    somef_output_dir = run_root / "somef_outputs"
-    pitfalls_output_dir = run_root / "pitfalls_outputs"
-    analysis_output_file = run_root / "analysis_results.json"
-    issues_output_dir = run_root / "issues_out"
-
-    return (
-        somef_output_dir,
-        pitfalls_output_dir,
-        analysis_output_file,
-        issues_output_dir,
-    )
-
-
-def _reorganize_metacheck_outputs(
-    analysis_root: Path,
-    somef_output_dir: Path,
-    pitfalls_output_dir: Path,
-) -> None:
-    """Reorganize metacheck outputs from flat structure to per-repository folders.
-
-    Scans the pitfalls_output_dir for all .jsonld files, extracts repository URLs,
-    and reorganizes files into per-repository folders with standardized naming:
-    - somef_output.json
-    - pitfalls_output.jsonld
-
-    Args:
-        analysis_root: Root analysis directory (e.g., outputs/ossr/20260311)
-        somef_output_dir: Current flat directory of SOMEF outputs
-        pitfalls_output_dir: Current flat directory of pitfalls JSON-LD files
-
-    Note:
-        Creates per-repo folders in analysis_root. Original files in somef_outputs/
-        and pitfalls_outputs/ are kept for backwards compatibility (cleanup can be
-        done separately if needed).
-    """
-    import shutil
-
-    if not pitfalls_output_dir.exists():
-        click.echo(f"Pitfalls output directory not found: {pitfalls_output_dir}")
-        return
-
-    # Scan for all pitfalls JSON-LD files
-    pitfalls_files = list(pitfalls_output_dir.glob("*_pitfalls.jsonld"))
-
-    if not pitfalls_files:
-        click.echo(f"No pitfalls files found in {pitfalls_output_dir}")
-        return
-
-    click.echo(
-        f"Reorganizing {len(pitfalls_files)} metacheck outputs to per-repo structure"
-    )
-
-    for pitfalls_file in pitfalls_files:
-        try:
-            # Extract repository URL from pitfalls file
-            pitfalls_data = pitfalls.load_pitfalls(pitfalls_file)
-            repo_url = pitfalls.get_repository_url(pitfalls_data)
-
-            if not repo_url:
-                click.echo(
-                    f"Warning: Could not extract repo URL from {pitfalls_file.name}"
-                )
-                continue
-
-            # Get per-repo paths
-            per_repo_paths = _resolve_per_repo_paths(analysis_root, repo_url)
-            repo_folder = per_repo_paths["repo_folder"]
-
-            # Create repo folder
-            repo_folder.mkdir(parents=True, exist_ok=True)
-
-            # Copy pitfalls file with standard name
-            dest_pitfalls = per_repo_paths["pitfalls_output"]
-            shutil.copy2(pitfalls_file, dest_pitfalls)
-
-            # Find and copy corresponding somef file
-            # Somef files are named like: pipeline_filtered_xyz_output_N.json
-            # Pitfalls files are named: pipeline_filtered_xyz_output_N_pitfalls.jsonld
-            # Extract the N to find matching somef file
-
-            # Pattern: extract the base name and index
-            pitfalls_name = pitfalls_file.stem  # Remove .jsonld
-            # Remove _pitfalls suffix to get base name
-            if pitfalls_name.endswith("_pitfalls"):
-                base_name = pitfalls_name[:-9]  # Remove "_pitfalls"
-                # Look for corresponding somef file
-                somef_file = somef_output_dir / f"{base_name}.json"
-
-                if somef_file.exists():
-                    dest_somef = per_repo_paths["somef_output"]
-                    shutil.copy2(somef_file, dest_somef)
-                else:
-                    click.echo(
-                        f"Warning: Could not find corresponding somef file for {pitfalls_file.name}"
-                    )
-
-            click.echo(f"  ✓ {repo_url}")
-
-        except Exception as e:
-            click.echo(f"Error reorganizing {pitfalls_file.name}: {e}")
-            continue
-
-
-def _resolve_per_repo_paths(analysis_root: Path, repo_url: str) -> dict[str, Path]:
-    """Compute per-repository output paths within the analysis root.
-
-    Args:
-        analysis_root: Root analysis directory (e.g., outputs/ossr/20260311)
-        repo_url: Repository URL to sanitize into folder name
-
-    Returns:
-        Dictionary with keys: 'repo_folder', 'somef_output', 'pitfalls_output', 'issues_dir'
-
-    Raises:
-        click.ClickException: If repo_url cannot be sanitized
-    """
-    from .community_config import sanitize_repo_name
-
-    sanitized_name = sanitize_repo_name(repo_url)
-    repo_folder = analysis_root / sanitized_name
-
-    return {
-        "repo_folder": repo_folder,
-        "somef_output": repo_folder / "somef_output.json",
-        "pitfalls_output": repo_folder / "pitfalls_output.jsonld",
-        "issues_dir": repo_folder / "issues_out",
-        "somef_dir": repo_folder,  # Folder containing somef_output.json
-        "pitfalls_dir": repo_folder,  # Folder containing pitfalls_output.jsonld
-    }
-
-
 def _snapshot_sort_key(snapshot_tag: str) -> tuple[str, int] | None:
     """Return sortable key for snapshot tags matching YYYYMMDD or YYYYMMDD_N."""
     match = SNAPSHOT_TAG_PATTERN.fullmatch(snapshot_tag)
@@ -373,12 +129,12 @@ def _snapshot_sort_key(snapshot_tag: str) -> tuple[str, int] | None:
     return (date_part, suffix)
 
 
-def find_latest_previous_report(
+def _find_latest_previous_snapshot_root(
     output_root: Path,
     run_name: str,
     current_snapshot_tag: str | None,
 ) -> Path | None:
-    """Find latest previous report.json from same run folder."""
+    """Find latest previous snapshot root from same run folder."""
     run_root = output_root / run_name
     if not run_root.exists() or not run_root.is_dir():
         return None
@@ -393,15 +149,241 @@ def find_latest_previous_report(
         if current_snapshot_tag is not None and child.name == current_snapshot_tag:
             continue
 
-        report_path = child / "issues_out" / "report.json"
-        if report_path.exists():
-            candidates.append((key, report_path))
+        has_new_layout = any(
+            candidate.is_dir() and (candidate / "report.json").exists()
+            for candidate in child.iterdir()
+        )
+        has_old_layout = (child / "issues_out" / "report.json").exists()
+        has_run_report = (child / "run_report.json").exists()
+        if has_new_layout or has_old_layout or has_run_report:
+            candidates.append((key, child))
 
     if not candidates:
         return None
 
     candidates.sort(reverse=True)
     return candidates[0][1]
+
+
+def find_latest_previous_report(
+    output_root: Path,
+    run_name: str,
+    current_snapshot_tag: str | None,
+) -> Path | None:
+    """Find latest previous report path from same run folder."""
+    snapshot_root = _find_latest_previous_snapshot_root(
+        output_root=output_root,
+        run_name=run_name,
+        current_snapshot_tag=current_snapshot_tag,
+    )
+    if snapshot_root is None:
+        return None
+
+    run_report = snapshot_root / "run_report.json"
+    if run_report.exists():
+        return run_report
+
+    legacy_report = snapshot_root / "issues_out" / "report.json"
+    if legacy_report.exists():
+        return legacy_report
+
+    return None
+
+
+def _snapshot_root_from_report_path(report_path: Path | None) -> Path | None:
+    """Resolve snapshot root directory from a report file path."""
+    if report_path is None:
+        return None
+    if report_path.name == "run_report.json":
+        return report_path.parent
+    if report_path.name == "report.json" and report_path.parent.name == "issues_out":
+        return report_path.parent.parent
+    if report_path.name == "report.json":
+        return report_path.parent.parent
+    return report_path.parent
+
+
+def _resolve_per_repo_paths(analysis_root: Path, repo_url: str) -> dict[str, Path]:
+    """Compute per-repository output paths within the analysis root."""
+    sanitized_name = sanitize_repo_name(repo_url)
+    repo_folder = analysis_root / sanitized_name
+
+    return {
+        "repo_folder": repo_folder,
+        "somef_output": repo_folder / "somef_output.json",
+        "pitfall_output": repo_folder / "pitfall.jsonld",
+        "issue_report": repo_folder / "issue_report.md",
+        "report": repo_folder / "report.json",
+    }
+
+
+def _copy_previous_repo_artifacts(
+    previous_repo_folder: Path, current_repo_folder: Path
+) -> None:
+    """Copy previous snapshot repository artifacts into current snapshot folder."""
+    current_repo_folder.mkdir(parents=True, exist_ok=True)
+    for name in (
+        "somef_output.json",
+        "pitfall.jsonld",
+        "issue_report.md",
+        "report.json",
+    ):
+        src = previous_repo_folder / name
+        if src.exists():
+            shutil.copy2(src, current_repo_folder / name)
+
+
+def _load_previous_repo_record(
+    previous_snapshot_root: Path | None, repo_url: str
+) -> dict | None:
+    """Load previous per-repo record from previous snapshot if available."""
+    if previous_snapshot_root is None:
+        return None
+
+    repo_folder = previous_snapshot_root / sanitize_repo_name(repo_url)
+    report_path = repo_folder / "report.json"
+    if report_path.exists():
+        with open(report_path, encoding="utf-8") as f:
+            data = json.load(f)
+        records = data.get("records") if isinstance(data, dict) else None
+        if isinstance(records, list) and records:
+            record = records[0]
+            if isinstance(record, dict):
+                return record
+
+    run_report = previous_snapshot_root / "run_report.json"
+    if run_report.exists():
+        with open(run_report, encoding="utf-8") as f:
+            data = json.load(f)
+        records = data.get("records") if isinstance(data, dict) else None
+        if isinstance(records, list):
+            normalized = _normalize_repo_url(repo_url)
+            for record in records:
+                if not isinstance(record, dict):
+                    continue
+                value = record.get("repo_url")
+                if isinstance(value, str) and _normalize_repo_url(value) == normalized:
+                    return record
+
+    return None
+
+
+def _standardize_metacheck_outputs(repo_folder: Path) -> None:
+    """Normalize metacheck output names to stable per-repo filenames."""
+    repo_folder.mkdir(parents=True, exist_ok=True)
+
+    pitfall_target = repo_folder / "pitfall.jsonld"
+    if not pitfall_target.exists():
+        pitfall_candidates = list((repo_folder / "pitfalls_outputs").glob("*.jsonld"))
+        if not pitfall_candidates:
+            pitfall_candidates = list(repo_folder.glob("*_pitfalls.jsonld"))
+        if pitfall_candidates:
+            shutil.move(str(pitfall_candidates[0]), str(pitfall_target))
+
+    somef_target = repo_folder / "somef_output.json"
+    if not somef_target.exists():
+        somef_candidates = list((repo_folder / "somef_outputs").glob("*.json"))
+        if not somef_candidates:
+            somef_candidates = [
+                path
+                for path in repo_folder.glob("*.json")
+                if path.name
+                not in {
+                    "report.json",
+                    "analysis_results.json",
+                    "config.json",
+                    "run_report.json",
+                }
+                and not path.name.startswith("metacheck_")
+            ]
+        if somef_candidates:
+            shutil.move(str(somef_candidates[0]), str(somef_target))
+
+    for legacy_dir in (repo_folder / "somef_outputs", repo_folder / "pitfalls_outputs"):
+        if legacy_dir.exists() and legacy_dir.is_dir():
+            shutil.rmtree(legacy_dir)
+
+
+def _run_metacheck_for_repo(repo_url: str, repo_folder: Path) -> None:
+    """Run metacheck for a single repository URL into its own folder."""
+    repo_folder.mkdir(parents=True, exist_ok=True)
+    temp_analysis_file: Path | None = None
+    with NamedTemporaryFile(
+        mode="w",
+        suffix=".json",
+        prefix="metacheck_repo_",
+        delete=False,
+        encoding="utf-8",
+    ) as temp_file:
+        temp_analysis_file = Path(temp_file.name)
+
+    metacheck_command.main(
+        args=[
+            "--input",
+            repo_url,
+            "--somef-output",
+            str(repo_folder),
+            "--pitfalls-output",
+            str(repo_folder),
+            "--analysis-output",
+            str(temp_analysis_file),
+        ],
+        standalone_mode=False,
+    )
+
+    if temp_analysis_file is not None and temp_analysis_file.exists():
+        temp_analysis_file.unlink()
+
+    _standardize_metacheck_outputs(repo_folder)
+
+
+def _build_run_report(
+    records: list[dict[str, object]], *, dry_run: bool, analysis_summary_file: Path
+) -> dict[str, object]:
+    """Build run-level report payload from per-repo records."""
+    counters = {
+        "total": len(records),
+        "created": sum(1 for r in records if r.get("action") == "created"),
+        "simulated": sum(1 for r in records if r.get("action") == "simulated_created"),
+        "updated_by_comment": sum(
+            1 for r in records if r.get("action") == "updated_by_comment"
+        ),
+        "closed": sum(1 for r in records if r.get("action") == "closed"),
+        "skipped": sum(1 for r in records if r.get("action") == "skipped"),
+        "failed": sum(1 for r in records if r.get("action") == "failed"),
+    }
+    return {
+        "run_metadata": {
+            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "dry_run": dry_run,
+            "analysis_summary_file": str(analysis_summary_file),
+        },
+        "counters": counters,
+        "records": records,
+    }
+
+
+def _collect_per_repo_records(analysis_root: Path) -> list[dict[str, object]]:
+    """Collect one report record per repository folder."""
+    records: list[dict[str, object]] = []
+    if not analysis_root.exists():
+        return records
+
+    for repo_folder in sorted(analysis_root.iterdir()):
+        if not repo_folder.is_dir():
+            continue
+        report_path = repo_folder / "report.json"
+        if not report_path.exists():
+            continue
+        with open(report_path, encoding="utf-8") as f:
+            data = json.load(f)
+        report_records = data.get("records") if isinstance(data, dict) else None
+        if isinstance(report_records, list) and report_records:
+            first = report_records[0]
+            if isinstance(first, dict):
+                records.append(first)
+
+    return records
 
 
 def run_pipeline(
@@ -423,19 +405,13 @@ def run_pipeline(
         snapshot_tag=requested_snapshot_tag,
     )
 
-    somef_output_dir, pitfalls_output_dir, analysis_output_file, issues_output_dir = (
-        _resolve_run_paths(
-            output_root=output_root,
-            run_name=run_folder_name,
-            snapshot_tag=resolved_snapshot_tag,
-        )
+    analysis_root = (
+        run_root / resolved_snapshot_tag if resolved_snapshot_tag else run_root
     )
+    analysis_output_file = analysis_root / "analysis_results.json"
 
-    # Determine analysis root (parent of somef_outputs, pitfalls_outputs, etc.)
-    analysis_root = somef_output_dir.parent
-
-    # Copy the input config to the analysis root
     copy_config_to_analysis_root(community_config_file, analysis_root)
+    analysis_root.mkdir(parents=True, exist_ok=True)
 
     resolved_previous_report = previous_report
     if resolved_previous_report is None:
@@ -444,164 +420,93 @@ def run_pipeline(
             run_name=run_folder_name,
             current_snapshot_tag=resolved_snapshot_tag,
         )
+    previous_snapshot_root = _snapshot_root_from_report_path(resolved_previous_report)
 
-    previous_commit_records = history.load_previous_commit_report(
-        resolved_previous_report
-    )
-    previous_issue_records = history.load_previous_report(resolved_previous_report)
-    repositories_to_analyze = repositories
-    pre_skipped_records: list[dict[str, object]] = []
+    evaluated_repositories: dict[str, dict[str, str]] = {}
 
-    if previous_commit_records:
-        repositories_to_analyze = []
-        for repo_url in repositories:
-            normalized_repo = _normalize_repo_url(repo_url)
-            previous = previous_commit_records.get(normalized_repo)
-            if previous is None:
-                repositories_to_analyze.append(repo_url)
-                continue
+    for repo_url in repositories:
+        per_repo = _resolve_per_repo_paths(analysis_root, repo_url)
+        repo_folder = per_repo["repo_folder"]
+        repo_folder.mkdir(parents=True, exist_ok=True)
 
-            previous_commit_id = _extract_previous_commit(previous)
-            if (
-                previous_commit_id is None
-                or previous_commit_id == "Unknown"
-                or not _is_supported_for_commit_skip(repo_url)
-            ):
-                repositories_to_analyze.append(repo_url)
-                continue
+        previous_record = _load_previous_repo_record(previous_snapshot_root, repo_url)
+        previous_commit_id = (
+            _extract_previous_commit(previous_record) if previous_record else None
+        )
 
+        current_commit_id: str | None = None
+        if _is_supported_for_commit_skip(repo_url):
             try:
                 current_commit_id = _get_repo_head_commit(repo_url)
             except Exception:
-                repositories_to_analyze.append(repo_url)
-                continue
+                current_commit_id = None
 
-            if (
-                current_commit_id is not None
-                and current_commit_id != "Unknown"
-                and current_commit_id == previous_commit_id
-            ):
-                previous_issue = previous_issue_records.get(normalized_repo)
-                previous_issue_url = None
-                if previous_issue is not None:
-                    value = previous_issue.get("issue_url")
-                    if isinstance(value, str) and value:
-                        previous_issue_url = value
+        reused_previous = False
+        if (
+            previous_snapshot_root is not None
+            and previous_record is not None
+            and previous_commit_id
+            and current_commit_id
+            and previous_commit_id != "Unknown"
+            and current_commit_id != "Unknown"
+            and current_commit_id == previous_commit_id
+        ):
+            previous_repo_folder = previous_snapshot_root / sanitize_repo_name(repo_url)
+            if previous_repo_folder.exists():
+                _copy_previous_repo_artifacts(previous_repo_folder, repo_folder)
+                reused_previous = True
 
-                if previous_issue_url:
+                previous_issue_url = previous_record.get("issue_url")
+                if not isinstance(previous_issue_url, str) or not previous_issue_url:
+                    previous_issue_url = previous_record.get("previous_issue_url")
+                if isinstance(previous_issue_url, str) and previous_issue_url:
                     try:
-                        unsubscribe_detected = _detect_unsubscribe_in_previous_issue(
-                            issue_url=previous_issue_url,
-                            dry_run=dry_run,
-                        )
+                        if _detect_unsubscribe_in_previous_issue(
+                            previous_issue_url, dry_run
+                        ):
+                            append_opt_out_repository(community_config_file, repo_url)
                     except Exception:
-                        unsubscribe_detected = False
+                        pass
 
-                    if unsubscribe_detected:
-                        append_opt_out_repository(community_config_file, repo_url)
-                        pre_skipped_records.append(
-                            _build_repo_not_updated_record(
-                                repo_url=repo_url,
-                                current_commit_id=current_commit_id,
-                                previous_commit_id=previous_commit_id,
-                                dry_run=dry_run,
-                                reason_code="unsubscribe",
-                                previous_issue_url=previous_issue_url,
-                                unsubscribe_detected=True,
-                            )
-                        )
-                        continue
+        if not reused_previous:
+            _run_metacheck_for_repo(repo_url, repo_folder)
 
-                pre_skipped_records.append(
-                    _build_repo_not_updated_record(
-                        repo_url=repo_url,
-                        current_commit_id=current_commit_id,
-                        previous_commit_id=previous_commit_id,
-                        dry_run=dry_run,
-                        previous_issue_url=previous_issue_url,
-                    )
-                )
-                continue
+        evaluated_repositories[sanitize_repo_name(repo_url)] = {
+            "url": repo_url,
+            "commit_id": current_commit_id or "Unknown",
+        }
 
-            repositories_to_analyze.append(repo_url)
-
-    analysis_input_file: Path | None = None
-    temp_input_file: Path | None = None
-    if repositories_to_analyze:
-        with NamedTemporaryFile(
-            mode="w",
-            suffix=".json",
-            prefix="pipeline_filtered_",
-            delete=False,
-            encoding="utf-8",
-        ) as temp_file:
-            json.dump({"repositories": repositories_to_analyze}, temp_file, indent=2)
-            temp_input_file = Path(temp_file.name)
-            analysis_input_file = temp_input_file
-
-    ran_analysis = True
-    if not repositories_to_analyze:
-        ran_analysis = False
-    else:
-        metacheck_command.main(
-            args=[
-                "--input",
-                str(analysis_input_file),
-                "--somef-output",
-                str(somef_output_dir),
-                "--pitfalls-output",
-                str(pitfalls_output_dir),
-                "--analysis-output",
-                str(analysis_output_file),
-            ],
-            standalone_mode=False,
-        )
-
-        # Reorganize metacheck outputs to per-repo structure
-        _reorganize_metacheck_outputs(
-            analysis_root=analysis_root,
-            somef_output_dir=somef_output_dir,
-            pitfalls_output_dir=pitfalls_output_dir,
-        )
+    analysis_summary = {
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "summary": {"evaluated_repositories": evaluated_repositories},
+    }
+    with open(analysis_output_file, "w", encoding="utf-8") as f:
+        json.dump(analysis_summary, f, indent=2)
 
     create_issues_args = [
         "--analysis-root",
         str(analysis_root),
-        "--pitfalls-output-dir",
-        str(pitfalls_output_dir),
-        "--issues-dir",
-        str(issues_output_dir),
         "--community-config-file",
         str(community_config_file),
         "--analysis-summary-file",
         str(analysis_output_file),
     ]
-
     if resolved_previous_report is not None:
         create_issues_args.extend(["--previous-report", str(resolved_previous_report)])
-
     if dry_run:
         create_issues_args.append("--dry-run")
 
-    if ran_analysis:
-        create_issues_command.main(args=create_issues_args, standalone_mode=False)
+    create_issues_command.main(args=create_issues_args, standalone_mode=False)
 
-    report_file = issues_output_dir / "report.json"
-    if ran_analysis and pre_skipped_records:
-        _merge_pre_skipped_records(
-            report_file=report_file, skipped_records=pre_skipped_records
-        )
-    elif not ran_analysis:
-        _write_pre_skipped_only_report(
-            report_file=report_file,
-            dry_run=dry_run,
-            analysis_summary_file=analysis_output_file,
-            previous_report_source=resolved_previous_report,
-            skipped_records=pre_skipped_records,
-        )
-
-    if temp_input_file is not None and temp_input_file.exists():
-        temp_input_file.unlink()
+    run_records = _collect_per_repo_records(analysis_root)
+    run_report = _build_run_report(
+        run_records,
+        dry_run=dry_run,
+        analysis_summary_file=analysis_output_file,
+    )
+    run_report_file = analysis_root / "run_report.json"
+    with open(run_report_file, "w", encoding="utf-8") as f:
+        json.dump(run_report, f, indent=2)
 
 
 @click.command()
@@ -627,7 +532,7 @@ def run_pipeline(
     "--previous-report",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     default=None,
-    help="Previous report.json used for incremental issue handling.",
+    help="Previous run_report.json used for incremental issue handling.",
 )
 def run_pipeline_command(
     community_config_file: Path,

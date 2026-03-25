@@ -315,8 +315,8 @@ def copy_config_to_analysis_root(config_path: Path, analysis_root: Path) -> None
     # Ensure analysis root exists
     analysis_root.mkdir(parents=True, exist_ok=True)
 
-    # Copy config to .config.json in analysis root
-    dest_path = analysis_root / ".config.json"
+    # Copy config to config.json in analysis root
+    dest_path = analysis_root / "config.json"
 
     with open(config_path, "r", encoding="utf-8") as src:
         content = json.load(src)

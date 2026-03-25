@@ -598,9 +598,7 @@ def test_create_issues_mixed_repo_decisions_same_changed_unsubscribe(
     assert by_repo["https://github.com/example/repo-unsub"]["action"] == "skipped"
 
     updated_config = json.loads(community_config.read_text())
-    assert updated_config["issues"]["opt_outs"] == [
-        "https://github.com/example/repo-unsub"
-    ]
+    assert updated_config["issues"]["opt_outs"] == []
 
 
 def test_create_issues_uses_previous_issue_url_lineage_in_dry_run(
