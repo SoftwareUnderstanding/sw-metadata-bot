@@ -202,3 +202,124 @@ def resolve_snapshot_tag(
         )
 
     return datetime.now(timezone.utc).strftime(snapshot_tag_format)
+
+
+def sanitize_repo_name(repo_url: str) -> str:
+    """Sanitize repository URL to a safe folder name format.
+
+    Extracts owner and repo name from various URL formats (GitHub, GitLab, etc.)
+    and returns in format: owner_repo (lowercase, underscores only for separators).
+
+    Args:
+        repo_url: Repository URL (e.g., https://github.com/owner/repo or
+                 https://gitlab.com/owner/subgroup/repo)
+
+    Returns:
+        Sanitized folder name (e.g., "owner_repo")
+
+    Raises:
+        click.ClickException: If repo_url cannot be parsed
+    """
+    import re
+
+    # Normalize the URL
+    normalized = _normalize_repo_url(repo_url)
+
+    # Try to parse GitHub format: github.com/owner/repo
+    github_match = re.match(
+        r"^https?://github\.com/([^/]+)/([^/]+?)(?:\.git)?/?$",
+        normalized,
+        re.IGNORECASE,
+    )
+    if github_match:
+        owner = github_match.group(1)
+        repo = github_match.group(2)
+        return _create_sanitized_folder_name(owner, repo)
+
+    # Try to parse GitLab format: gitlab.com/owner/repo or gitlab.com/owner/subgroup/repo
+    gitlab_match = re.match(
+        r"^https?://gitlab\.com/(.+)/([^/]+?)(?:\.git)?/?$", normalized, re.IGNORECASE
+    )
+    if gitlab_match:
+        owner_path = gitlab_match.group(1)
+        repo = gitlab_match.group(2)
+        # Use the full path (owner/subgroup/...) but without the last part (repo)
+        owner = owner_path.replace("/", "_")
+        return _create_sanitized_folder_name(owner, repo)
+
+    # Generic host format: try {host}/owner/repo
+    generic_match = re.match(
+        r"^https?://[^/]+/([^/]+)/([^/]+?)(?:\.git)?/?$", normalized, re.IGNORECASE
+    )
+    if generic_match:
+        owner = generic_match.group(1)
+        repo = generic_match.group(2)
+        return _create_sanitized_folder_name(owner, repo)
+
+    raise click.ClickException(
+        f"Unable to parse repository URL: {repo_url}. "
+        f"Expected format: https://host/owner/repo"
+    )
+
+
+def _create_sanitized_folder_name(owner: str, repo: str) -> str:
+    """Create sanitized folder name from owner and repo components.
+
+    Args:
+        owner: Owner/organization name or path
+        repo: Repository name
+
+    Returns:
+        Sanitized folder name (lowercase, underscores only)
+    """
+    import re
+
+    # Remove .git suffix if present
+    repo_clean = repo.removesuffix(".git")
+    owner_clean = owner.removesuffix(".git")
+
+    # Combine owner and repo
+    combined = f"{owner_clean}_{repo_clean}"
+
+    # Replace non-alphanumeric characters (except underscores) with underscores
+    sanitized = re.sub(r"[^a-zA-Z0-9_]", "_", combined)
+
+    # Replace multiple consecutive underscores with single underscore
+    sanitized = re.sub(r"_+", "_", sanitized)
+
+    # Remove leading/trailing underscores
+    sanitized = sanitized.strip("_")
+
+    # Convert to lowercase
+    sanitized = sanitized.lower()
+
+    return sanitized
+
+
+def copy_config_to_analysis_root(config_path: Path, analysis_root: Path) -> None:
+    """Copy the configuration file to the analysis root directory.
+
+    Args:
+        config_path: Path to the input configuration file
+        analysis_root: Root analysis directory where config will be copied
+
+    Raises:
+        IOError: If copying fails
+    """
+    config_path = config_path.resolve()
+    analysis_root = analysis_root.resolve()
+
+    if not config_path.exists():
+        raise click.ClickException(f"Config file not found: {config_path}")
+
+    # Ensure analysis root exists
+    analysis_root.mkdir(parents=True, exist_ok=True)
+
+    # Copy config to .config.json in analysis root
+    dest_path = analysis_root / ".config.json"
+
+    with open(config_path, "r", encoding="utf-8") as src:
+        content = json.load(src)
+
+    with open(dest_path, "w", encoding="utf-8") as dst:
+        json.dump(content, dst, indent=2)

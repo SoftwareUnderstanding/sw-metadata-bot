@@ -87,6 +87,50 @@ def _load_analysis_commit_map(analysis_summary_file: Path | None) -> dict[str, s
     return commit_map
 
 
+def _discover_pitfalls_files(
+    analysis_root: Path | None,
+    pitfalls_output_dir: Path | None,
+) -> list[tuple[Path, Path | None]]:
+    """Discover pitfalls JSON-LD files using per-repo structure or flat directory.
+
+    Returns list of tuples: (pitfalls_file_path, per_repo_issues_dir or None)
+    where per_repo_issues_dir is set if using per-repo structure.
+
+    Args:
+        analysis_root: Root analysis directory with per-repo structure
+        pitfalls_output_dir: Fallback flat directory for backwards compatibility
+
+    Returns:
+        List of (pitfalls_file, per_repo_issues_dir) tuples
+    """
+    discovered: list[tuple[Path, Path | None]] = []
+
+    # Try per-repo discovery first
+    if analysis_root is not None and analysis_root.exists():
+        # Look for pitfalls_output.jsonld in each repo subfolder
+        for repo_folder in sorted(analysis_root.iterdir()):
+            if not repo_folder.is_dir():
+                continue
+            # Skip system/cache folders
+            if repo_folder.name.startswith("."):
+                continue
+
+            pitfalls_file = repo_folder / "pitfalls_output.jsonld"
+            if pitfalls_file.exists():
+                per_repo_issues_dir = repo_folder / "issues_out"
+                discovered.append((pitfalls_file, per_repo_issues_dir))
+
+    # Fall back to flat directory if no per-repo structure found
+    if not discovered and pitfalls_output_dir is not None:
+        if pitfalls_output_dir.exists():
+            # Look for any .jsonld files in the flat directory
+            flat_files = sorted(pitfalls_output_dir.glob("*.jsonld"))
+            for f in flat_files:
+                discovered.append((f, None))
+
+    return discovered
+
+
 def _is_unsubscribe_comment(comment: str) -> bool:
     """Return True when a comment is exactly the unsubscribe keyword."""
     return comment.strip().lower() == "unsubscribe"
@@ -215,10 +259,16 @@ def _build_report_entry(
 
 @click.command()
 @click.option(
+    "--analysis-root",
+    type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
+    default=None,
+    help="Root analysis directory with per-repo structure (new format). If provided, --pitfalls-output-dir is ignored.",
+)
+@click.option(
     "--pitfalls-output-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
-    required=True,
-    help="Directory containing pitfalls JSON-LD files from metacheck analysis.",
+    required=False,
+    help="Directory containing pitfalls JSON-LD files from metacheck analysis (backward compat).",
 )
 @click.option(
     "--issues-dir",
@@ -256,7 +306,8 @@ def _build_report_entry(
     help="Previous report.json to enable incremental issue handling.",
 )
 def create_issues_command(
-    pitfalls_output_dir: Path,
+    analysis_root: Path | None,
+    pitfalls_output_dir: Path | None,
     issues_dir: Path,
     dry_run: bool,
     log_level: str,
@@ -292,8 +343,17 @@ def create_issues_command(
     previous_records = history.load_previous_report(previous_report)
 
     if analysis_summary_file is None:
-        fallback_summary = pitfalls_output_dir.parent / "analysis_results.json"
-        analysis_summary_file = fallback_summary if fallback_summary.exists() else None
+        # Try to find analysis_results.json in likely locations
+        if analysis_root is not None and analysis_root.exists():
+            fallback_summary = analysis_root / "analysis_results.json"
+        elif pitfalls_output_dir is not None and pitfalls_output_dir.exists():
+            fallback_summary = pitfalls_output_dir.parent / "analysis_results.json"
+        else:
+            fallback_summary = None
+
+        if fallback_summary is not None and fallback_summary.exists():
+            analysis_summary_file = fallback_summary
+
     current_commit_map = _load_analysis_commit_map(analysis_summary_file)
 
     opt_out_repos = get_opt_out_repositories(community_config)
@@ -302,20 +362,31 @@ def create_issues_command(
         f"{len(opt_out_repos)} opt-out repositories from: {community_config_file}\n"
     )
 
-    # Find pitfalls files
-    pitfalls_files = sorted(pitfalls_output_dir.glob("*.jsonld"))
-    if not pitfalls_files:
-        click.echo(f"No pitfalls files found in {pitfalls_output_dir}", err=True)
+    # Find pitfalls files using per-repo discovery or fallback to flat directory
+    pitfalls_files_with_issues_dir = _discover_pitfalls_files(
+        analysis_root=analysis_root,
+        pitfalls_output_dir=pitfalls_output_dir,
+    )
+
+    if not pitfalls_files_with_issues_dir:
+        error_msg = f"No pitfalls files found in {analysis_root or pitfalls_output_dir}"
+        click.echo(error_msg, err=True)
         return
 
-    click.echo(f"Found {len(pitfalls_files)} pitfalls files to process\n")
+    click.echo(
+        f"Found {len(pitfalls_files_with_issues_dir)} pitfalls files to process\n"
+    )
 
     # Process each file
     records: list[dict[str, object]] = []
     bot_version = pitfalls.__version__
 
-    for i, file_path in enumerate(pitfalls_files, 1):
-        click.echo(f"[{i}/{len(pitfalls_files)}] Processing: {file_path.name}")
+    for i, (file_path, per_repo_issues_dir) in enumerate(
+        pitfalls_files_with_issues_dir, 1
+    ):
+        click.echo(
+            f"[{i}/{len(pitfalls_files_with_issues_dir)}] Processing: {file_path.name}"
+        )
 
         repo_url: str | None = None
         platform: str | None = None
@@ -330,6 +401,12 @@ def create_issues_command(
         previous_issue_url: str | None = None
         previous_issue_state: str | None = None
         unsubscribe_detected = False
+
+        # Use per-repo issues dir if available, otherwise use the global issues_dir
+        current_issues_dir = per_repo_issues_dir if per_repo_issues_dir else issues_dir
+
+        # Create issues directory for this repo/batch
+        current_issues_dir.mkdir(parents=True, exist_ok=True)
 
         try:
             # Load pitfalls
@@ -565,7 +642,7 @@ def create_issues_command(
             body = pitfalls.create_issue_body(report, custom_message)
 
             # Save issue body
-            body_file = issues_dir / f"issue_body_{file_path.stem}.md"
+            body_file = current_issues_dir / f"issue_body_{file_path.stem}.md"
             with open(body_file, "w", encoding="utf-8") as f:
                 f.write(body)
             click.echo(f"  Issue body saved to: {body_file}")

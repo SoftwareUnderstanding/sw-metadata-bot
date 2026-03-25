@@ -9,9 +9,10 @@ from tempfile import NamedTemporaryFile
 import click
 import requests
 
-from . import github_api, history
+from . import github_api, history, pitfalls
 from .community_config import (
     append_opt_out_repository,
+    copy_config_to_analysis_root,
     get_repositories,
     load_community_config,
     resolve_output_root,
@@ -244,6 +245,124 @@ def _resolve_run_paths(
     )
 
 
+def _reorganize_metacheck_outputs(
+    analysis_root: Path,
+    somef_output_dir: Path,
+    pitfalls_output_dir: Path,
+) -> None:
+    """Reorganize metacheck outputs from flat structure to per-repository folders.
+
+    Scans the pitfalls_output_dir for all .jsonld files, extracts repository URLs,
+    and reorganizes files into per-repository folders with standardized naming:
+    - somef_output.json
+    - pitfalls_output.jsonld
+
+    Args:
+        analysis_root: Root analysis directory (e.g., outputs/ossr/20260311)
+        somef_output_dir: Current flat directory of SOMEF outputs
+        pitfalls_output_dir: Current flat directory of pitfalls JSON-LD files
+
+    Note:
+        Creates per-repo folders in analysis_root. Original files in somef_outputs/
+        and pitfalls_outputs/ are kept for backwards compatibility (cleanup can be
+        done separately if needed).
+    """
+    import shutil
+
+    if not pitfalls_output_dir.exists():
+        click.echo(f"Pitfalls output directory not found: {pitfalls_output_dir}")
+        return
+
+    # Scan for all pitfalls JSON-LD files
+    pitfalls_files = list(pitfalls_output_dir.glob("*_pitfalls.jsonld"))
+
+    if not pitfalls_files:
+        click.echo(f"No pitfalls files found in {pitfalls_output_dir}")
+        return
+
+    click.echo(
+        f"Reorganizing {len(pitfalls_files)} metacheck outputs to per-repo structure"
+    )
+
+    for pitfalls_file in pitfalls_files:
+        try:
+            # Extract repository URL from pitfalls file
+            pitfalls_data = pitfalls.load_pitfalls(pitfalls_file)
+            repo_url = pitfalls.get_repository_url(pitfalls_data)
+
+            if not repo_url:
+                click.echo(
+                    f"Warning: Could not extract repo URL from {pitfalls_file.name}"
+                )
+                continue
+
+            # Get per-repo paths
+            per_repo_paths = _resolve_per_repo_paths(analysis_root, repo_url)
+            repo_folder = per_repo_paths["repo_folder"]
+
+            # Create repo folder
+            repo_folder.mkdir(parents=True, exist_ok=True)
+
+            # Copy pitfalls file with standard name
+            dest_pitfalls = per_repo_paths["pitfalls_output"]
+            shutil.copy2(pitfalls_file, dest_pitfalls)
+
+            # Find and copy corresponding somef file
+            # Somef files are named like: pipeline_filtered_xyz_output_N.json
+            # Pitfalls files are named: pipeline_filtered_xyz_output_N_pitfalls.jsonld
+            # Extract the N to find matching somef file
+
+            # Pattern: extract the base name and index
+            pitfalls_name = pitfalls_file.stem  # Remove .jsonld
+            # Remove _pitfalls suffix to get base name
+            if pitfalls_name.endswith("_pitfalls"):
+                base_name = pitfalls_name[:-9]  # Remove "_pitfalls"
+                # Look for corresponding somef file
+                somef_file = somef_output_dir / f"{base_name}.json"
+
+                if somef_file.exists():
+                    dest_somef = per_repo_paths["somef_output"]
+                    shutil.copy2(somef_file, dest_somef)
+                else:
+                    click.echo(
+                        f"Warning: Could not find corresponding somef file for {pitfalls_file.name}"
+                    )
+
+            click.echo(f"  ✓ {repo_url}")
+
+        except Exception as e:
+            click.echo(f"Error reorganizing {pitfalls_file.name}: {e}")
+            continue
+
+
+def _resolve_per_repo_paths(analysis_root: Path, repo_url: str) -> dict[str, Path]:
+    """Compute per-repository output paths within the analysis root.
+
+    Args:
+        analysis_root: Root analysis directory (e.g., outputs/ossr/20260311)
+        repo_url: Repository URL to sanitize into folder name
+
+    Returns:
+        Dictionary with keys: 'repo_folder', 'somef_output', 'pitfalls_output', 'issues_dir'
+
+    Raises:
+        click.ClickException: If repo_url cannot be sanitized
+    """
+    from .community_config import sanitize_repo_name
+
+    sanitized_name = sanitize_repo_name(repo_url)
+    repo_folder = analysis_root / sanitized_name
+
+    return {
+        "repo_folder": repo_folder,
+        "somef_output": repo_folder / "somef_output.json",
+        "pitfalls_output": repo_folder / "pitfalls_output.jsonld",
+        "issues_dir": repo_folder / "issues_out",
+        "somef_dir": repo_folder,  # Folder containing somef_output.json
+        "pitfalls_dir": repo_folder,  # Folder containing pitfalls_output.jsonld
+    }
+
+
 def _snapshot_sort_key(snapshot_tag: str) -> tuple[str, int] | None:
     """Return sortable key for snapshot tags matching YYYYMMDD or YYYYMMDD_N."""
     match = SNAPSHOT_TAG_PATTERN.fullmatch(snapshot_tag)
@@ -311,6 +430,12 @@ def run_pipeline(
             snapshot_tag=resolved_snapshot_tag,
         )
     )
+
+    # Determine analysis root (parent of somef_outputs, pitfalls_outputs, etc.)
+    analysis_root = somef_output_dir.parent
+
+    # Copy the input config to the analysis root
+    copy_config_to_analysis_root(community_config_file, analysis_root)
 
     resolved_previous_report = previous_report
     if resolved_previous_report is None:
@@ -432,7 +557,16 @@ def run_pipeline(
             standalone_mode=False,
         )
 
+        # Reorganize metacheck outputs to per-repo structure
+        _reorganize_metacheck_outputs(
+            analysis_root=analysis_root,
+            somef_output_dir=somef_output_dir,
+            pitfalls_output_dir=pitfalls_output_dir,
+        )
+
     create_issues_args = [
+        "--analysis-root",
+        str(analysis_root),
         "--pitfalls-output-dir",
         str(pitfalls_output_dir),
         "--issues-dir",

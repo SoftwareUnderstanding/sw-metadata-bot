@@ -183,6 +183,8 @@ def test_run_pipeline_invokes_commands_with_expected_args(monkeypatch, tmp_path)
 
     assert calls["create_issues"]["standalone_mode"] is False
     assert calls["create_issues"]["args"] == [
+        "--analysis-root",
+        str(output_root / "batch-a" / "202603"),
         "--pitfalls-output-dir",
         str(output_root / "batch-a" / "202603" / "pitfalls_outputs"),
         "--issues-dir",
