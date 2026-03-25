@@ -5,7 +5,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from sw_metadata_bot import commit_lookup, pipeline
+from sw_metadata_bot import analysis_runtime, commit_lookup, pipeline
 from sw_metadata_bot import publish as publish_module
 
 
@@ -30,7 +30,7 @@ def test_resolve_per_repo_paths_uses_analysis_root(tmp_path):
     """Per-repo paths are nested directly under analysis root with stable filenames."""
     analysis_root = tmp_path / "outputs" / "ossr" / "20260325"
 
-    paths = pipeline._resolve_per_repo_paths(
+    paths = analysis_runtime.resolve_per_repo_paths(
         analysis_root=analysis_root,
         repo_url="https://github.com/example/repo",
     )
@@ -388,22 +388,22 @@ def test_get_gitlab_head_commit_uses_gitlab_api(monkeypatch):
 
     monkeypatch.setattr(commit_lookup.requests, "get", fake_get)
 
-    commit_id = pipeline._get_gitlab_head_commit("https://gitlab.com/example/repo")
+    commit_id = commit_lookup.get_gitlab_head_commit("https://gitlab.com/example/repo")
 
     assert commit_id == "a" * 40
 
 
 def test_get_repo_head_commit_falls_back_to_generic_git(monkeypatch):
     """Use generic git fallback when API-specific commit lookups are unavailable."""
-    monkeypatch.setattr(pipeline, "_get_github_head_commit", lambda repo_url: None)
-    monkeypatch.setattr(pipeline, "_get_gitlab_head_commit", lambda repo_url: None)
+    monkeypatch.setattr(commit_lookup, "get_github_head_commit", lambda repo_url: None)
+    monkeypatch.setattr(commit_lookup, "get_gitlab_head_commit", lambda repo_url: None)
     monkeypatch.setattr(
-        pipeline,
-        "_get_generic_git_head_commit",
+        commit_lookup,
+        "get_generic_git_head_commit",
         lambda repo_url: "b" * 40,
     )
 
-    commit_id = pipeline._get_repo_head_commit("https://git.astron.nl/ro/lofar")
+    commit_id = commit_lookup.get_repo_head_commit("https://git.astron.nl/ro/lofar")
 
     assert commit_id == "b" * 40
 
@@ -417,7 +417,9 @@ def test_run_pipeline_skips_analysis_when_all_repos_unchanged(monkeypatch, tmp_p
         called["metacheck"] = True
 
     monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
-    monkeypatch.setattr(pipeline, "_get_repo_head_commit", lambda repo_url: "abc123")
+    monkeypatch.setattr(
+        commit_lookup, "get_repo_head_commit", lambda repo_url: "abc123"
+    )
 
     output_root = tmp_path / "outputs"
     config = _write_config(
@@ -518,7 +520,7 @@ def test_run_pipeline_merges_pre_skipped_with_analyzed_results(monkeypatch, tmp_
             return "abc123"
         return "def456"
 
-    monkeypatch.setattr(pipeline, "_get_repo_head_commit", fake_get_head)
+    monkeypatch.setattr(commit_lookup, "get_repo_head_commit", fake_get_head)
 
     output_root = tmp_path / "outputs"
     config = _write_config(
@@ -653,7 +655,9 @@ def test_run_pipeline_skips_analysis_from_previous_dry_run_commit(
         called["metacheck"] = True
 
     monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
-    monkeypatch.setattr(pipeline, "_get_repo_head_commit", lambda repo_url: "abc123")
+    monkeypatch.setattr(
+        commit_lookup, "get_repo_head_commit", lambda repo_url: "abc123"
+    )
 
     output_root = tmp_path / "outputs"
     config = _write_config(
@@ -728,7 +732,9 @@ def test_run_pipeline_unchanged_repo_does_not_update_opt_out(monkeypatch, tmp_pa
         called["metacheck"] = True
 
     monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
-    monkeypatch.setattr(pipeline, "_get_repo_head_commit", lambda repo_url: "abc123")
+    monkeypatch.setattr(
+        commit_lookup, "get_repo_head_commit", lambda repo_url: "abc123"
+    )
 
     output_root = tmp_path / "outputs"
     config = _write_config(

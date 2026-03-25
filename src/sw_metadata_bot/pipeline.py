@@ -2,23 +2,12 @@
 
 import json
 import re
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 import click
 
-from . import history, incremental, pitfalls
-from .check_parsing import extract_check_ids
-from .commit_lookup import (
-    get_generic_git_head_commit,
-    get_github_head_commit,
-    get_gitlab_head_commit,
-    is_commit_hash,
-    parse_github_repo,
-    resolve_gitlab_project_path,
-)
+from . import analysis_runtime, commit_lookup, pitfalls
 from .config_utils import (
     copy_config_to_analysis_root,
     get_custom_message,
@@ -34,71 +23,6 @@ from .metacheck_wrapper import metacheck_command
 
 SNAPSHOT_TAG_PATTERN = re.compile(r"^(\d{8})(?:_(\d+))?$")
 SNAPSHOT_INCREMENT_PATTERN = re.compile(r"^(.+?)_(\d+)$")
-
-
-def _normalize_repo_url(url: str) -> str:
-    """Normalize repository URL for cross-report matching."""
-    return url.strip().rstrip("/")
-
-
-def _extract_previous_commit(record: dict) -> str | None:
-    """Return previous commit id from report records with compatibility fallback."""
-    current_commit = record.get("current_commit_id")
-    if isinstance(current_commit, str) and current_commit:
-        return current_commit
-
-    legacy_commit = record.get("commit_id")
-    if isinstance(legacy_commit, str) and legacy_commit:
-        return legacy_commit
-
-    return None
-
-
-def _parse_github_repo(repo_url: str) -> tuple[str, str] | None:
-    """Parse owner/repo from a GitHub repository URL."""
-    return parse_github_repo(repo_url)
-
-
-def _resolve_gitlab_project_path(repo_url: str) -> tuple[str, str] | None:
-    """Parse host and project path for GitLab repositories."""
-    return resolve_gitlab_project_path(repo_url)
-
-
-def _is_commit_hash(value: str) -> bool:
-    """Return True if value looks like a commit hash."""
-    return is_commit_hash(value)
-
-
-def _get_github_head_commit(repo_url: str) -> str | None:
-    """Fetch current head commit from GitHub API."""
-    return get_github_head_commit(repo_url)
-
-
-def _get_gitlab_head_commit(repo_url: str) -> str | None:
-    """Fetch current head commit from GitLab API for gitlab* hosts."""
-    return get_gitlab_head_commit(repo_url)
-
-
-def _get_generic_git_head_commit(repo_url: str) -> str | None:
-    """Fetch current head commit via git ls-remote as generic fallback."""
-    return get_generic_git_head_commit(repo_url)
-
-
-def _get_repo_head_commit(repo_url: str) -> str | None:
-    """Fetch current head commit using API-first and git fallback strategies."""
-    resolvers = (
-        _get_github_head_commit,
-        _get_gitlab_head_commit,
-        _get_generic_git_head_commit,
-    )
-    for resolver in resolvers:
-        try:
-            commit_id = resolver(repo_url)
-        except Exception:
-            commit_id = None
-        if isinstance(commit_id, str) and commit_id:
-            return commit_id
-    return None
 
 
 def _resolve_unique_snapshot_tag(
@@ -211,512 +135,6 @@ def _snapshot_root_from_report_path(report_path: Path | None) -> Path | None:
     return report_path.parent
 
 
-def _resolve_per_repo_paths(analysis_root: Path, repo_url: str) -> dict[str, Path]:
-    """Compute per-repository output paths within the analysis root."""
-    sanitized_name = sanitize_repo_name(repo_url)
-    repo_folder = analysis_root / sanitized_name
-
-    return {
-        "repo_folder": repo_folder,
-        "somef_output": repo_folder / "somef_output.json",
-        "pitfall_output": repo_folder / "pitfall.jsonld",
-        "issue_report": repo_folder / "issue_report.md",
-        "report": repo_folder / "report.json",
-    }
-
-
-def _copy_previous_repo_artifacts(
-    previous_repo_folder: Path, current_repo_folder: Path
-) -> None:
-    """Copy previous snapshot repository artifacts into current snapshot folder."""
-    current_repo_folder.mkdir(parents=True, exist_ok=True)
-    for name in (
-        "somef_output.json",
-        "pitfall.jsonld",
-        "issue_report.md",
-        "report.json",
-    ):
-        src = previous_repo_folder / name
-        if src.exists():
-            shutil.copy2(src, current_repo_folder / name)
-
-
-def _load_previous_repo_record(
-    previous_snapshot_root: Path | None, repo_url: str
-) -> dict | None:
-    """Load previous per-repo record from previous snapshot if available."""
-    if previous_snapshot_root is None:
-        return None
-
-    repo_folder = previous_snapshot_root / sanitize_repo_name(repo_url)
-    report_path = repo_folder / "report.json"
-    if report_path.exists():
-        with open(report_path, encoding="utf-8") as f:
-            data = json.load(f)
-        records = data.get("records") if isinstance(data, dict) else None
-        if isinstance(records, list) and records:
-            record = records[0]
-            if isinstance(record, dict):
-                return record
-
-    run_report = previous_snapshot_root / "run_report.json"
-    if run_report.exists():
-        with open(run_report, encoding="utf-8") as f:
-            data = json.load(f)
-        records = data.get("records") if isinstance(data, dict) else None
-        if isinstance(records, list):
-            normalized = _normalize_repo_url(repo_url)
-            for record in records:
-                if not isinstance(record, dict):
-                    continue
-                value = record.get("repo_url")
-                if isinstance(value, str) and _normalize_repo_url(value) == normalized:
-                    return record
-
-    return None
-
-
-def _standardize_metacheck_outputs(repo_folder: Path) -> None:
-    """Normalize metacheck output names to stable per-repo filenames."""
-    repo_folder.mkdir(parents=True, exist_ok=True)
-
-    pitfall_target = repo_folder / "pitfall.jsonld"
-    if not pitfall_target.exists():
-        pitfall_candidates = list((repo_folder / "pitfalls_outputs").glob("*.jsonld"))
-        if not pitfall_candidates:
-            pitfall_candidates = list(repo_folder.glob("*_pitfalls.jsonld"))
-        if pitfall_candidates:
-            shutil.move(str(pitfall_candidates[0]), str(pitfall_target))
-
-    somef_target = repo_folder / "somef_output.json"
-    if not somef_target.exists():
-        somef_candidates = list((repo_folder / "somef_outputs").glob("*.json"))
-        if not somef_candidates:
-            somef_candidates = [
-                path
-                for path in repo_folder.glob("*.json")
-                if path.name
-                not in {
-                    "report.json",
-                    "analysis_results.json",
-                    "config.json",
-                    "run_report.json",
-                }
-                and not path.name.startswith("metacheck_")
-            ]
-        if somef_candidates:
-            shutil.move(str(somef_candidates[0]), str(somef_target))
-
-    for legacy_dir in (repo_folder / "somef_outputs", repo_folder / "pitfalls_outputs"):
-        if legacy_dir.exists() and legacy_dir.is_dir():
-            shutil.rmtree(legacy_dir)
-
-
-def _run_metacheck_for_repo(repo_url: str, repo_folder: Path) -> None:
-    """Run metacheck for a single repository URL into its own folder."""
-    repo_folder.mkdir(parents=True, exist_ok=True)
-    temp_analysis_file: Path | None = None
-    with NamedTemporaryFile(
-        mode="w",
-        suffix=".json",
-        prefix="metacheck_repo_",
-        delete=False,
-        encoding="utf-8",
-    ) as temp_file:
-        temp_analysis_file = Path(temp_file.name)
-
-    metacheck_command.main(
-        args=[
-            "--input",
-            repo_url,
-            "--somef-output",
-            str(repo_folder),
-            "--pitfalls-output",
-            str(repo_folder),
-            "--analysis-output",
-            str(temp_analysis_file),
-        ],
-        standalone_mode=False,
-    )
-
-    if temp_analysis_file is not None and temp_analysis_file.exists():
-        temp_analysis_file.unlink()
-
-    _standardize_metacheck_outputs(repo_folder)
-
-
-def _build_analysis_counters(records: list[dict[str, object]]) -> dict[str, int]:
-    """Build analysis-stage decision counters from report records."""
-    return {
-        "total": len(records),
-        "decision_create": sum(
-            1 for r in records if r.get("action") == "simulated_created"
-        ),
-        "decision_comment": sum(
-            1 for r in records if r.get("action") == "updated_by_comment"
-        ),
-        "decision_close": sum(1 for r in records if r.get("action") == "closed"),
-        "decision_skip": sum(1 for r in records if r.get("action") == "skipped"),
-        "failed_analysis": sum(1 for r in records if r.get("action") == "failed"),
-    }
-
-
-def _build_analysis_run_report(
-    records: list[dict[str, object]],
-    *,
-    dry_run: bool,
-    analysis_summary_file: Path,
-    previous_report: Path | None,
-) -> dict[str, object]:
-    """Build run-level report payload from analysis decision records."""
-    return {
-        "run_metadata": {
-            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "dry_run": dry_run,
-            "analysis_summary_file": str(analysis_summary_file),
-            "previous_report_source": (
-                str(previous_report) if previous_report is not None else None
-            ),
-        },
-        "counters": _build_analysis_counters(records),
-        "records": records,
-    }
-
-
-def _detect_platform_from_repo_url(repo_url: str) -> str | None:
-    """Detect publish platform from repository URL."""
-    lowered = repo_url.lower()
-    if "github.com" in lowered:
-        return "github"
-    if "gitlab" in lowered:
-        return "gitlab"
-    return None
-
-
-def _is_previous_issue_open(previous_record: dict[str, object]) -> bool:
-    """Infer whether previous issue was open from stored metadata only."""
-    state_value = previous_record.get("previous_issue_state")
-    state = str(state_value).lower() if isinstance(state_value, str) else ""
-    if state in {"open", "opened"}:
-        return True
-    if state in {"closed", "close"}:
-        return False
-
-    issue_url = previous_record.get("issue_url") or previous_record.get(
-        "previous_issue_url"
-    )
-    if not isinstance(issue_url, str) or not issue_url:
-        return False
-
-    issue_persistence = previous_record.get("issue_persistence")
-    if issue_persistence == "simulated":
-        return False
-
-    return True
-
-
-def _build_record_entry(
-    *,
-    repo_url: str,
-    platform: str | None,
-    pitfalls_count: int,
-    warnings_count: int,
-    analysis_date: str,
-    metacheck_version: str,
-    pitfalls_ids: list[str],
-    warnings_ids: list[str],
-    action: str,
-    reason_code: str,
-    findings_signature: str,
-    current_commit_id: str | None,
-    previous_commit_id: str | None,
-    previous_issue_url: str | None,
-    previous_issue_state: str | None,
-    dry_run: bool,
-    issue_persistence: str,
-    issue_url: str | None,
-    file_path: Path,
-    error: str | None = None,
-) -> dict[str, object]:
-    """Build a per-repository analysis record payload."""
-    entry: dict[str, object] = {
-        "repo_url": repo_url,
-        "platform": platform,
-        "pitfalls_count": pitfalls_count,
-        "warnings_count": warnings_count,
-        "issue_url": issue_url,
-        "analysis_date": analysis_date,
-        "sw_metadata_bot_version": pitfalls.__version__,
-        "rsmetacheck_version": metacheck_version,
-        "pitfalls_ids": pitfalls_ids,
-        "warnings_ids": warnings_ids,
-        "action": action,
-        "reason_code": reason_code,
-        "findings_signature": findings_signature,
-        "dry_run": dry_run,
-        "issue_persistence": issue_persistence,
-        "file": str(file_path),
-    }
-    if current_commit_id is not None:
-        entry["current_commit_id"] = current_commit_id
-    if previous_commit_id is not None:
-        entry["previous_commit_id"] = previous_commit_id
-    if previous_issue_url is not None:
-        entry["previous_issue_url"] = previous_issue_url
-    if previous_issue_state is not None:
-        entry["previous_issue_state"] = previous_issue_state
-    if error is not None:
-        entry["error"] = error
-    return entry
-
-
-def _write_analysis_repo_report(
-    repo_folder: Path,
-    record: dict[str, object],
-    *,
-    dry_run: bool,
-    analysis_summary_file: Path,
-    previous_report: Path | None,
-) -> None:
-    """Write per-repository analysis report using analysis-stage counters."""
-    report = {
-        "run_metadata": {
-            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "dry_run": dry_run,
-            "analysis_summary_file": str(analysis_summary_file),
-            "previous_report_source": (
-                str(previous_report) if previous_report is not None else None
-            ),
-        },
-        "counters": _build_analysis_counters([record]),
-        "records": [record],
-    }
-    report_file = repo_folder / "report.json"
-    with open(report_file, "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2)
-
-
-def _create_analysis_record(
-    *,
-    repo_url: str,
-    repo_folder: Path,
-    previous_record: dict[str, object] | None,
-    current_commit_id: str | None,
-    dry_run: bool,
-    custom_message: str | None,
-) -> dict[str, object]:
-    """Create a decision record for a repository without platform API calls."""
-    pitfall_file = repo_folder / "pitfall.jsonld"
-    if not pitfall_file.exists():
-        return _build_record_entry(
-            repo_url=repo_url,
-            platform=_detect_platform_from_repo_url(repo_url),
-            pitfalls_count=0,
-            warnings_count=0,
-            analysis_date="unknown",
-            metacheck_version="unknown",
-            pitfalls_ids=[],
-            warnings_ids=[],
-            action="failed",
-            reason_code="missing_pitfall_file",
-            findings_signature="",
-            current_commit_id=current_commit_id,
-            previous_commit_id=None,
-            previous_issue_url=None,
-            previous_issue_state=None,
-            dry_run=dry_run,
-            issue_persistence="none",
-            issue_url=None,
-            file_path=pitfall_file,
-            error=f"Missing pitfall file: {pitfall_file}",
-        )
-
-    try:
-        data = pitfalls.load_pitfalls(pitfall_file)
-        detected_repo_url = pitfalls.get_repository_url(data)
-        if detected_repo_url:
-            repo_url = detected_repo_url
-        pitfalls_list = pitfalls.get_pitfalls_list(data)
-        warnings_list = pitfalls.get_warnings_list(data)
-        pitfalls_count = len(pitfalls_list)
-        warnings_count = len(warnings_list)
-        checks = data.get("checks", [])
-        check_ids = extract_check_ids(checks if isinstance(checks, list) else [])
-        pitfalls_ids, warnings_ids = check_ids
-        analysis_date = str(data.get("dateCreated", "unknown"))
-        metacheck_version = str(data.get("schemaVersion", "unknown"))
-        current_signature = history.findings_signature(pitfalls_ids, warnings_ids)
-        has_findings = (pitfalls_count + warnings_count) > 0
-
-        if has_findings:
-            formatted = pitfalls.format_report(repo_url, data)
-            issue_body = pitfalls.create_issue_body(formatted, custom_message)
-            (repo_folder / "issue_report.md").write_text(issue_body, encoding="utf-8")
-
-        platform = _detect_platform_from_repo_url(repo_url)
-        previous_issue_url: str | None = None
-        previous_issue_state: str | None = None
-        previous_commit_id: str | None = None
-        previous_signature = ""
-        previous_exists = previous_record is not None
-        previous_issue_open = False
-        repo_updated = True
-
-        if previous_record is not None:
-            issue_url_value = previous_record.get("issue_url")
-            if not isinstance(issue_url_value, str) or not issue_url_value:
-                issue_url_value = previous_record.get("previous_issue_url")
-            previous_issue_url = (
-                str(issue_url_value) if isinstance(issue_url_value, str) else None
-            )
-
-            previous_state_value = previous_record.get("previous_issue_state")
-            if isinstance(previous_state_value, str) and previous_state_value:
-                previous_issue_state = previous_state_value
-
-            previous_commit_id = _extract_previous_commit(previous_record)
-            previous_signature = history.findings_signature(
-                previous_record.get("pitfalls_ids"),
-                previous_record.get("warnings_ids"),
-            )
-            previous_issue_open = _is_previous_issue_open(previous_record)
-
-            if (
-                previous_commit_id
-                and current_commit_id
-                and previous_commit_id != "Unknown"
-                and current_commit_id != "Unknown"
-            ):
-                repo_updated = previous_commit_id != current_commit_id
-
-        decision = incremental.evaluate(
-            previous_exists=previous_exists,
-            unsubscribed=False,
-            repo_updated=repo_updated,
-            has_findings=has_findings,
-            identical_findings=current_signature == previous_signature,
-            previous_issue_open=previous_issue_open,
-        )
-
-        if decision.action == "create":
-            return _build_record_entry(
-                repo_url=repo_url,
-                platform=platform,
-                pitfalls_count=pitfalls_count,
-                warnings_count=warnings_count,
-                analysis_date=analysis_date,
-                metacheck_version=metacheck_version,
-                pitfalls_ids=pitfalls_ids,
-                warnings_ids=warnings_ids,
-                action="simulated_created",
-                reason_code=decision.reason,
-                findings_signature=current_signature,
-                current_commit_id=current_commit_id,
-                previous_commit_id=previous_commit_id,
-                previous_issue_url=previous_issue_url,
-                previous_issue_state=previous_issue_state,
-                dry_run=dry_run,
-                issue_persistence="simulated",
-                issue_url=None,
-                file_path=pitfall_file,
-            )
-
-        if decision.action == "comment":
-            return _build_record_entry(
-                repo_url=repo_url,
-                platform=platform,
-                pitfalls_count=pitfalls_count,
-                warnings_count=warnings_count,
-                analysis_date=analysis_date,
-                metacheck_version=metacheck_version,
-                pitfalls_ids=pitfalls_ids,
-                warnings_ids=warnings_ids,
-                action="updated_by_comment",
-                reason_code=decision.reason,
-                findings_signature=current_signature,
-                current_commit_id=current_commit_id,
-                previous_commit_id=previous_commit_id,
-                previous_issue_url=previous_issue_url,
-                previous_issue_state=previous_issue_state,
-                dry_run=dry_run,
-                issue_persistence="simulated",
-                issue_url=previous_issue_url,
-                file_path=pitfall_file,
-            )
-
-        if decision.action == "close":
-            return _build_record_entry(
-                repo_url=repo_url,
-                platform=platform,
-                pitfalls_count=pitfalls_count,
-                warnings_count=warnings_count,
-                analysis_date=analysis_date,
-                metacheck_version=metacheck_version,
-                pitfalls_ids=pitfalls_ids,
-                warnings_ids=warnings_ids,
-                action="closed",
-                reason_code=decision.reason,
-                findings_signature=current_signature,
-                current_commit_id=current_commit_id,
-                previous_commit_id=previous_commit_id,
-                previous_issue_url=previous_issue_url,
-                previous_issue_state=previous_issue_state,
-                dry_run=dry_run,
-                issue_persistence="simulated",
-                issue_url=previous_issue_url,
-                file_path=pitfall_file,
-            )
-
-        return _build_record_entry(
-            repo_url=repo_url,
-            platform=platform,
-            pitfalls_count=pitfalls_count,
-            warnings_count=warnings_count,
-            analysis_date=analysis_date,
-            metacheck_version=metacheck_version,
-            pitfalls_ids=pitfalls_ids,
-            warnings_ids=warnings_ids,
-            action="skipped",
-            reason_code=decision.reason,
-            findings_signature=current_signature,
-            current_commit_id=current_commit_id,
-            previous_commit_id=previous_commit_id,
-            previous_issue_url=previous_issue_url,
-            previous_issue_state=previous_issue_state,
-            dry_run=dry_run,
-            issue_persistence="none",
-            issue_url=None,
-            file_path=pitfall_file,
-        )
-    except Exception as exc:
-        return _build_record_entry(
-            repo_url=repo_url,
-            platform=_detect_platform_from_repo_url(repo_url),
-            pitfalls_count=0,
-            warnings_count=0,
-            analysis_date="unknown",
-            metacheck_version="unknown",
-            pitfalls_ids=[],
-            warnings_ids=[],
-            action="failed",
-            reason_code="exception",
-            findings_signature="",
-            current_commit_id=current_commit_id,
-            previous_commit_id=(
-                _extract_previous_commit(previous_record)
-                if previous_record is not None
-                else None
-            ),
-            previous_issue_url=None,
-            previous_issue_state=None,
-            dry_run=dry_run,
-            issue_persistence="none",
-            issue_url=None,
-            file_path=pitfall_file,
-            error=str(exc),
-        )
-
-
 def run_pipeline(
     config_file: Path,
     dry_run: bool,
@@ -759,17 +177,21 @@ def run_pipeline(
     run_records: list[dict[str, object]] = []
 
     for repo_url in repositories:
-        per_repo = _resolve_per_repo_paths(analysis_root, repo_url)
+        per_repo = analysis_runtime.resolve_per_repo_paths(analysis_root, repo_url)
         repo_folder = per_repo["repo_folder"]
         repo_folder.mkdir(parents=True, exist_ok=True)
 
-        previous_record = _load_previous_repo_record(previous_snapshot_root, repo_url)
+        previous_record = analysis_runtime.load_previous_repo_record(
+            previous_snapshot_root, repo_url
+        )
         previous_commit_id = (
-            _extract_previous_commit(previous_record) if previous_record else None
+            analysis_runtime.extract_previous_commit(previous_record)
+            if previous_record
+            else None
         )
 
         try:
-            current_commit_id = _get_repo_head_commit(repo_url)
+            current_commit_id = commit_lookup.get_repo_head_commit(repo_url)
         except Exception:
             current_commit_id = None
 
@@ -785,17 +207,21 @@ def run_pipeline(
         ):
             previous_repo_folder = previous_snapshot_root / sanitize_repo_name(repo_url)
             if previous_repo_folder.exists():
-                _copy_previous_repo_artifacts(previous_repo_folder, repo_folder)
+                analysis_runtime.copy_previous_repo_artifacts(
+                    previous_repo_folder, repo_folder
+                )
                 reused_previous = True
 
         if not reused_previous:
-            _run_metacheck_for_repo(repo_url, repo_folder)
+            analysis_runtime.run_metacheck_for_repo(
+                repo_url, repo_folder, metacheck_command
+            )
 
-        normalized_repo = _normalize_repo_url(repo_url)
+        normalized_repo = analysis_runtime.normalize_repo_url(repo_url)
         if normalized_repo in opt_out_repos:
             record = {
                 "repo_url": repo_url,
-                "platform": _detect_platform_from_repo_url(repo_url),
+                "platform": analysis_runtime.detect_platform_from_repo_url(repo_url),
                 "pitfalls_count": 0,
                 "warnings_count": 0,
                 "issue_url": None,
@@ -814,7 +240,7 @@ def run_pipeline(
                 "file": str(repo_folder / "pitfall.jsonld"),
             }
         else:
-            record = _create_analysis_record(
+            record = analysis_runtime.create_analysis_record(
                 repo_url=repo_url,
                 repo_folder=repo_folder,
                 previous_record=previous_record,
@@ -823,7 +249,7 @@ def run_pipeline(
                 custom_message=custom_message,
             )
 
-        _write_analysis_repo_report(
+        analysis_runtime.write_analysis_repo_report(
             repo_folder,
             record,
             dry_run=dry_run,
@@ -844,7 +270,7 @@ def run_pipeline(
     with open(analysis_output_file, "w", encoding="utf-8") as f:
         json.dump(analysis_summary, f, indent=2)
 
-    run_report = _build_analysis_run_report(
+    run_report = analysis_runtime.build_analysis_run_report(
         run_records,
         dry_run=dry_run,
         analysis_summary_file=analysis_output_file,
