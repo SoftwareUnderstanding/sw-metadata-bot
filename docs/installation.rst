@@ -12,14 +12,14 @@ Using uv (recommended)
 
 .. code-block:: bash
 
-   uv pip install sw-metadata-bot
+   uv add git+https://github.com/SoftwareUnderstanding/sw-metadata-bot
 
 Using pip
 ---------
 
 .. code-block:: bash
 
-   pip install sw-metadata-bot
+   pip install git+https://github.com/codemetasoft/sw-metadata-bot.git
 
 From source
 -----------
