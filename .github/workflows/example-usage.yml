@@ -1,63 +1,42 @@
-name: Example - Run SW Metadata Bot on This Repo
+name: Example - Run SW Metadata Bot Analysis
 
 on:
   workflow_dispatch:
+    inputs:
+      config-file:
+        description: 'Config file path (default: assets/example_list_repo.json)'
+        required: false
+        type: string
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
-  analyze-and-create-issues:
+  analyze:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Build temporary config
+      - name: Run SW Metadata Bot analysis
         id: analysis
-        shell: bash
+        uses: ./.github/actions/run-analysis
+        with:
+          config-file: ${{ inputs.config-file || 'assets/example_list_repo.json' }}
+
+      - name: Display analysis results
         run: |
-          set -euo pipefail
-          SNAPSHOT_TAG="$(date -u +%Y%m%d)"
-          CONFIG_FILE="assets/workflow_example.json"
+          echo "✅ Analysis completed successfully!"
+          echo "📁 Results stored in: ${{ steps.analysis.outputs.analysis-root }}"
+          echo "📅 Snapshot tag: ${{ steps.analysis.outputs.timestamp }}"
+          echo ""
+          echo "Generated files:"
+          ls -lah "${{ steps.analysis.outputs.analysis-root }}/" || echo "Directory not found"
 
-          mkdir -p assets
-          cat > "${CONFIG_FILE}" << EOF
-          {
-            "repositories": [
-              "https://github.com/${{ github.repository }}"
-            ],
-            "issues": {
-              "custom_message": "This repository was analyzed via the sw-metadata-bot example workflow.",
-              "opt_outs": []
-            },
-            "outputs": {
-              "root_dir": "outputs",
-              "run_name": "example",
-              "snapshot_tag_format": null
-            }
-          }
-          EOF
-
-          echo "config=${CONFIG_FILE}" >> "$GITHUB_OUTPUT"
-          echo "snapshot_tag=${SNAPSHOT_TAG}" >> "$GITHUB_OUTPUT"
-          echo "run_root=outputs/example/${SNAPSHOT_TAG}" >> "$GITHUB_OUTPUT"
-
-      - name: Run full pipeline (dry-run)
-        uses: ./.github/actions/run-pipeline
+      - name: Upload analysis results
+        uses: actions/upload-artifact@v4
         with:
-          config-file: ${{ steps.analysis.outputs.config }}
-          snapshot-tag: ${{ steps.analysis.outputs.snapshot_tag }}
-          dry-run: 'true'
-
-      - name: Upload analysis artifacts
+          name: analysis-results
+          path: ${{ steps.analysis.outputs.analysis-root }}/
+          retention-days: 30
         if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: sw-metadata-bot-results
-          path: |
-            ${{ steps.analysis.outputs.run_root }}/analysis_results.json
-            ${{ steps.analysis.outputs.run_root }}/pitfalls_outputs/
-            ${{ steps.analysis.outputs.run_root }}/issues_out/
-          if-no-files-found: ignore

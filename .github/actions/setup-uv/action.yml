@@ -30,4 +30,4 @@ runs:
 
     - name: Sync dependencies
       shell: bash
-      run: uv sync --group ${{ inputs.dependency-group }}
+      run: uv sync --locked --group ${{ inputs.dependency-group }} # use --locked to ensure reproducibility, especially in CI

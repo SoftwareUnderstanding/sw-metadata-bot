@@ -1,0 +1,31 @@
+name: 'SW Metadata Bot - Run Analysis without publishing'
+description: 'Run analysis and optionally publish issues from a config'
+author: 'Tom François'
+
+outputs:
+  analysis-root:
+    description: 'Root directory where analysis results are stored'
+    value: assets/example_run/
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version-file: '.python-version'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: true
+
+    - name: Install dependencies
+      shell: bash
+      run: uv sync --locked # make sure to use the lockfile for reproducibility, especially in CI
+
+    - name: Run analysis
+      id: run-analysis
+      shell: bash
+      run: uv run sw-metadata-bot run-analysis --config-file assets/example_list_repo.json
+        
