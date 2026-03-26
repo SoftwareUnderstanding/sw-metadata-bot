@@ -45,7 +45,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # HTML output
 html_theme = "furo"
-html_static_path = []
+html_static_path = ["_static"]
 html_title = f"{project} {release}"
 html_theme_options = {
     "sidebar_hide_name": False,
