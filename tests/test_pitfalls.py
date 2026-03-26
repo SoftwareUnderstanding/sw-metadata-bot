@@ -27,20 +27,24 @@ def sample_data():
                 "process": "Pitfall process description",
                 "evidence": "Evidence of pitfall",
                 "suggestion": "How to fix this",
+                "output": "true",
             },
             {
                 "pitfall": "https://w3id.org/rsmetacheck/catalog/#P002",
                 "process": "Another pitfall",
                 "evidence": "More evidence",
+                "output": "true",
             },
             {
                 "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001",
                 "evidence": "Warning evidence",
                 "suggestion": "Warning suggestion",
+                "output": "true",
             },
             {
                 "pitfall": "https://w3id.org/rsmetacheck/catalog/#W002",
                 "evidence": "Another warning",
+                "output": "true",
             },
         ],
     }
@@ -92,16 +96,19 @@ def test_get_lists_from_hashed_check_ids():
                 "checkId": "694a7a7c5a16db39412fac70b6d27fbadc7222b1d8ae57ff061cc6c87e6d8edc",
                 "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
                 "evidence": "P001 detected: codemeta.json version 'unknown' does not match release version '2.2.0'",
+                "output": "true",
             },
             {
                 "checkId": "95e131ef79871959cfd0f1ae06dd502d6c160851b0cd5b40844818858c0b22c4",
                 "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001",
                 "evidence": "W001 detected: pyproject.toml contains software requirements without versions.",
+                "output": "true",
             },
             {
                 "checkId": "7c48a13e4d4ef33a608362bd2142616ca01aa2b528b457e51016034a151d058e",
                 "pitfall": "https://w3id.org/rsmetacheck/catalog/#W004",
                 "evidence": "W004 detected: codemeta.json Programming languages without versions: Python",
+                "output": "true",
             },
         ]
     }
@@ -178,6 +185,7 @@ def test_format_report_no_pitfalls():
             {
                 "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001",
                 "evidence": "A warning",
+                "output": "true",
             }
         ],
     }
@@ -196,3 +204,75 @@ def test_create_issue_body(sample_data):
     assert "sw-metadata-bot" in issue_body
     assert report in issue_body
     assert "unsubscribe" in issue_body
+
+
+def test_get_pitfalls_list_verbose_mode_filters_by_output():
+    """Only output true checks are treated as pitfalls."""
+    data = {
+        "checks": [
+            {
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
+                "output": "true",
+            },
+            {
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P002",
+                "output": "false",
+            },
+            {
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001",
+                "output": "true",
+            },
+            {
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P003",
+            },
+        ]
+    }
+
+    pitfalls = get_pitfalls_list(data)
+
+    assert len(pitfalls) == 1
+    assert pitfalls[0]["pitfall"].endswith("#P001")
+
+
+def test_get_warnings_list_verbose_mode_filters_by_output():
+    """Only output true checks are treated as warnings."""
+    data = {
+        "checks": [
+            {
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001",
+                "output": "true",
+            },
+            {
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W002",
+                "output": "false",
+            },
+            {
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
+                "output": "true",
+            },
+            {
+                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W003",
+            },
+        ]
+    }
+
+    warnings = get_warnings_list(data)
+
+    assert len(warnings) == 1
+    assert warnings[0]["pitfall"].endswith("#W001")
+
+
+def test_get_lists_missing_output_are_excluded_in_strict_mode():
+    """Checks without output key are excluded in strict mode."""
+    data = {
+        "checks": [
+            {"pitfall": "https://w3id.org/rsmetacheck/catalog/#P001"},
+            {"pitfall": "https://w3id.org/rsmetacheck/catalog/#W001"},
+        ]
+    }
+
+    pitfalls = get_pitfalls_list(data)
+    warnings = get_warnings_list(data)
+
+    assert pitfalls == []
+    assert warnings == []

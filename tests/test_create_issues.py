@@ -94,11 +94,13 @@ def test_create_issues_cli_failed_report_contains_analysis_fields(tmp_path):
                 "checkId": "hash1",
                 "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
                 "evidence": "P001 detected: missing metadata",
+                "output": "true",
             },
             {
                 "checkId": "hash2",
                 "pitfall": "https://w3id.org/rsmetacheck/catalog/#W002",
                 "evidence": "W002 detected: missing version pin",
+                "output": "true",
             },
         ],
     }
@@ -157,11 +159,13 @@ def test_create_issues_cli_created_report_contains_analysis_fields(tmp_path):
                 "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
                 "evidence": "P001 detected: missing metadata",
                 "suggestion": "Provide metadata",
+                "output": "true",
             },
             {
                 "checkId": "hash2",
                 "pitfall": "https://w3id.org/rsmetacheck/catalog/#W004",
                 "evidence": "W004 detected: no language version",
+                "output": "true",
             },
         ],
     }
@@ -224,6 +228,7 @@ def test_create_issues_cli_extracts_ids_from_new_schema(tmp_path):
                     "@id": "https://w3id.org/rsmetacheck/catalog/#W004"
                 },
                 "evidence": "W004 detected",
+                "output": "true",
             },
             {
                 "checkId": "hash-p",
@@ -231,6 +236,7 @@ def test_create_issues_cli_extracts_ids_from_new_schema(tmp_path):
                     "@id": "https://w3id.org/rsmetacheck/catalog/#P001"
                 },
                 "evidence": "P001 detected",
+                "output": "true",
             },
         ],
     }
@@ -298,6 +304,7 @@ def test_create_issues_incremental_identical_open_issue_skips(tmp_path, monkeypa
                 "checkId": "hash1",
                 "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
                 "evidence": "P001 detected: missing metadata",
+                "output": "true",
             }
         ],
     }
@@ -366,6 +373,7 @@ def test_create_issues_incremental_uses_current_commit_id_field(tmp_path, monkey
                     "@id": "https://w3id.org/rsmetacheck/catalog/#P001"
                 },
                 "evidence": "P001 detected",
+                "output": "true",
             }
         ],
     }
@@ -451,6 +459,7 @@ def test_create_issues_mixed_repo_decisions_same_changed_unsubscribe(
                     "@id": "https://w3id.org/rsmetacheck/catalog/#P001"
                 },
                 "evidence": "P001 detected",
+                "output": "true",
             }
         ],
     }
@@ -463,12 +472,14 @@ def test_create_issues_mixed_repo_decisions_same_changed_unsubscribe(
                     "@id": "https://w3id.org/rsmetacheck/catalog/#P001"
                 },
                 "evidence": "P001 detected",
+                "output": "true",
             },
             {
                 "assessesIndicator": {
                     "@id": "https://w3id.org/rsmetacheck/catalog/#W004"
                 },
                 "evidence": "W004 detected",
+                "output": "true",
             },
         ],
     }
@@ -481,6 +492,7 @@ def test_create_issues_mixed_repo_decisions_same_changed_unsubscribe(
                     "@id": "https://w3id.org/rsmetacheck/catalog/#P001"
                 },
                 "evidence": "P001 detected",
+                "output": "true",
             }
         ],
     }
@@ -617,6 +629,7 @@ def test_create_issues_uses_previous_issue_url_lineage_in_dry_run(
                     "@id": "https://w3id.org/rsmetacheck/catalog/#W004"
                 },
                 "evidence": "W004 detected",
+                "output": "true",
             }
         ],
     }

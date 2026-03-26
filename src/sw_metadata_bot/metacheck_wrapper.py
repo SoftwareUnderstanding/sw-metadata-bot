@@ -57,6 +57,10 @@ def metacheck_command(
     argv.extend(["--analysis-output", analysis_output])
     argv.extend(["--threshold", str(threshold)])
 
+    # Add verbose flag for more detailed output from metacheck
+    # jsonld file will also contains pitfalls and warnings that have not been detected.
+    argv.extend(["--verbose"])
+
     # Call metacheck CLI with modified sys.argv
     original_argv = sys.argv
     try:

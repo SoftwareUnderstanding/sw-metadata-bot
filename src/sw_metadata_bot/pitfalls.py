@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import __version__
-from .check_parsing import get_check_catalog_id, get_short_check_code
+from .check_parsing import get_check_catalog_id, get_short_check_code, is_check_reported
 
 
 def load_pitfalls(file_path: Path) -> dict:
@@ -34,7 +34,7 @@ def get_pitfalls_list(data: dict) -> list[dict]:
     return [
         check
         for check in data.get("checks", [])
-        if get_short_check_code(check).startswith("P")
+        if is_check_reported(check) and get_short_check_code(check).startswith("P")
     ]
 
 
@@ -43,7 +43,7 @@ def get_warnings_list(data: dict) -> list[dict]:
     return [
         check
         for check in data.get("checks", [])
-        if get_short_check_code(check).startswith("W")
+        if is_check_reported(check) and get_short_check_code(check).startswith("W")
     ]
 
 

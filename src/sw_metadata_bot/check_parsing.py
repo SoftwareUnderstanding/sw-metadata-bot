@@ -23,12 +23,25 @@ def get_short_check_code(check: dict) -> str:
     return full_id.split("#")[-1] if full_id else ""
 
 
+def is_check_reported(check: dict) -> bool:
+    """Return True only when a check is explicitly reported by metacheck.
+
+    Verbose metacheck output marks each evaluated check with an ``output`` key.
+    Only values representing true are considered reported findings.
+    """
+    output = check.get("output")
+    return str(output).lower() == "true"
+
+
 def extract_check_ids(checks: list[dict]) -> tuple[list[str], list[str]]:
     """Extract ordered unique pitfall and warning codes from check entries."""
     pitfall_ids: list[str] = []
     warning_ids: list[str] = []
 
     for check in checks:
+        if not is_check_reported(check):
+            continue
+
         code = get_short_check_code(check)
         if not code:
             continue
