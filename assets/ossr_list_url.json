@@ -1,6 +1,6 @@
 {
   "repositories": [
-    "https://atlas.cern/updates/press-statement/13-tev-open-data",
+    "https://github.com/atlas-outreach-data-tools/atlas-outreach-cpp-framework-13tev",
     "https://git.astron.nl/astron-sdc/escape-wp5/esap-deployment",
     "https://git.astron.nl/ro/lofar",
     "https://git.ligo.org/rhys.poulton/escape-datalake-shared-volume-writer",
@@ -28,7 +28,8 @@
     "https://gitlab.in2p3.fr/escape2020/wp3/ossr-curation",
     "https://gitlab.in2p3.fr/escape2020/wp3/template_project_escape",
     "https://gitlab.in2p3.fr/escape2020/wp3/zenodoci",
-    "https://gitlab.in2p3.fr/gammalearn/gammalearn"
+    "https://gitlab.in2p3.fr/gammalearn/gammalearn",
+    "https://gitlab.in2p3.fr/gammalearn/publications/2025-stereograph"
   ],
   "issues": {
     "custom_message": "Your repository was analyzed as part of the ESCAPE OSSR metadata quality initiative. Several metadata issues were identified and could be addressed.",
