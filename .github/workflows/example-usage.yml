@@ -34,7 +34,7 @@ jobs:
           ls -lah "${{ steps.analysis.outputs.analysis-root }}/" || echo "Directory not found"
 
       - name: Upload analysis results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: analysis-results
           path: ${{ steps.analysis.outputs.analysis-root }}/
