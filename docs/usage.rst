@@ -67,14 +67,49 @@ Decision Tree for Issue Creation
 --------------------------------
 
 The bot uses a decision tree to determine whether to create an issue for each repository. The main factors include:
+
 - Whether the repository has already been analyzed in a previous snapshot
 - Whether the repository has changed since last analysis (based on commit id)
 - Whether the analysis detects pitfalls and warnings
 
 
-.. figure:: _static/sw-metadata-bot-decision-tree.svg
-   :alt: Decision tree for issue creation logic
-   :align: center
-   :width: 90%
+.. mermaid::
 
-   Decision process used to choose create/comment/close/skip actions.
+   %%{init: {
+     "flowchart": {
+       "htmlLabels": true,
+       "useMaxWidth": true,
+       "nodeSpacing": 35,
+       "rankSpacing": 45
+     },
+     "themeVariables": {
+       "fontSize": "18px"
+     }
+   }}%%
+   flowchart LR
+       repo([Repository]) --> prev{Previous analysis exists?}
+
+       prev -- No --> full[Run analysis + create issue]
+
+       prev -- Yes --> unsub{Unsubscribed?}
+       unsub -- Yes --> blacklist[Add to blacklist and stop]
+
+       unsub -- No --> updated{Repo updated?}
+       updated -- No --> copy[Reuse previous analysis and stop]
+
+       updated -- Yes --> run[Run analysis]
+       run --> warn{Pitfalls or warnings found?}
+
+       warn -- No --> openNoWarn{Previous issue open?}
+       openNoWarn -- Yes --> close[Close issue]
+       openNoWarn -- No --> stop1[Stop]
+
+       warn -- Yes --> same{Same results as previous run?}
+
+       same -- No --> openA{Previous issue open?}
+       openA -- Yes --> update[Update issue]
+       openA -- No --> newA[Open new issue]
+
+       same -- Yes --> openB{Previous issue open?}
+       openB -- Yes --> stop2[Stop]
+       openB -- No --> newB[Open new issue]

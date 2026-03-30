@@ -8,8 +8,8 @@ sys.path.insert(0, os.path.abspath("../src"))
 project = "sw-metadata-bot"
 author = "Tom François"
 copyright = "2026, Tom François"
-release = "0.1.1"
-version = "0.1"
+release = "0.3.0"
+version = "0.3.0"
 
 # Extensions
 extensions = [
@@ -17,6 +17,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
+    "sphinxcontrib.mermaid",
 ]
 
 # Autodoc settings
