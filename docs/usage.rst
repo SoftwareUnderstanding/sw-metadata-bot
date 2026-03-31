@@ -10,7 +10,9 @@ The bot provides three main commands:
 Run Analysis 
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Run analysis and decision generation from a single configuration file:
+Run analysis and decision generation from a single configuration file. This
+command only runs the analysis: it computes issue lifecycle decisions and
+writes reports, but does not call the GitHub or GitLab APIs.
 
 .. code-block:: bash
 
@@ -20,9 +22,23 @@ Run analysis and decision generation from a single configuration file:
 Options:
 
 - ``--config-file``: Unified campaign configuration with repositories, issue settings, and output layout
+- ``--snapshot-tag``: Optional snapshot folder name override for the current run
+- ``--previous-report``: Previous ``run_report.json`` file to use for incremental issue handling
+
+Configuration file schema:
+
+- ``repositories``: Required list of repository URLs
+- ``issues.custom_message``: Optional message appended to generated issue bodies
+- ``issues.opt_outs``: Optional list of repositories to analyze without publishing issues
+- ``outputs.root_dir``: Optional output root directory. Defaults to ``outputs``
+- ``outputs.run_name``: Optional stable campaign name used as the parent folder for snapshots
+- ``outputs.snapshot_tag_format``: Optional strftime pattern for generated snapshot folders. Defaults to ``%Y%m%d``
 
 Publish from a generated analysis snapshot: 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Publish reuses the decisions already written by ``run-analysis`` and applies the
+corresponding GitHub or GitLab side effects to create, update, or close issues. This separation allows for manual review and adjustments of the generated reports before publishing.
 
 .. code-block:: bash
 
@@ -34,9 +50,25 @@ Options:
 
 Verify Tokens
 ~~~~~~~~~~~~~~~~~~~~~~~~
+Check whether the configured GitHub and GitLab tokens are available and have
+the required permissions.
+
 .. code-block:: bash
 
    sw-metadata-bot verify-tokens
+
+Examples:
+
+.. code-block:: bash
+
+   sw-metadata-bot verify-tokens --github
+   sw-metadata-bot verify-tokens --gitlab --json
+
+Options:
+
+- ``--github``: Check only the GitHub token
+- ``--gitlab``: Check only the GitLab token
+- ``--json``: Emit JSON output instead of the formatted terminal report
 
 
 Example Workflow
@@ -54,7 +86,20 @@ Example Workflow
 
       sw-metadata-bot run-analysis --config-file assets/ossr_list_url.json
 
+   To compare with an earlier run explicitly, pass the previous run report:
+
+   .. code-block:: bash
+
+      sw-metadata-bot run-analysis \
+        --config-file assets/ossr_list_url.json \
+        --previous-report outputs/ossr/20260325/run_report.json
+
 3. Review the generated files under the configured output directory.
+
+   Each repository gets its own sanitized output folder containing
+   ``issue_report.md``, ``pitfall.jsonld``, ``report.json``, and
+   ``somef_output.json``. The snapshot root also contains ``config.json``,
+   ``analysis_results.json``, and ``run_report.json``.
 
 4. Publish the reviewed snapshot:
 
@@ -71,6 +116,8 @@ The bot uses a decision tree to determine whether to create an issue for each re
 - Whether the repository has already been analyzed in a previous snapshot
 - Whether the repository has changed since last analysis (based on commit id)
 - Whether the analysis detects pitfalls and warnings
+- Whether a previous issue is already open for the repository
+- Whether an unsubscribe comment was previously recorded
 
 
 .. mermaid::

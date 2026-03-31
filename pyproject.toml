@@ -1,9 +1,14 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "sw-metadata-bot"
 version = "0.3.0"
 description = "Metadata quality bot for software repositories, leveraging metacheck for analysis and GitHub/GitLab APIs for issue management."
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
+license = "MIT"
 authors = [
     {name = "Tom François", email = "tom.francois@lapp.in2p3.fr"}
 ]
@@ -16,13 +21,39 @@ dependencies = [
 
 keywords = ["codemeta", "metadata", "bot", "quality software"]
 classifiers = [
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+
+[project.urls]
+Homepage = "https://github.com/SoftwareUnderstanding/sw-metadata-bot"
+Repository = "https://github.com/SoftwareUnderstanding/sw-metadata-bot"
+Issues = "https://github.com/SoftwareUnderstanding/sw-metadata-bot/issues"
+
 [project.scripts]
 sw-metadata-bot = "sw_metadata_bot.main:main"
+
+[project.optional-dependencies]
+dev = [
+    "bandit>=1.9.3",
+    "interrogate>=1.7.0",
+    "pre-commit>=4.5.1",
+    "ruff>=0.14.13",
+    "ty>=0.0.12",
+]
+test = [
+    "coverage-badge",
+    "pytest",
+    "pytest-cov",
+]
+docs = [
+    "furo>=2025.12.19",
+    "sphinx",
+    "sphinxcontrib-mermaid>=1.0.0",
+    "tomli>=2.0.1; python_version < '3.11'",
+]
 
 [tool.uv]
 package = true
@@ -31,24 +62,9 @@ package = true
 package-dir = {"" = "src"}
 packages = { find = { where = ["src"] } }
 
-[dependency-groups]
-dev = [
-    "bandit>=1.9.3",
-    "pre-commit>=4.5.1",
-    "ruff>=0.14.13",
-    "ty>=0.0.12",
-    "interrogate>=1.7.0",
-]
-test = [
-    "pytest",
-    "pytest-cov",
-    "coverage-badge",
-]
-docs = [
-    "furo>=2025.12.19",
-    "sphinx",
-    "sphinxcontrib-mermaid>=1.0.0",
-]
+[tool.sw_metadata_bot.docs]
+# Start year for copyright range (displayed as "YYYY–present" in docs)
+copyright_year = "2026"
 
 [tool.uv.sources]
 metacheck = { git = "https://github.com/SoftwareUnderstanding/RsMetaCheck"}

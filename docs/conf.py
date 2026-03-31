@@ -1,15 +1,37 @@
 import os
 import sys
+from importlib import import_module
+from pathlib import Path
+
+try:
+    tomllib = import_module("tomllib")
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback for doc builds
+    tomllib = import_module("tomli")
 
 # Ensure src is on the path for autodoc
-sys.path.insert(0, os.path.abspath("../src"))
+DOCS_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = DOCS_DIR.parent
+sys.path.insert(0, os.path.abspath(str(PROJECT_ROOT / "src")))
+
+with (PROJECT_ROOT / "pyproject.toml").open("rb") as pyproject_file:
+    pyproject = tomllib.load(pyproject_file)
+
+project_metadata = pyproject["project"]
+doc_metadata = pyproject.get("tool", {}).get("sw_metadata_bot", {}).get("docs", {})
+
+author_names = [
+    entry["name"]
+    for entry in project_metadata.get("authors", [])
+    if isinstance(entry, dict) and entry.get("name")
+]
+author = ", ".join(author_names)
+version = project_metadata["version"]
+release = version
+copyright_start_year = doc_metadata.get("copyright_year", "2026")
 
 # Project information
-project = "sw-metadata-bot"
-author = "Tom François"
-copyright = "2026, Tom François"
-release = "0.3.0"
-version = "0.3.0"
+project = project_metadata["name"]
+copyright = f"{copyright_start_year}–present, {author}"
 
 # Extensions
 extensions = [

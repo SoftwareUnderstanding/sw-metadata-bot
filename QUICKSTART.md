@@ -10,7 +10,7 @@ Self-contained steps to install, configure, and run `sw-metadata-bot`.
 
 ## Prerequisites
 
-- Python 3.11 or 3.12
+- Python 3.10, 3.11, or 3.12
 - GitHub or GitLab personal access token with permission to create issues
 - Optional: [`uv`](https://docs.astral.sh/uv) (recommended)
 
@@ -31,14 +31,22 @@ This will create the virtual environnment, download the dependencies and build t
 With `uv` (recommended):
 
 ```bash
-uv add git+https://github.com/SoftwareUnderstanding/sw-metadata-bot
+uv add sw-metadata-bot
 ```
 
 Or with pip
 With `pip`:
 
 ```bash
-pip install git+https://github.com/codemetasoft/sw-metadata-bot.git
+pip install sw-metadata-bot
+```
+
+The package metadata also exposes standard extras for release builds:
+
+```bash
+pip install "sw-metadata-bot[docs]"
+pip install "sw-metadata-bot[test]"
+pip install "sw-metadata-bot[dev]"
 ```
 
 ## Configure authentication
@@ -152,7 +160,6 @@ assets/
 
 The exact repository folder names depend on the repository URLs in your config, but the files created inside each repository folder follow this same pattern.
 
-
 ### Publish
 
 If you want to submit the analysis to the actual repositories, you can publish from an existing analysis snapshot (no new analysis is generated):
@@ -162,8 +169,8 @@ uv run sw-metadata-bot publish \
   --analysis-root outputs/ossr/<snapshot_tag>
 ```
 
-This requires setting up environnement variables `GITHUB_API_TOKEN` / `GITLAB_API_TOKEN` with functionning tokens.
-We recommand creating a `.env` file.
+This requires setting up environment variables `GITHUB_API_TOKEN` / `GITLAB_API_TOKEN` with working tokens.
+We recommend creating a `.env` file.
 You can use the `uv run sw-metadata-bot verify-tokens` command to test them after set up.
 
 ## Troubleshooting
@@ -178,5 +185,5 @@ You can use the `uv run sw-metadata-bot verify-tokens` command to test them afte
 - GitHub.com
 - Gitlab.com
 
-Self-hosted gitlab instances should work but required a dedicated token.
-Running the bot on your organization should be run on your own.
+Self-hosted GitLab instances are supported when you provide a token for the target host (not been tested yet).
+Run the bot against your own organization or repositories where you have permission to open and manage issues.
