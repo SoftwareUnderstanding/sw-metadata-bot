@@ -1,0 +1,27 @@
+# Development Dockerfile for sw-metadata-bot
+# Keeps the same uv + lockfile workflow as the runtime image, but adds dev extras.
+
+ARG PYTHON_VERSION=3.12
+
+FROM python:${PYTHON_VERSION}-slim-trixie
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# git is required to resolve the metacheck git source dependency
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /workspace
+
+# Copy only what is needed to resolve and install dependencies.
+COPY pyproject.toml uv.lock README.md LICENSE ./
+COPY src ./src
+
+# Install runtime dependencies plus development tooling.
+RUN uv sync --locked --extra dev --extra test --extra docs
+
+CMD ["/bin/bash"]

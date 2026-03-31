@@ -76,6 +76,12 @@ jobs:
         with:
           dependency-group: test
 
+      - name: Runtime smoke checks
+        run: |
+          uv run python -c "import sw_metadata_bot; import metacheck; print('Runtime imports OK')"
+          uv run sw-metadata-bot run-analysis --help
+          uv run sw-metadata-bot publish --help
+
       - name: Run pytest with coverage
         run: uv run pytest --cov=src/sw_metadata_bot --cov-report=term-missing tests/
 

@@ -1,0 +1,42 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.venv
+.env
+.env.local
+
+# Build artifacts
+build/
+dist/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache
+.coverage
+coverage.xml
+
+# Documentation
+docs/_build/
+
+# Outputs and assets (for analysis runs)
+outputs/
+assets/
+
+# CI
+.ruff_cache

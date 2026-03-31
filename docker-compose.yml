@@ -1,0 +1,48 @@
+version: '3.9'
+
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sw-metadata-bot:latest
+    container_name: sw-metadata-bot
+    environment:
+      # Configuration - customize as needed
+      SW_METADATA_BOT_CONFIG: /app/config.json
+      # Optional: Add GitHub/GitLab tokens via environment
+      # GITHUB_TOKEN: ${GITHUB_TOKEN}
+      # GITLAB_TOKEN: ${GITLAB_TOKEN}
+    volumes:
+      # Mount config file
+      - ./config.json:/app/config.json:ro
+      # Mount output directory
+      - ./outputs:/app/outputs
+      # Mount input files if needed
+      - ./assets:/app/assets:ro
+    # Uncomment to override the default command
+    # command: uv run sw-metadata-bot run-analysis --config /app/config.json
+    restart: "no"
+
+  # Development container with dev dependencies
+  bot-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        PYTHON_VERSION: 3.12
+    image: sw-metadata-bot:dev
+    container_name: sw-metadata-bot-dev
+    environment:
+      PYTHONDONTWRITEBYTECODE: 1
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - .:/workspace
+      - /workspace/.venv
+    working_dir: /workspace
+    # Run bot commands explicitly through uv in this dev container, for example:
+    # docker compose run --rm bot-dev uv run sw-metadata-bot --help
+    command: /bin/bash
+    stdin_open: true
+    tty: true
+    restart: "no"
