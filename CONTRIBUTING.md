@@ -1,6 +1,6 @@
-# Quickstart
+# Contributing Guide
 
-Self-contained steps to install, configure, and run `sw-metadata-bot`.
+Developer and maintainer steps to install, configure, and run sw-metadata-bot.
 
 ## What the bot does
 
