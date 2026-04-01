@@ -33,8 +33,10 @@
     "programmingLanguage": "Python 3",
     "releaseNotes": "## What's Changed\n* Fix beta test feedbacks by @francoto in https://github.com/SoftwareUnderstanding/sw-metadata-bot/pull/7\n\n\n**Full Changelog**: https://github.com/SoftwareUnderstanding/sw-metadata-bot/compare/v0.1.0...v0.1.1",
     "softwareRequirements": [
-        "metacheck>=0.2.0",
-        "requests>=2.32.5"
+    "click>=8.3.1",
+    "rsmetacheck>=0.2.1",
+    "python-dotenv>=1.0.0",
+    "requests>=2.32.5"
     ],
     "version": "0.3.1",
     "codemeta:contIntegration": {

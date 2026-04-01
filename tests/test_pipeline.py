@@ -116,11 +116,11 @@ def test_run_pipeline_invokes_metacheck_and_writes_reports(monkeypatch, tmp_path
     """Invoke metacheck with expected args and write analysis reports per snapshot."""
     calls: dict[str, dict] = {}
 
-    def fake_metacheck_main(*, args, standalone_mode):
+    def fake_rsmetacheck_main(*, args, standalone_mode):
         """Capture metacheck invocation arguments for assertions."""
         calls["metacheck"] = {"args": args, "standalone_mode": standalone_mode}
 
-    monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_rsmetacheck_main)
 
     output_root = tmp_path / "outputs"
     config = _write_config(
@@ -165,7 +165,7 @@ def test_run_pipeline_marks_run_report_dry_run(monkeypatch, tmp_path):
         """Accept metacheck invocation without side effects."""
         return None
 
-    monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
 
     output_root = tmp_path / "outputs"
     config = _write_config(
@@ -288,7 +288,7 @@ def test_run_pipeline_auto_discovers_previous_report(monkeypatch, tmp_path):
         """Capture metacheck invocation to keep test side-effect free."""
         calls["metacheck"] = {"args": args, "standalone_mode": standalone_mode}
 
-    monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
 
     output_root = tmp_path / "outputs"
     config = _write_config(
@@ -327,7 +327,7 @@ def test_run_pipeline_uses_incremented_snapshot_tag_on_collision(monkeypatch, tm
         """Capture metacheck invocation arguments for assertions."""
         calls["metacheck"] = {"args": args, "standalone_mode": standalone_mode}
 
-    monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
 
     output_root = tmp_path / "outputs"
     config = _write_config(
@@ -416,7 +416,7 @@ def test_run_pipeline_skips_analysis_when_all_repos_unchanged(monkeypatch, tmp_p
         """Track unexpected metacheck invocation."""
         called["metacheck"] = True
 
-    monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
     monkeypatch.setattr(
         commit_lookup, "get_repo_head_commit", lambda repo_url: "abc123"
     )
@@ -512,7 +512,7 @@ def test_run_pipeline_merges_pre_skipped_with_analyzed_results(monkeypatch, tmp_
         )
         (repo_folder / "somef_output.json").write_text("{}")
 
-    monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
 
     def fake_get_head(repo_url: str) -> str | None:
         """Return deterministic commit hash for unchanged repo."""
@@ -617,7 +617,7 @@ def test_run_pipeline_uses_config_snapshot_default(monkeypatch, tmp_path):
         """Record the call arguments for metacheck."""
         calls["metacheck"] = {"args": args, "standalone_mode": standalone_mode}
 
-    monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
 
     output_root = tmp_path / "outputs"
     config = _write_config(
@@ -654,7 +654,7 @@ def test_run_pipeline_skips_analysis_from_previous_dry_run_commit(
         """Mark metacheck as called."""
         called["metacheck"] = True
 
-    monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
     monkeypatch.setattr(
         commit_lookup, "get_repo_head_commit", lambda repo_url: "abc123"
     )
@@ -731,7 +731,7 @@ def test_run_pipeline_unchanged_repo_does_not_update_opt_out(monkeypatch, tmp_pa
         """Mark metacheck as called."""
         called["metacheck"] = True
 
-    monkeypatch.setattr(pipeline.metacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
     monkeypatch.setattr(
         commit_lookup, "get_repo_head_commit", lambda repo_url: "abc123"
     )

@@ -40,12 +40,12 @@ from metacheck import cli as metacheck_cli
     default=0.8,
     help="SoMEF confidence threshold (default: 0.8).",
 )
-def metacheck_command(
+def rsmetacheck_command(
     input, skip_somef, somef_output, pitfalls_output, analysis_output, threshold
 ):
-    """Run metacheck to detect metadata pitfalls in repositories."""
-    # Convert click arguments to sys.argv format for metacheck's argparse
-    argv = ["metacheck"]
+    """Run rsmetacheck to detect metadata pitfalls in repositories."""
+    # Convert click arguments to sys.argv format for rsmetacheck's argparse
+    argv = ["rsmetacheck"]
 
     # Add input files
     argv.extend(["--input", input.strip()])

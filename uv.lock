@@ -993,15 +993,6 @@ wheels = [
 ]
 
 [[package]]
-name = "metacheck"
-version = "0.2.1"
-source = { git = "https://github.com/SoftwareUnderstanding/RsMetaCheck#c4d456565320e9b18e2c0fa663f7e2d48163149d" }
-dependencies = [
-    { name = "requests" },
-    { name = "somef" },
-]
-
-[[package]]
 name = "more-itertools"
 version = "10.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1611,6 +1602,19 @@ wheels = [
 ]
 
 [[package]]
+name = "rsmetacheck"
+version = "0.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+    { name = "somef" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/15/41/5ae0c2d07b819979bc17b72555fd7b75caaf447444831d5f6b53bf6f31ae/rsmetacheck-0.2.1.tar.gz", hash = "sha256:c7ff2d95ff4e1d4da337fd56ce9b214bff4efead1da0c1eee7b7ce99d8e3e7c1", size = 92769 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/45/a8/c5e42f31c3835f5699c1268f48657aecc8531b62940c156666b4dfa06bc0/rsmetacheck-0.2.1-py3-none-any.whl", hash = "sha256:c53876911777a2e7cea9618160e14ebf8a309324773845ab9e2a20ebbe49ff75", size = 133247 },
+]
+
+[[package]]
 name = "ruamel-yaml"
 version = "0.18.17"
 source = { registry = "https://pypi.org/simple" }
@@ -2057,9 +2061,9 @@ version = "0.3.1"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
-    { name = "metacheck" },
     { name = "python-dotenv" },
     { name = "requests" },
+    { name = "rsmetacheck" },
 ]
 
 [package.optional-dependencies]
@@ -2091,12 +2095,12 @@ requires-dist = [
     { name = "coverage-badge", marker = "extra == 'test'" },
     { name = "furo", marker = "extra == 'docs'", specifier = ">=2025.12.19" },
     { name = "interrogate", marker = "extra == 'dev'", specifier = ">=1.7.0" },
-    { name = "metacheck", git = "https://github.com/SoftwareUnderstanding/RsMetaCheck" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.5.1" },
     { name = "pytest", marker = "extra == 'test'" },
     { name = "pytest-cov", marker = "extra == 'test'" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "requests", specifier = ">=2.32.5" },
+    { name = "rsmetacheck", specifier = ">=0.2.1" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.14.13" },
     { name = "sphinx", marker = "extra == 'docs'" },
     { name = "sphinxcontrib-mermaid", marker = "extra == 'docs'", specifier = ">=1.0.0" },

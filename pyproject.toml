@@ -14,7 +14,7 @@ authors = [
 ]
 dependencies = [
     "click>=8.3.1",
-    "metacheck>=0.2.1",
+    "rsmetacheck>=0.2.1",
     "python-dotenv>=1.0.0",
     "requests>=2.32.5",
 ]
@@ -66,8 +66,6 @@ packages = { find = { where = ["src"] } }
 # Start year for copyright range (displayed as "YYYY–present" in docs)
 copyright_year = "2026"
 
-[tool.uv.sources]
-metacheck = { git = "https://github.com/SoftwareUnderstanding/RsMetaCheck"}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

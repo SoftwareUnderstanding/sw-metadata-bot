@@ -19,7 +19,7 @@ from .config_utils import (
     resolve_snapshot_tag,
     sanitize_repo_name,
 )
-from .metacheck_wrapper import metacheck_command
+from .rsmetacheck_wrapper import rsmetacheck_command
 
 SNAPSHOT_TAG_PATTERN = re.compile(r"^(\d{8})(?:_(\d+))?$")
 SNAPSHOT_INCREMENT_PATTERN = re.compile(r"^(.+?)_(\d+)$")
@@ -214,7 +214,7 @@ def run_pipeline(
 
         if not reused_previous:
             analysis_runtime.run_metacheck_for_repo(
-                repo_url, repo_folder, metacheck_command
+                repo_url, repo_folder, rsmetacheck_command
             )
 
         normalized_repo = analysis_runtime.normalize_repo_url(repo_url)
