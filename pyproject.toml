@@ -40,7 +40,6 @@ sw-metadata-bot = "sw_metadata_bot.main:main"
 dev = [
     "bandit>=1.9.3",
     "interrogate>=1.7.0",
-    "pre-commit>=4.5.1",
     "ruff>=0.14.13",
     "ty>=0.0.12",
 ]
