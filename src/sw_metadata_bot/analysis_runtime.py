@@ -220,6 +220,11 @@ def is_previous_issue_open(previous_record: dict[str, object]) -> bool:
     if state in {"closed", "close"}:
         return False
 
+    # If the previous analysis already closed the issue, treat it as closed
+    # regardless of whether previous_issue_state was persisted.
+    if previous_record.get("action") == "closed":
+        return False
+
     issue_url = previous_record.get("issue_url") or previous_record.get(
         "previous_issue_url"
     )

@@ -238,6 +238,7 @@ def publish_analysis(analysis_root: Path) -> None:
                 issue_client.close_issue(issue_url)
 
                 record["issue_url"] = issue_url
+                record["previous_issue_state"] = "closed"
                 record["dry_run"] = False
                 record["issue_persistence"] = "posted"
                 record.pop("simulated_issue_url", None)

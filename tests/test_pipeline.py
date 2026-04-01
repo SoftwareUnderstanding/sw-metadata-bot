@@ -8,6 +8,51 @@ from click.testing import CliRunner
 from sw_metadata_bot import analysis_runtime, commit_lookup, pipeline
 from sw_metadata_bot import publish as publish_module
 
+# ---------------------------------------------------------------------------
+# is_previous_issue_open
+# ---------------------------------------------------------------------------
+
+
+def test_is_previous_issue_open_false_when_action_closed():
+    """Return False when the previous record action is closed, regardless of issue_url."""
+    record = {
+        "action": "closed",
+        "issue_url": "https://github.com/example/repo/issues/1",
+        "issue_persistence": "posted",
+    }
+    assert analysis_runtime.is_previous_issue_open(record) is False
+
+
+def test_is_previous_issue_open_false_when_previous_issue_state_closed():
+    """Return False when previous_issue_state is explicitly closed."""
+    record = {
+        "action": "closed",
+        "issue_url": "https://github.com/example/repo/issues/1",
+        "issue_persistence": "posted",
+        "previous_issue_state": "closed",
+    }
+    assert analysis_runtime.is_previous_issue_open(record) is False
+
+
+def test_is_previous_issue_open_true_for_posted_open_issue():
+    """Return True when an issue was posted and no closing signal exists."""
+    record = {
+        "action": "created",
+        "issue_url": "https://github.com/example/repo/issues/2",
+        "issue_persistence": "posted",
+    }
+    assert analysis_runtime.is_previous_issue_open(record) is True
+
+
+def test_is_previous_issue_open_false_for_simulated_issue():
+    """Return False for simulated (dry-run) issues that were never posted."""
+    record = {
+        "action": "simulated_created",
+        "issue_url": "https://github.com/example/repo/issues/3",
+        "issue_persistence": "simulated",
+    }
+    assert analysis_runtime.is_previous_issue_open(record) is False
+
 
 def _write_config(tmp_path, **overrides):
     """Write a minimal config and return its path."""

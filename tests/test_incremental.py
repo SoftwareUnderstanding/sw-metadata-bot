@@ -71,3 +71,17 @@ def test_no_findings_closes_open_issue():
     )
     assert decision.action == "close"
     assert decision.reason == "no_findings_close_open_issue"
+
+
+def test_no_findings_already_closed_issue_stops():
+    """Stop without repeat action when issue was already closed in previous analysis."""
+    decision = incremental.evaluate(
+        previous_exists=True,
+        unsubscribed=False,
+        repo_updated=True,
+        has_findings=False,
+        identical_findings=True,
+        previous_issue_open=False,
+    )
+    assert decision.action == "stop"
+    assert decision.reason == "no_findings"
