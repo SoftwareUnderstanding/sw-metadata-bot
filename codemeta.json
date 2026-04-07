@@ -38,7 +38,7 @@
     "python-dotenv>=1.0.0",
     "requests>=2.32.5"
     ],
-    "version": "0.3.2",
+    "version": "0.4.0",
     "codemeta:contIntegration": {
         "@id": "https://raw.githubusercontent.com/SoftwareUnderstanding/sw-metadata-bot/main/.github/workflows/ci.yml"
     },
