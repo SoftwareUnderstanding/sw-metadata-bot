@@ -120,6 +120,43 @@ def test_resolve_output_root_keeps_absolute_path(tmp_path):
     assert resolved_output_root == absolute_output_root
 
 
+def test_create_analysis_record_reads_metacheck_version_from_checking_software(
+    tmp_path,
+):
+    """Read RSMetacheck version from checkingSoftware.softwareVersion."""
+    repo_url = "https://github.com/example/repo"
+    repo_folder = tmp_path / "github_com_example_repo"
+    repo_folder.mkdir(parents=True)
+
+    pitfall_payload = {
+        "dateCreated": "2026-04-07T15:09:37Z",
+        "assessedSoftware": {"url": repo_url},
+        "checkingSoftware": {"softwareVersion": "0.2.1"},
+        "checks": [
+            {
+                "assessesIndicator": {
+                    "@id": "https://w3id.org/rsmetacheck/catalog/#P001"
+                },
+                "output": "true",
+                "evidence": "P001 detected",
+            }
+        ],
+    }
+    (repo_folder / "pitfall.jsonld").write_text(json.dumps(pitfall_payload))
+
+    record = analysis_runtime.create_analysis_record(
+        run_root=tmp_path,
+        repo_url=repo_url,
+        repo_folder=repo_folder,
+        previous_record=None,
+        current_commit_id=None,
+        dry_run=True,
+        custom_message=None,
+    )
+
+    assert record["rsmetacheck_version"] == "0.2.1"
+
+
 def test_resolve_unique_snapshot_tag_uses_requested_when_missing(tmp_path):
     """Keep requested snapshot tag when the target directory does not exist."""
     run_root = tmp_path / "outputs" / "batch-a"

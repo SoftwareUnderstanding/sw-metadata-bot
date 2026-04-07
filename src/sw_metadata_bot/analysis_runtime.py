@@ -338,7 +338,7 @@ def create_analysis_record(
         check_ids = extract_check_ids(checks if isinstance(checks, list) else [])
         pitfalls_ids, warnings_ids = check_ids
         analysis_date = str(data.get("dateCreated", "unknown"))
-        metacheck_version = str(data.get("schemaVersion", "unknown"))
+        metacheck_version = pitfalls.get_metacheck_version(data)
         current_signature = history.findings_signature(pitfalls_ids, warnings_ids)
         has_findings = (pitfalls_count + warnings_count) > 0
 
