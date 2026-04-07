@@ -198,8 +198,12 @@ def test_run_pipeline_invokes_metacheck_and_writes_reports(monkeypatch, tmp_path
     run_report_path = output_root / "batch-a" / "202603" / "run_report.json"
     assert run_report_path.exists()
     run_report = json.loads(run_report_path.read_text())
-    assert run_report["run_metadata"]["analysis_summary_file"].endswith(
-        "/202603/analysis_results.json"
+    assert run_report["run_metadata"]["analysis_summary_file"] == (
+        "202603/analysis_results.json"
+    )
+    assert (
+        run_report["records"][0]["file"]
+        == "202603/github_com_example_repo/pitfall.jsonld"
     )
 
 
@@ -281,6 +285,7 @@ def test_publish_command_forwards_to_publish_analysis(monkeypatch, tmp_path):
     captured: dict[str, Path] = {}
 
     def fake_publish_analysis(analysis_root: Path) -> None:
+        """Capture the analysis root path passed by the CLI wrapper."""
         captured["analysis_root"] = analysis_root
 
     monkeypatch.setattr(publish_module, "publish_analysis", fake_publish_analysis)
@@ -359,8 +364,8 @@ def test_run_pipeline_auto_discovers_previous_report(monkeypatch, tmp_path):
     report_path = output_root / "batch-a" / "20260311" / "run_report.json"
     assert report_path.exists()
     report_data = json.loads(report_path.read_text())
-    assert report_data["run_metadata"]["previous_report_source"] == str(
-        previous_snapshot / "run_report.json"
+    assert report_data["run_metadata"]["previous_report_source"] == (
+        "20260310/run_report.json"
     )
 
 
@@ -416,16 +421,22 @@ def test_get_gitlab_head_commit_uses_gitlab_api(monkeypatch):
     """Resolve GitLab HEAD commit through GitLab API endpoint."""
 
     class DummyResponse:
+        """Fake Response for testing"""
+
         def __init__(self):
+            """Initialize with a dummy commit ID in the expected format."""
             self._data = [{"id": "a" * 40}]
 
         def raise_for_status(self):
+            """No-op for status check."""
             return None
 
         def json(self):
+            """convert to json"""
             return self._data
 
     def fake_get(url, params, timeout):
+        """Assert correct API call and return dummy response."""
         assert url.startswith("https://gitlab.com/api/v4/projects/")
         assert params == {"per_page": 1}
         assert timeout == 10

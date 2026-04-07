@@ -7,7 +7,13 @@ from pathlib import Path
 import click
 
 from . import github_api, gitlab_api, pitfalls
-from .config_utils import get_custom_message, load_config, sanitize_repo_name
+from .config_utils import (
+    detect_platform,
+    get_custom_message,
+    load_config,
+    sanitize_repo_name,
+)
+from .reporting import build_counters, write_report_file
 
 
 def _is_unsubscribe_comment(comment: str) -> bool:
@@ -17,17 +23,7 @@ def _is_unsubscribe_comment(comment: str) -> bool:
 
 def _build_counters(records: list[dict[str, object]]) -> dict[str, int]:
     """Build publish outcome counters from report records."""
-    return {
-        "total": len(records),
-        "created": sum(1 for r in records if r.get("action") == "created"),
-        "simulated": sum(1 for r in records if r.get("action") == "simulated_created"),
-        "updated_by_comment": sum(
-            1 for r in records if r.get("action") == "updated_by_comment"
-        ),
-        "closed": sum(1 for r in records if r.get("action") == "closed"),
-        "skipped": sum(1 for r in records if r.get("action") == "skipped"),
-        "failed": sum(1 for r in records if r.get("action") == "failed"),
-    }
+    return build_counters(records)
 
 
 def _detect_platform_for_publish(repo_url: str, record: dict[str, object]) -> str:
@@ -37,12 +33,10 @@ def _detect_platform_for_publish(repo_url: str, record: dict[str, object]) -> st
         if value in {"github", "gitlab", "gitlab.com"}:
             return value
 
-    lowered = repo_url.lower()
-    if "github.com" in lowered:
-        return "github"
-    if "gitlab" in lowered:
-        return "gitlab"
-    raise click.ClickException(f"Unsupported platform for repository: {repo_url}")
+    platform = detect_platform(repo_url)
+    if platform is None:
+        raise click.ClickException(f"Unsupported platform for repository: {repo_url}")
+    return platform
 
 
 def _load_publish_body(analysis_root: Path, repo_url: str) -> str:
@@ -84,40 +78,22 @@ def _issue_url_for_publish(record: dict[str, object]) -> str | None:
 def _write_per_repo_report(
     analysis_root: Path,
     record: dict[str, object],
-    analysis_summary_file: str | None,
+    analysis_summary_file: Path | None,
+    previous_report: Path | None,
 ) -> None:
     """Persist a single-record per-repo report alongside repository artifacts."""
     repo_url = record.get("repo_url")
     if not isinstance(repo_url, str) or not repo_url:
         return
 
-    report_path = analysis_root / sanitize_repo_name(repo_url) / "report.json"
-    run_metadata: dict[str, object] = {
-        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "dry_run": False,
-        "analysis_summary_file": analysis_summary_file,
-    }
-    if report_path.exists():
-        with open(report_path, encoding="utf-8") as f:
-            existing = json.load(f)
-        existing_meta = (
-            existing.get("run_metadata") if isinstance(existing, dict) else None
-        )
-        if isinstance(existing_meta, dict):
-            run_metadata.update(existing_meta)
-            run_metadata["generated_at"] = datetime.now(timezone.utc).strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
-            )
-            run_metadata["dry_run"] = False
-
-    payload = {
-        "run_metadata": run_metadata,
-        "counters": _build_counters([record]),
-        "records": [record],
-    }
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(report_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2)
+    write_report_file(
+        report_file=analysis_root / sanitize_repo_name(repo_url) / "report.json",
+        records=[record],
+        dry_run=False,
+        run_root=analysis_root.parent,
+        analysis_summary_file=analysis_summary_file,
+        previous_report=previous_report,
+    )
 
 
 def publish_analysis(analysis_root: Path) -> None:
@@ -128,6 +104,22 @@ def publish_analysis(analysis_root: Path) -> None:
 
     with open(run_report_file, encoding="utf-8") as f:
         run_report = json.load(f)
+
+    run_metadata = (
+        run_report.get("run_metadata") if isinstance(run_report, dict) else None
+    )
+    if not isinstance(run_metadata, dict):
+        run_metadata = {}
+    analysis_summary_value = run_metadata.get("analysis_summary_file")
+    previous_report_value = run_metadata.get("previous_report_source")
+    analysis_summary_file = (
+        Path(analysis_summary_value)
+        if isinstance(analysis_summary_value, str)
+        else None
+    )
+    previous_report = (
+        Path(previous_report_value) if isinstance(previous_report_value, str) else None
+    )
 
     records = run_report.get("records") if isinstance(run_report, dict) else None
     if not isinstance(records, list):
@@ -185,11 +177,8 @@ def publish_analysis(analysis_root: Path) -> None:
                     _write_per_repo_report(
                         analysis_root,
                         record,
-                        (
-                            analysis_summary_value
-                            if isinstance(analysis_summary_value, str)
-                            else None
-                        ),
+                        analysis_summary_file,
+                        previous_report,
                     )
                     continue
 
@@ -258,29 +247,25 @@ def publish_analysis(analysis_root: Path) -> None:
             record["error"] = str(exc)
 
         updated_records.append(record)
-        analysis_summary_value = run_report.get("run_metadata", {}).get(
-            "analysis_summary_file"
-        )
         _write_per_repo_report(
             analysis_root,
             record,
-            analysis_summary_value if isinstance(analysis_summary_value, str) else None,
+            analysis_summary_file,
+            previous_report,
         )
 
-    run_report["records"] = updated_records
-    run_report["counters"] = _build_counters(updated_records)
-    run_metadata = (
-        run_report.get("run_metadata") if isinstance(run_report, dict) else None
+    run_report = write_report_file(
+        report_file=run_report_file,
+        records=updated_records,
+        dry_run=False,
+        run_root=analysis_root.parent,
+        analysis_summary_file=analysis_summary_file,
+        previous_report=previous_report,
     )
-    if not isinstance(run_metadata, dict):
-        run_metadata = {}
-        run_report["run_metadata"] = run_metadata
-    run_metadata["dry_run"] = False
-    run_metadata["published_at"] = datetime.now(timezone.utc).strftime(
+    run_report["run_metadata"]["published_at"] = datetime.now(timezone.utc).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
-    run_metadata["idempotency_skipped_records"] = skipped_published
-
+    run_report["run_metadata"]["idempotency_skipped_records"] = skipped_published
     with open(run_report_file, "w", encoding="utf-8") as f:
         json.dump(run_report, f, indent=2)
 

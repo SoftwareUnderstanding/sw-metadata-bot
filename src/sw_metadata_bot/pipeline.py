@@ -19,6 +19,7 @@ from .config_utils import (
     resolve_snapshot_tag,
     sanitize_repo_name,
 )
+from .reporting import build_record_entry
 from .rsmetacheck_wrapper import rsmetacheck_command
 
 SNAPSHOT_TAG_PATTERN = re.compile(r"^(\d{8})(?:_(\d+))?$")
@@ -219,28 +220,28 @@ def run_pipeline(
 
         normalized_repo = analysis_runtime.normalize_repo_url(repo_url)
         if normalized_repo in opt_out_repos:
-            record = {
-                "repo_url": repo_url,
-                "platform": analysis_runtime.detect_platform_from_repo_url(repo_url),
-                "pitfalls_count": 0,
-                "warnings_count": 0,
-                "issue_url": None,
-                "analysis_date": datetime.now(timezone.utc).strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
-                ),
-                "sw_metadata_bot_version": pitfalls.__version__,
-                "rsmetacheck_version": "unknown",
-                "pitfalls_ids": [],
-                "warnings_ids": [],
-                "action": "skipped",
-                "reason_code": "in_opt_out_list",
-                "dry_run": dry_run,
-                "issue_persistence": "none",
-                "current_commit_id": current_commit_id,
-                "file": str(repo_folder / "pitfall.jsonld"),
-            }
+            record = build_record_entry(
+                run_root=run_root,
+                repo_url=repo_url,
+                platform=analysis_runtime.detect_platform_from_repo_url(repo_url),
+                pitfalls_count=0,
+                warnings_count=0,
+                issue_url=None,
+                analysis_date=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                bot_version=pitfalls.__version__,
+                metacheck_version="unknown",
+                pitfalls_ids=[],
+                warnings_ids=[],
+                action="skipped",
+                reason_code="in_opt_out_list",
+                dry_run=dry_run,
+                issue_persistence="none",
+                current_commit_id=current_commit_id,
+                file_path=repo_folder / "pitfall.jsonld",
+            )
         else:
             record = analysis_runtime.create_analysis_record(
+                run_root=run_root,
                 repo_url=repo_url,
                 repo_folder=repo_folder,
                 previous_record=previous_record,
@@ -253,6 +254,7 @@ def run_pipeline(
             repo_folder,
             record,
             dry_run=dry_run,
+            run_root=run_root,
             analysis_summary_file=analysis_output_file,
             previous_report=resolved_previous_report,
         )
@@ -273,6 +275,7 @@ def run_pipeline(
     run_report = analysis_runtime.build_analysis_run_report(
         run_records,
         dry_run=dry_run,
+        run_root=run_root,
         analysis_summary_file=analysis_output_file,
         previous_report=resolved_previous_report,
     )

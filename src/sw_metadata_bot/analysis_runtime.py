@@ -2,18 +2,14 @@
 
 import json
 import shutil
-from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from . import history, incremental, pitfalls
 from .check_parsing import extract_check_ids
-from .config_utils import sanitize_repo_name
-
-
-def normalize_repo_url(url: str) -> str:
-    """Normalize repository URL for cross-report matching."""
-    return url.strip().rstrip("/")
+from .config_utils import detect_platform, normalize_repo_url, sanitize_repo_name
+from .reporting import build_counters, build_run_metadata, write_report_file
+from .reporting import build_record_entry as build_shared_record_entry
 
 
 def extract_previous_commit(record: dict) -> str | None:
@@ -164,38 +160,26 @@ def run_metacheck_for_repo(repo_url: str, repo_folder: Path, metacheck_command) 
 
 
 def build_analysis_counters(records: list[dict[str, object]]) -> dict[str, int]:
-    """Build analysis-stage decision counters from report records."""
-    return {
-        "total": len(records),
-        "decision_create": sum(
-            1 for r in records if r.get("action") == "simulated_created"
-        ),
-        "decision_comment": sum(
-            1 for r in records if r.get("action") == "updated_by_comment"
-        ),
-        "decision_close": sum(1 for r in records if r.get("action") == "closed"),
-        "decision_skip": sum(1 for r in records if r.get("action") == "skipped"),
-        "failed_analysis": sum(1 for r in records if r.get("action") == "failed"),
-    }
+    """Build analysis counters using the unified report schema."""
+    return build_counters(records)
 
 
 def build_analysis_run_report(
     records: list[dict[str, object]],
     *,
     dry_run: bool,
+    run_root: Path,
     analysis_summary_file: Path,
     previous_report: Path | None,
 ) -> dict[str, object]:
     """Build run-level report payload from analysis decision records."""
     return {
-        "run_metadata": {
-            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "dry_run": dry_run,
-            "analysis_summary_file": str(analysis_summary_file),
-            "previous_report_source": (
-                str(previous_report) if previous_report is not None else None
-            ),
-        },
+        "run_metadata": build_run_metadata(
+            dry_run=dry_run,
+            run_root=run_root,
+            analysis_summary_file=analysis_summary_file,
+            previous_report=previous_report,
+        ),
         "counters": build_analysis_counters(records),
         "records": records,
     }
@@ -203,12 +187,7 @@ def build_analysis_run_report(
 
 def detect_platform_from_repo_url(repo_url: str) -> str | None:
     """Detect publish platform from repository URL."""
-    lowered = repo_url.lower()
-    if "github.com" in lowered:
-        return "github"
-    if "gitlab" in lowered:
-        return "gitlab"
-    return None
+    return detect_platform(repo_url)
 
 
 def is_previous_issue_open(previous_record: dict[str, object]) -> bool:
@@ -240,6 +219,7 @@ def is_previous_issue_open(previous_record: dict[str, object]) -> bool:
 
 def build_record_entry(
     *,
+    run_root: Path,
     repo_url: str,
     platform: str | None,
     pitfalls_count: int,
@@ -262,35 +242,30 @@ def build_record_entry(
     error: str | None = None,
 ) -> dict[str, object]:
     """Build a per-repository analysis record payload."""
-    entry: dict[str, object] = {
-        "repo_url": repo_url,
-        "platform": platform,
-        "pitfalls_count": pitfalls_count,
-        "warnings_count": warnings_count,
-        "issue_url": issue_url,
-        "analysis_date": analysis_date,
-        "sw_metadata_bot_version": pitfalls.__version__,
-        "rsmetacheck_version": metacheck_version,
-        "pitfalls_ids": pitfalls_ids,
-        "warnings_ids": warnings_ids,
-        "action": action,
-        "reason_code": reason_code,
-        "findings_signature": findings_signature,
-        "dry_run": dry_run,
-        "issue_persistence": issue_persistence,
-        "file": str(file_path),
-    }
-    if current_commit_id is not None:
-        entry["current_commit_id"] = current_commit_id
-    if previous_commit_id is not None:
-        entry["previous_commit_id"] = previous_commit_id
-    if previous_issue_url is not None:
-        entry["previous_issue_url"] = previous_issue_url
-    if previous_issue_state is not None:
-        entry["previous_issue_state"] = previous_issue_state
-    if error is not None:
-        entry["error"] = error
-    return entry
+    return build_shared_record_entry(
+        run_root=run_root,
+        repo_url=repo_url,
+        platform=platform,
+        pitfalls_count=pitfalls_count,
+        warnings_count=warnings_count,
+        issue_url=issue_url,
+        analysis_date=analysis_date,
+        bot_version=pitfalls.__version__,
+        metacheck_version=metacheck_version,
+        pitfalls_ids=pitfalls_ids,
+        warnings_ids=warnings_ids,
+        action=action,
+        reason_code=reason_code,
+        findings_signature=findings_signature,
+        current_commit_id=current_commit_id,
+        previous_commit_id=previous_commit_id,
+        previous_issue_url=previous_issue_url,
+        previous_issue_state=previous_issue_state,
+        dry_run=dry_run,
+        issue_persistence=issue_persistence,
+        file_path=file_path,
+        error=error,
+    )
 
 
 def write_analysis_repo_report(
@@ -298,29 +273,24 @@ def write_analysis_repo_report(
     record: dict[str, object],
     *,
     dry_run: bool,
+    run_root: Path,
     analysis_summary_file: Path,
     previous_report: Path | None,
 ) -> None:
     """Write per-repository analysis report using analysis-stage counters."""
-    report = {
-        "run_metadata": {
-            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "dry_run": dry_run,
-            "analysis_summary_file": str(analysis_summary_file),
-            "previous_report_source": (
-                str(previous_report) if previous_report is not None else None
-            ),
-        },
-        "counters": build_analysis_counters([record]),
-        "records": [record],
-    }
-    report_file = repo_folder / "report.json"
-    with open(report_file, "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2)
+    write_report_file(
+        report_file=repo_folder / "report.json",
+        records=[record],
+        dry_run=dry_run,
+        run_root=run_root,
+        analysis_summary_file=analysis_summary_file,
+        previous_report=previous_report,
+    )
 
 
 def create_analysis_record(
     *,
+    run_root: Path,
     repo_url: str,
     repo_folder: Path,
     previous_record: dict[str, object] | None,
@@ -332,6 +302,7 @@ def create_analysis_record(
     pitfall_file = repo_folder / "pitfall.jsonld"
     if not pitfall_file.exists():
         return build_record_entry(
+            run_root=run_root,
             repo_url=repo_url,
             platform=detect_platform_from_repo_url(repo_url),
             pitfalls_count=0,
@@ -398,9 +369,19 @@ def create_analysis_record(
                 previous_issue_state = previous_state_value
 
             previous_commit_id = extract_previous_commit(previous_record)
+            previous_pitfalls_ids = previous_record.get("pitfalls_ids")
+            previous_warnings_ids = previous_record.get("warnings_ids")
             previous_signature = history.findings_signature(
-                previous_record.get("pitfalls_ids"),
-                previous_record.get("warnings_ids"),
+                (
+                    [value for value in previous_pitfalls_ids if isinstance(value, str)]
+                    if isinstance(previous_pitfalls_ids, list)
+                    else None
+                ),
+                (
+                    [value for value in previous_warnings_ids if isinstance(value, str)]
+                    if isinstance(previous_warnings_ids, list)
+                    else None
+                ),
             )
             previous_issue_open = is_previous_issue_open(previous_record)
 
@@ -423,6 +404,7 @@ def create_analysis_record(
 
         if decision.action == "create":
             return build_record_entry(
+                run_root=run_root,
                 repo_url=repo_url,
                 platform=platform,
                 pitfalls_count=pitfalls_count,
@@ -446,6 +428,7 @@ def create_analysis_record(
 
         if decision.action == "comment":
             return build_record_entry(
+                run_root=run_root,
                 repo_url=repo_url,
                 platform=platform,
                 pitfalls_count=pitfalls_count,
@@ -469,6 +452,7 @@ def create_analysis_record(
 
         if decision.action == "close":
             return build_record_entry(
+                run_root=run_root,
                 repo_url=repo_url,
                 platform=platform,
                 pitfalls_count=pitfalls_count,
@@ -491,6 +475,7 @@ def create_analysis_record(
             )
 
         return build_record_entry(
+            run_root=run_root,
             repo_url=repo_url,
             platform=platform,
             pitfalls_count=pitfalls_count,
@@ -513,6 +498,7 @@ def create_analysis_record(
         )
     except Exception as exc:
         return build_record_entry(
+            run_root=run_root,
             repo_url=repo_url,
             platform=detect_platform_from_repo_url(repo_url),
             pitfalls_count=0,

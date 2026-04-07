@@ -11,9 +11,23 @@ DEFAULT_SNAPSHOT_TAG_FORMAT = "%Y%m%d"
 PROJECT_ROOT_MARKERS = ("pyproject.toml", ".git")
 
 
-def _normalize_repo_url(url: str) -> str:
+def normalize_repo_url(url: str) -> str:
     """Normalize repository URLs for matching and persistence."""
     return url.strip().rstrip("/")
+
+
+def detect_platform(url: str) -> str | None:
+    """Detect publishing platform from repository URL.
+
+    Returns ``"github"`` for GitHub URLs, ``"gitlab"`` for any GitLab URL,
+    or ``None`` when the URL does not match a known platform.
+    """
+    lowered = url.lower()
+    if "github.com" in lowered:
+        return "github"
+    if "gitlab" in lowered:
+        return "gitlab"
+    return None
 
 
 def load_config(config_path: Path) -> dict:
@@ -46,7 +60,7 @@ def get_repositories(config: dict) -> list[str]:
     for item in repositories:
         if not isinstance(item, str):
             continue
-        normalized = _normalize_repo_url(item)
+        normalized = normalize_repo_url(item)
         if normalized in seen:
             continue
         seen.add(normalized)
@@ -80,7 +94,7 @@ def get_opt_out_repositories(config: dict) -> set[str]:
     if not isinstance(opt_outs, list):
         raise click.ClickException("Invalid config: 'issues.opt_outs' must be a list")
 
-    return {_normalize_repo_url(url) for url in opt_outs if isinstance(url, str)}
+    return {normalize_repo_url(url) for url in opt_outs if isinstance(url, str)}
 
 
 def append_opt_out_repository(config_path: Path, repo_url: str) -> bool:
@@ -94,9 +108,9 @@ def append_opt_out_repository(config_path: Path, repo_url: str) -> bool:
     if not isinstance(opt_outs, list):
         raise click.ClickException("Invalid config: 'issues.opt_outs' must be a list")
 
-    normalized_repo = _normalize_repo_url(repo_url)
+    normalized_repo = normalize_repo_url(repo_url)
     normalized_existing = {
-        _normalize_repo_url(url) for url in opt_outs if isinstance(url, str)
+        normalize_repo_url(url) for url in opt_outs if isinstance(url, str)
     }
     if normalized_repo in normalized_existing:
         return False
@@ -190,7 +204,7 @@ def sanitize_repo_name(repo_url: str) -> str:
     """
     import re
 
-    normalized = _normalize_repo_url(repo_url)
+    normalized = normalize_repo_url(repo_url)
     no_scheme = re.sub(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", "", normalized)
     no_git_suffix = re.sub(r"\.git$", "", no_scheme, flags=re.IGNORECASE)
     sanitized = re.sub(r"[./-]", "_", no_git_suffix)

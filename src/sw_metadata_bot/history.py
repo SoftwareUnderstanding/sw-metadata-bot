@@ -3,10 +3,7 @@
 import json
 from pathlib import Path
 
-
-def normalize_repo_url(url: str) -> str:
-    """Normalize repository URL for matching across report files."""
-    return url.strip().rstrip("/")
+from .config_utils import normalize_repo_url
 
 
 def _read_report_records(report_path: Path | None) -> list[dict]:
