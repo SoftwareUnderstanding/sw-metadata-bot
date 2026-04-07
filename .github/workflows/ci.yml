@@ -85,6 +85,9 @@ jobs:
       - name: Run pytest with coverage
         run: uv run pytest --cov=src/sw_metadata_bot --cov-report=term-missing tests/
 
+      - name: Run small analysis without publishing
+        run: uv run sw-metadata-bot run-analysis --config-file assets/example_list_repo.json
+
       - name: Generate coverage badge
         run: uv run coverage-badge -o coverage.svg -f
         continue-on-error: true
@@ -98,6 +101,10 @@ jobs:
           git diff --quiet && git diff --staged --quiet || git commit -m "chore: update coverage badge"
           git push
         continue-on-error: true
+      
+      
+
+      
 
   docs:
     name: Docs (Sphinx)
