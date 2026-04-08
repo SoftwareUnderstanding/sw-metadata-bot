@@ -127,8 +127,23 @@ def publish_analysis(analysis_root: Path) -> None:
             f"Invalid run_report.json format in {run_report_file}: records must be a list"
         )
 
-    github_client = github_api.GitHubAPI(dry_run=False)
-    gitlab_client = gitlab_api.GitLabAPI(dry_run=False)
+    github_client: github_api.GitHubAPI | None = None
+    gitlab_client: gitlab_api.GitLabAPI | None = None
+
+    def issue_client_for_platform(platform: str):
+        """Return lazily initialized issue client for the requested platform."""
+        nonlocal github_client, gitlab_client
+        if platform == "github":
+            if github_client is None:
+                github_client = github_api.GitHubAPI(dry_run=False)
+            return github_client
+
+        if platform in {"gitlab", "gitlab.com"}:
+            if gitlab_client is None:
+                gitlab_client = gitlab_api.GitLabAPI(dry_run=False)
+            return gitlab_client
+
+        raise click.ClickException(f"Unsupported platform for publish: {platform}")
 
     updated_records: list[dict[str, object]] = []
     skipped_published = 0
@@ -158,7 +173,7 @@ def publish_analysis(analysis_root: Path) -> None:
                         f"Missing issue URL for publish action {action}: {repo_url}"
                     )
 
-                issue_client = github_client if platform == "github" else gitlab_client
+                issue_client = issue_client_for_platform(platform)
                 comments = issue_client.get_issue_comments(issue_url)
                 unsubscribe_detected = any(
                     _is_unsubscribe_comment(comment) for comment in comments
@@ -185,7 +200,7 @@ def publish_analysis(analysis_root: Path) -> None:
             if action == "simulated_created":
                 body = _load_publish_body(analysis_root, repo_url)
                 title = "Automated Metadata Quality Report from CodeMetaSoft"
-                issue_client = github_client if platform == "github" else gitlab_client
+                issue_client = issue_client_for_platform(platform)
                 created_url = issue_client.create_issue(repo_url, title, body)
 
                 record["action"] = "created"
@@ -201,7 +216,7 @@ def publish_analysis(analysis_root: Path) -> None:
                     )
 
                 body = _load_publish_body(analysis_root, repo_url)
-                issue_client = github_client if platform == "github" else gitlab_client
+                issue_client = issue_client_for_platform(platform)
                 issue_client.add_issue_comment(
                     issue_url,
                     f"New analysis detected updated findings.\n\n{body}",
@@ -218,7 +233,7 @@ def publish_analysis(analysis_root: Path) -> None:
                         f"Missing previous issue URL for repo: {repo_url}"
                     )
 
-                issue_client = github_client if platform == "github" else gitlab_client
+                issue_client = issue_client_for_platform(platform)
                 issue_client.add_issue_comment(
                     issue_url,
                     "The latest analysis no longer reports metadata pitfalls/warnings. "
