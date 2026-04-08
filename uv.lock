@@ -5605,7 +5605,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.32.5" },
     { name = "rsmetacheck", specifier = ">=0.2.1" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.14.13" },
-    { name = "setuptools", marker = "extra == 'test'", specifier = "<82.0.0" },
+    { name = "setuptools", marker = "extra == 'test'", specifier = "<83.0.0" },
     { name = "setuptools", extras = ["test"], specifier = "<82.0.0" },
     { name = "sphinx", marker = "extra == 'docs'" },
     { name = "sphinxcontrib-mermaid", marker = "extra == 'docs'", specifier = ">=1.0.0" },
