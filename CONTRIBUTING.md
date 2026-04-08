@@ -205,6 +205,31 @@ export GITLAB_API_TOKEN=glpat_xxxxxxxxxxxx
 uv run pytest --run-integration-gitlab -m "integration_gitlab"
 ```
 
+## CI test policy
+
+The CI intentionally separates deterministic unit tests from real GitLab integration tests:
+
+- Unit tests are always blocking and run on every PR/push.
+- GitLab integration tests are conditional and run only on `main`, scheduled runs, or manual dispatch.
+- Integration tests require `GITLAB_API_TOKEN` to be configured in GitHub repository secrets.
+
+This keeps contributor PRs stable while still validating live GitLab API behavior regularly.
+
+### Run tests locally
+
+Run default (unit) suite:
+
+```bash
+uv run pytest -m "not integration_gitlab"
+```
+
+Run GitLab integration tests (requires token):
+
+```bash
+export GITLAB_API_TOKEN=glpat_xxxxxxxxxxxx
+uv run pytest --run-integration-gitlab -m "integration_gitlab"
+```
+
 ## Supported platforms
 
 - GitHub.com
