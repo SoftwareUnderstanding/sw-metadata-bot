@@ -74,6 +74,9 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+markers = [
+    "integration_gitlab: real GitLab API integration tests requiring a valid GITLAB_API_TOKEN",
+]
 
 [tool.bandit]
 exclude_dirs = ["tests",".venv", ".ruff-cache"]

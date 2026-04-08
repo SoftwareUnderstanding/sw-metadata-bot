@@ -7,6 +7,9 @@ on:
     branches: ["*"]
   release:
     types: [published]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
 
 jobs:
   lint:
@@ -66,7 +69,7 @@ jobs:
         
 
   test:
-    name: Test (pytest)
+    name: Test (pytest unit)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -82,8 +85,12 @@ jobs:
           uv run sw-metadata-bot run-analysis --help
           uv run sw-metadata-bot publish --help
 
-      - name: Run pytest with coverage
-        run: uv run pytest --cov=src/sw_metadata_bot --cov-report=term-missing tests/
+      - name: Run pytest unit tests with coverage
+        run: |
+          uv run pytest -m "not integration_gitlab" \
+            --cov=src/sw_metadata_bot \
+            --cov-report=term-missing \
+            tests/
 
       - name: Run small analysis without publishing
         run: uv run sw-metadata-bot run-analysis --config-file assets/example_list_repo.json
@@ -101,6 +108,34 @@ jobs:
           git diff --quiet && git diff --staged --quiet || git commit -m "chore: update coverage badge"
           git push
         continue-on-error: true
+
+  test-gitlab-integration:
+    name: Test (GitLab integration)
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    env:
+      GITLAB_API_TOKEN: ${{ secrets.GITLAB_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup uv environment
+        uses: ./.github/actions/setup-uv
+        with:
+          dependency-group: test
+
+      - name: Skip integration tests when token is not configured
+        if: ${{ env.GITLAB_API_TOKEN == '' }}
+        run: |
+          echo "GITLAB_API_TOKEN is not configured; skipping GitLab integration tests."
+          exit 0
+
+      - name: Verify GitLab token before integration tests
+        if: ${{ env.GITLAB_API_TOKEN != '' }}
+        run: uv run sw-metadata-bot verify-tokens --gitlab
+
+      - name: Run GitLab integration tests
+        if: ${{ env.GITLAB_API_TOKEN != '' }}
+        run: uv run pytest --run-integration-gitlab -m "integration_gitlab" tests/test_gitlab_integration.py
       
       
 
