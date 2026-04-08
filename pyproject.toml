@@ -47,7 +47,7 @@ test = [
     "coverage-badge",
     "pytest",
     "pytest-cov",
-    "setuptools<82.0.0",
+    "setuptools<83.0.0",
 ]
 docs = [
     "furo>=2025.12.19",
