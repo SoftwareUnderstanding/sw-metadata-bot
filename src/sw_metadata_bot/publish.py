@@ -1,8 +1,9 @@
 """Publish issues from an existing analysis snapshot."""
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import cast
 
 import click
 
@@ -15,10 +16,98 @@ from .config_utils import (
 )
 from .reporting import build_counters, write_report_file
 
+MAX_PUBLISH_RETRY_ATTEMPTS = 3
+
 
 def _is_unsubscribe_comment(comment: str) -> bool:
     """Return True when a comment is exactly the unsubscribe keyword."""
     return comment.strip().lower() == "unsubscribe"
+
+
+def _now_utc_iso() -> str:
+    """Return a UTC timestamp suitable for report persistence."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _parse_utc_datetime(value: object) -> datetime | None:
+    """Parse an ISO UTC timestamp persisted in publish records."""
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _retry_after_seconds_from_error(error_text: str) -> int:
+    """Infer a retry delay from a publish error string."""
+    lowered = error_text.lower()
+    if "429" in lowered or "rate limit" in lowered or "too many requests" in lowered:
+        return 300
+    if (
+        "timeout" in lowered
+        or "temporarily unavailable" in lowered
+        or "connection" in lowered
+    ):
+        return 60
+    if any(code in lowered for code in ["500", "502", "503", "504"]):
+        return 120
+    return 30
+
+
+def _is_transient_publish_error(error_text: str) -> bool:
+    """Return True when the error likely represents a transient API failure."""
+    lowered = error_text.lower()
+    if any(code in lowered for code in ["401", "403", "404"]):
+        return False
+    if "unauthorized" in lowered or "forbidden" in lowered or "not found" in lowered:
+        return False
+    if "invalid token" in lowered or "insufficient" in lowered:
+        return False
+    return True
+
+
+def _clear_failure_metadata(record: dict[str, object]) -> None:
+    """Remove retry/failure bookkeeping after a successful publish action."""
+    record.pop("error", None)
+    record.pop("retry_attempt", None)
+    record.pop("is_transient_error", None)
+    record.pop("retry_after_seconds", None)
+    record.pop("failed_at", None)
+
+
+def _resolve_retry_action(record: dict[str, object]) -> str | None:
+    """Resolve the original action to re-attempt for a failed publish record."""
+    last_publish_action = record.get("last_publish_action")
+    if isinstance(last_publish_action, str) and last_publish_action:
+        return last_publish_action
+
+    # Backward-compatible fallback for failed records created before retry metadata.
+    simulated_issue_url = record.get("simulated_issue_url")
+    if isinstance(simulated_issue_url, str) and simulated_issue_url:
+        return "simulated_created"
+    return None
+
+
+def _can_retry_failed_record(record: dict[str, object]) -> bool:
+    """Return True when a failed record is eligible for a new publish attempt."""
+    if record.get("is_transient_error") is False:
+        return False
+
+    retry_attempt = record.get("retry_attempt")
+    attempt_count = retry_attempt if isinstance(retry_attempt, int) else 0
+    if attempt_count >= MAX_PUBLISH_RETRY_ATTEMPTS:
+        return False
+
+    retry_after_value = record.get("retry_after_seconds")
+    retry_after_seconds = retry_after_value if isinstance(retry_after_value, int) else 0
+    failed_at = _parse_utc_datetime(record.get("failed_at"))
+    if failed_at is None or retry_after_seconds <= 0:
+        return True
+
+    return datetime.now(timezone.utc) >= failed_at + timedelta(
+        seconds=retry_after_seconds
+    )
 
 
 def _build_counters(records: list[dict[str, object]]) -> dict[str, int]:
@@ -96,7 +185,7 @@ def _write_per_repo_report(
     )
 
 
-def publish_analysis(analysis_root: Path) -> None:
+def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
     """Publish issues from an existing analysis snapshot without re-running analysis."""
     run_report_file = analysis_root / "run_report.json"
     if not run_report_file.exists():
@@ -147,6 +236,7 @@ def publish_analysis(analysis_root: Path) -> None:
 
     updated_records: list[dict[str, object]] = []
     skipped_published = 0
+    skipped_failed_retry = 0
     for raw_record in records:
         if not isinstance(raw_record, dict):
             continue
@@ -157,14 +247,36 @@ def publish_analysis(analysis_root: Path) -> None:
             updated_records.append(record)
             continue
 
-        if record.get("dry_run") is False:
+        if record.get("dry_run") is False and record.get("action") != "failed":
             skipped_published += 1
             updated_records.append(record)
             continue
 
         action = str(record.get("action", ""))
+        if action == "failed":
+            if not retry_failed:
+                skipped_failed_retry += 1
+                updated_records.append(record)
+                continue
+
+            if not _can_retry_failed_record(record):
+                skipped_failed_retry += 1
+                updated_records.append(record)
+                continue
+
+            retry_action = _resolve_retry_action(record)
+            if retry_action is None:
+                skipped_failed_retry += 1
+                record["reason_code"] = "missing_retry_action"
+                updated_records.append(record)
+                continue
+
+            action = retry_action
+            record["action"] = retry_action
+
         platform = _detect_platform_for_publish(repo_url, record)
         issue_url = _issue_url_for_publish(record)
+        attempted_action = action
 
         try:
             if action in {"updated_by_comment", "closed"}:
@@ -208,6 +320,7 @@ def publish_analysis(analysis_root: Path) -> None:
                 record["dry_run"] = False
                 record["issue_persistence"] = "posted"
                 record.pop("simulated_issue_url", None)
+                _clear_failure_metadata(record)
 
             elif action == "updated_by_comment":
                 if not issue_url:
@@ -226,6 +339,7 @@ def publish_analysis(analysis_root: Path) -> None:
                 record["dry_run"] = False
                 record["issue_persistence"] = "posted"
                 record.pop("simulated_issue_url", None)
+                _clear_failure_metadata(record)
 
             elif action == "closed":
                 if not issue_url:
@@ -246,20 +360,40 @@ def publish_analysis(analysis_root: Path) -> None:
                 record["dry_run"] = False
                 record["issue_persistence"] = "posted"
                 record.pop("simulated_issue_url", None)
+                _clear_failure_metadata(record)
 
             elif action == "skipped":
                 record["dry_run"] = False
                 record["issue_persistence"] = "none"
                 record.pop("simulated_issue_url", None)
+                _clear_failure_metadata(record)
 
             else:
-                record["dry_run"] = False
-                record.pop("simulated_issue_url", None)
+                if attempted_action == "failed":
+                    skipped_failed_retry += 1
+                else:
+                    record["dry_run"] = False
+                    record.pop("simulated_issue_url", None)
+                    _clear_failure_metadata(record)
 
         except Exception as exc:
             record["action"] = "failed"
             record["reason_code"] = "publish_exception"
-            record["error"] = str(exc)
+            error_text = str(exc)
+            record["error"] = error_text
+            record["dry_run"] = True
+            record["is_transient_error"] = _is_transient_publish_error(error_text)
+            record["retry_after_seconds"] = _retry_after_seconds_from_error(error_text)
+            previous_retry_attempt = record.get("retry_attempt")
+            retry_attempt = (
+                previous_retry_attempt + 1
+                if isinstance(previous_retry_attempt, int)
+                else 1
+            )
+            record["retry_attempt"] = retry_attempt
+            record["failed_at"] = _now_utc_iso()
+            if attempted_action and attempted_action != "failed":
+                record["last_publish_action"] = attempted_action
 
         updated_records.append(record)
         _write_per_repo_report(
@@ -277,10 +411,18 @@ def publish_analysis(analysis_root: Path) -> None:
         analysis_summary_file=analysis_summary_file,
         previous_report=previous_report,
     )
-    run_report["run_metadata"]["published_at"] = datetime.now(timezone.utc).strftime(
+    run_metadata_candidate = run_report.get("run_metadata")
+    if isinstance(run_metadata_candidate, dict):
+        run_metadata_written = cast(dict[str, object], run_metadata_candidate)
+    else:
+        run_metadata_written = {}
+        run_report["run_metadata"] = run_metadata_written
+
+    run_metadata_written["published_at"] = datetime.now(timezone.utc).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
-    run_report["run_metadata"]["idempotency_skipped_records"] = skipped_published
+    run_metadata_written["idempotency_skipped_records"] = skipped_published
+    run_metadata_written["failed_retry_skipped_records"] = skipped_failed_retry
     with open(run_report_file, "w", encoding="utf-8") as f:
         json.dump(run_report, f, indent=2)
 
@@ -292,6 +434,12 @@ def publish_analysis(analysis_root: Path) -> None:
     required=True,
     help="Existing analysis snapshot folder containing run_report.json.",
 )
-def publish_command(analysis_root: Path) -> None:
+@click.option(
+    "--retry-failed",
+    is_flag=True,
+    default=False,
+    help="Retry records previously marked as failed when they are eligible for retry.",
+)
+def publish_command(analysis_root: Path, retry_failed: bool) -> None:
     """Publish issues using precomputed decisions from an analysis snapshot."""
-    publish_analysis(analysis_root)
+    publish_analysis(analysis_root, retry_failed=retry_failed)

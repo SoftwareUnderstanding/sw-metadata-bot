@@ -179,6 +179,15 @@ You can use the `uv run sw-metadata-bot verify-tokens` command to test them afte
 - **403 / 404 on issue creation**: You need write/triage permissions on the repository. Test with repos you own first.
 - **Platform not supported**: Repo must be GitHub or GitLab (self-hosted GitLab is auto-detected).
 - **Review before posting**: Inspect snapshot reports after `run-analysis`, then run `publish` on the selected analysis root.
+- **Publish failed because of transient API issues**: Fix the cause (for example wait for rate-limit reset or refresh token), then rerun publish with retry mode:
+
+```bash
+uv run sw-metadata-bot publish \
+  --analysis-root outputs/ossr/<snapshot_tag> \
+  --retry-failed
+```
+
+Already posted records remain skipped for idempotency; retry mode only re-attempts eligible failed records.
 
 ## CI test policy
 

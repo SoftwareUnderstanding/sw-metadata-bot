@@ -1,6 +1,7 @@
 """Tests for publish module."""
 
 import json
+from datetime import datetime, timedelta, timezone
 
 from click.testing import CliRunner
 
@@ -362,6 +363,147 @@ def test_publish_api_error_marks_record_as_failed(tmp_path, monkeypatch):
     assert record["action"] == "failed"
     assert record["reason_code"] == "publish_exception"
     assert "API unavailable" in record["error"]
+    assert record["dry_run"] is True
+    assert record["is_transient_error"] is True
+    assert record["retry_attempt"] == 1
+    assert record["retry_after_seconds"] > 0
+    assert record["last_publish_action"] == "simulated_created"
+
+
+def test_publish_failed_record_not_retried_without_flag(tmp_path, monkeypatch):
+    """publish keeps failed records untouched unless --retry-failed is set."""
+    snapshot_dir = tmp_path / "snapshot"
+    snapshot_dir.mkdir()
+    repo_url = "https://github.com/example/repo"
+
+    _write_run_report(
+        snapshot_dir,
+        records=[
+            {
+                "repo_url": repo_url,
+                "action": "failed",
+                "platform": "github",
+                "dry_run": True,
+                "issue_persistence": "simulated",
+                "error": "429 Too Many Requests",
+                "is_transient_error": True,
+                "retry_after_seconds": 1,
+                "retry_attempt": 1,
+                "failed_at": "2026-04-09T00:00:00Z",
+                "last_publish_action": "simulated_created",
+            }
+        ],
+    )
+    _write_issue_report(snapshot_dir, repo_url)
+
+    fake = _FakeIssueClient()
+    _patch_clients(monkeypatch, fake)
+
+    runner = CliRunner()
+    result = runner.invoke(publish_command, ["--analysis-root", str(snapshot_dir)])
+
+    assert result.exit_code == 0, result.output
+    assert not fake.created
+
+    report = json.loads((snapshot_dir / "run_report.json").read_text())
+    record = report["records"][0]
+    assert record["action"] == "failed"
+    assert record["retry_attempt"] == 1
+    assert report["run_metadata"]["failed_retry_skipped_records"] == 1
+
+
+def test_publish_retry_failed_retries_transient_record(tmp_path, monkeypatch):
+    """publish retries eligible transient failed records when --retry-failed is set."""
+    snapshot_dir = tmp_path / "snapshot"
+    snapshot_dir.mkdir()
+    repo_url = "https://github.com/example/repo"
+
+    failed_at = (datetime.now(timezone.utc) - timedelta(minutes=10)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    _write_run_report(
+        snapshot_dir,
+        records=[
+            {
+                "repo_url": repo_url,
+                "action": "failed",
+                "platform": "github",
+                "dry_run": True,
+                "issue_persistence": "simulated",
+                "error": "429 Too Many Requests",
+                "is_transient_error": True,
+                "retry_after_seconds": 60,
+                "retry_attempt": 1,
+                "failed_at": failed_at,
+                "last_publish_action": "simulated_created",
+                "simulated_issue_url": f"{repo_url}/issues/0",
+            }
+        ],
+    )
+    _write_issue_report(snapshot_dir, repo_url)
+
+    fake = _FakeIssueClient()
+    _patch_clients(monkeypatch, fake)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        publish_command,
+        ["--analysis-root", str(snapshot_dir), "--retry-failed"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert len(fake.created) == 1
+
+    report = json.loads((snapshot_dir / "run_report.json").read_text())
+    record = report["records"][0]
+    assert record["action"] == "created"
+    assert record["dry_run"] is False
+    assert "error" not in record
+    assert "retry_attempt" not in record
+
+
+def test_publish_retry_failed_skips_non_transient_record(tmp_path, monkeypatch):
+    """publish does not retry failed records classified as non-transient."""
+    snapshot_dir = tmp_path / "snapshot"
+    snapshot_dir.mkdir()
+    repo_url = "https://github.com/example/repo"
+
+    _write_run_report(
+        snapshot_dir,
+        records=[
+            {
+                "repo_url": repo_url,
+                "action": "failed",
+                "platform": "github",
+                "dry_run": True,
+                "issue_persistence": "simulated",
+                "error": "403 Forbidden",
+                "is_transient_error": False,
+                "retry_after_seconds": 0,
+                "retry_attempt": 1,
+                "failed_at": "2026-04-09T00:00:00Z",
+                "last_publish_action": "simulated_created",
+            }
+        ],
+    )
+    _write_issue_report(snapshot_dir, repo_url)
+
+    fake = _FakeIssueClient()
+    _patch_clients(monkeypatch, fake)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        publish_command,
+        ["--analysis-root", str(snapshot_dir), "--retry-failed"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert not fake.created
+
+    report = json.loads((snapshot_dir / "run_report.json").read_text())
+    record = report["records"][0]
+    assert record["action"] == "failed"
+    assert report["run_metadata"]["failed_retry_skipped_records"] == 1
 
 
 def test_publish_run_report_contains_published_at(tmp_path, monkeypatch):

@@ -319,11 +319,12 @@ def test_run_analysis_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
 
 def test_publish_command_forwards_to_publish_analysis(monkeypatch, tmp_path):
     """publish CLI wrapper passes the analysis root to publish executor."""
-    captured: dict[str, Path] = {}
+    captured: dict[str, object] = {}
 
-    def fake_publish_analysis(analysis_root: Path) -> None:
+    def fake_publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
         """Capture the analysis root path passed by the CLI wrapper."""
         captured["analysis_root"] = analysis_root
+        captured["retry_failed"] = retry_failed
 
     monkeypatch.setattr(publish_module, "publish_analysis", fake_publish_analysis)
 
@@ -341,6 +342,7 @@ def test_publish_command_forwards_to_publish_analysis(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert captured["analysis_root"] == analysis_root
+    assert captured["retry_failed"] is False
 
 
 def test_find_latest_previous_report_prefers_latest_snapshot(tmp_path):
