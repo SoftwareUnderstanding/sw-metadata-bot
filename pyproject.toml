@@ -17,7 +17,7 @@ dependencies = [
     "rsmetacheck>=0.2.1",
     "python-dotenv>=1.0.0",
     "requests>=2.32.5",
-    "setuptools[test]<82.0.0",
+    "setuptools[test]<83.0.0",
 ]
 
 keywords = ["codemeta", "metadata", "bot", "quality software"]
