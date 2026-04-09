@@ -140,7 +140,7 @@ class GitHubAPI:
             return f"https://github.com/{owner}/{repo}/issues/0"
 
         url = f"{self.base_url}/repos/{owner}/{repo}/issues"
-        data = {"title": title, "body": body, "labels": ["bot"]}
+        data = {"title": title, "body": body}
         headers = {
             "Authorization": f"token {self.token}",
             "Accept": "application/vnd.github.v3+json",

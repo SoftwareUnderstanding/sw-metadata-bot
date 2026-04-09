@@ -175,7 +175,7 @@ class GitLabAPI:
 
         base_url = self.get_base_url(host)
         url = f"{base_url}/projects/{requests.utils.quote(project_id, safe='')}/issues"
-        data = {"title": title, "description": body, "labels": "bot"}
+        data = {"title": title, "description": body}
         headers = {"PRIVATE-TOKEN": self.token}
 
         response = requests.post(url, json=data, headers=headers, timeout=10)
