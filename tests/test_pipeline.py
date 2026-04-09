@@ -454,6 +454,42 @@ def test_sanitize_repo_name_handles_non_standard_url_path():
     assert value == "atlas_cern_updates_press_statement_13_tev_open_data"
 
 
+def test_get_github_head_commit_uses_auth_header(monkeypatch):
+    """Resolve GitHub HEAD commit with token-authenticated API request."""
+
+    class DummyResponse:
+        """Fake Response for testing."""
+
+        def __init__(self):
+            """Initialize with a dummy commit SHA in the expected format."""
+            self._data = [{"sha": "b" * 40}]
+
+        def raise_for_status(self):
+            """No-op for status check."""
+            return None
+
+        def json(self):
+            """Return captured response payload."""
+            return self._data
+
+    def fake_get(url, params, headers, timeout):
+        """Assert correct authenticated API call and return dummy response."""
+        assert url == "https://api.github.com/repos/example/repo/commits"
+        assert params == {"per_page": 1}
+        assert headers.get("Authorization") == "token ghp_test_token"
+        assert timeout == 10
+        return DummyResponse()
+
+    monkeypatch.setattr(commit_lookup.requests, "get", fake_get)
+
+    commit_id = commit_lookup.get_github_head_commit(
+        "https://github.com/example/repo",
+        token="ghp_test_token",
+    )
+
+    assert commit_id == "b" * 40
+
+
 def test_get_gitlab_head_commit_uses_gitlab_api(monkeypatch):
     """Resolve GitLab HEAD commit through GitLab API endpoint."""
 
@@ -472,16 +508,20 @@ def test_get_gitlab_head_commit_uses_gitlab_api(monkeypatch):
             """convert to json"""
             return self._data
 
-    def fake_get(url, params, timeout):
+    def fake_get(url, params, headers, timeout):
         """Assert correct API call and return dummy response."""
         assert url.startswith("https://gitlab.com/api/v4/projects/")
         assert params == {"per_page": 1}
+        assert headers.get("PRIVATE-TOKEN") == "glpat_test_token"
         assert timeout == 10
         return DummyResponse()
 
     monkeypatch.setattr(commit_lookup.requests, "get", fake_get)
 
-    commit_id = commit_lookup.get_gitlab_head_commit("https://gitlab.com/example/repo")
+    commit_id = commit_lookup.get_gitlab_head_commit(
+        "https://gitlab.com/example/repo",
+        token="glpat_test_token",
+    )
 
     assert commit_id == "a" * 40
 

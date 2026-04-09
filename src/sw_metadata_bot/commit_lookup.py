@@ -6,6 +6,19 @@ from urllib.parse import quote, urlparse
 
 import requests
 
+from .token_resolver import resolve_token
+
+
+def _resolve_optional_token(
+    explicit_token: str | None, env_var_name: str
+) -> str | None:
+    """Resolve token without raising when missing."""
+    return resolve_token(
+        explicit_token=explicit_token,
+        env_var_name=env_var_name,
+        dry_run=True,
+    )
+
 
 def parse_github_repo(repo_url: str) -> tuple[str, str] | None:
     """Parse owner/repo from a GitHub repository URL."""
@@ -40,7 +53,7 @@ def is_commit_hash(value: str) -> bool:
     return bool(re.fullmatch(r"[0-9a-fA-F]{7,64}", value.strip()))
 
 
-def get_github_head_commit(repo_url: str) -> str | None:
+def get_github_head_commit(repo_url: str, token: str | None = None) -> str | None:
     """Fetch current head commit from GitHub API."""
     parsed = parse_github_repo(repo_url)
     if parsed is None:
@@ -48,7 +61,12 @@ def get_github_head_commit(repo_url: str) -> str | None:
 
     owner, repo = parsed
     url = f"https://api.github.com/repos/{owner}/{repo}/commits"
-    response = requests.get(url, params={"per_page": 1}, timeout=10)
+    resolved_token = _resolve_optional_token(token, "GITHUB_API_TOKEN")
+    headers: dict[str, str] = {"Accept": "application/vnd.github.v3+json"}
+    if resolved_token:
+        headers["Authorization"] = f"token {resolved_token}"
+
+    response = requests.get(url, params={"per_page": 1}, headers=headers, timeout=10)
     response.raise_for_status()
     data = response.json()
     if not isinstance(data, list) or not data:
@@ -63,7 +81,7 @@ def get_github_head_commit(repo_url: str) -> str | None:
     return sha if is_commit_hash(sha) else None
 
 
-def get_gitlab_head_commit(repo_url: str) -> str | None:
+def get_gitlab_head_commit(repo_url: str, token: str | None = None) -> str | None:
     """Fetch current head commit from GitLab API for gitlab* hosts."""
     parsed = resolve_gitlab_project_path(repo_url)
     if parsed is None:
@@ -72,7 +90,12 @@ def get_gitlab_head_commit(repo_url: str) -> str | None:
     host, project_path = parsed
     encoded_project = quote(project_path, safe="")
     url = f"https://{host}/api/v4/projects/{encoded_project}/repository/commits"
-    response = requests.get(url, params={"per_page": 1}, timeout=10)
+    resolved_token = _resolve_optional_token(token, "GITLAB_API_TOKEN")
+    headers: dict[str, str] = {}
+    if resolved_token:
+        headers["PRIVATE-TOKEN"] = resolved_token
+
+    response = requests.get(url, params={"per_page": 1}, headers=headers, timeout=10)
     response.raise_for_status()
     data = response.json()
     if not isinstance(data, list) or not data:
