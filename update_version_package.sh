@@ -9,7 +9,7 @@ if [ -z "$1" ]; then
 fi
 
 # update files
-uv run python update_version_package.py $1
+uv run python tools/release/update_version_package.py $1
 
 # update the uv.lock file
 uv sync
