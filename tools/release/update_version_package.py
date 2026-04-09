@@ -2,7 +2,7 @@
 
 import json
 import re
-from datetime import datetime
+from datetime import date
 from importlib import import_module
 from pathlib import Path
 
@@ -95,7 +95,7 @@ def update_codemeta_file(new_version: str) -> None:
     """Update the version in the codemeta.json file"""
     codemeta = get_codemeta_dict()
     codemeta["version"] = new_version
-    codemeta["dateModified"] = datetime.now().isoformat()
+    codemeta["dateModified"] = date.today().isoformat()
     with get_codemeta_path().open("w", encoding="utf-8") as codemeta_file:
         json.dump(codemeta, codemeta_file, indent=2)
 
