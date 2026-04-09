@@ -11,8 +11,12 @@ Developer and maintainer steps to install, configure, and run sw-metadata-bot.
 ## Prerequisites
 
 - Python 3.10, 3.11, or 3.12
+- Git (``git`` executable available on ``PATH``)
 - GitHub or GitLab personal access token with permission to create issues
 - Optional: [`uv`](https://docs.astral.sh/uv) (recommended)
+
+Git is a system dependency used for repository commit lookup
+(``git ls-remote`` fallback) and is not installed through ``pyproject.toml``.
 
 ## Install
 

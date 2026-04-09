@@ -5,7 +5,14 @@ Requirements
 ------------
 
 - Python 3.10, 3.11, or 3.12
+- Git (``git`` executable available on ``PATH``)
 - uv (recommended) or pip
+
+.. note::
+
+   Git is a system dependency used for repository commit lookup
+   (for example via ``git ls-remote``). It is not managed through
+   ``pyproject.toml`` and must be installed separately.
 
 Install from PyPI
 -----------------
