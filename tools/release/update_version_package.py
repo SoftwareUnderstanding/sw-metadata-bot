@@ -100,6 +100,23 @@ def update_codemeta_file(new_version: str) -> None:
         json.dump(codemeta, codemeta_file, indent=2)
 
 
+def update_readme_file(new_version: str) -> None:
+    """Update the version in the README.md file if it contains a version badge"""
+    readme_path = get_project_root() / "README.md"
+    if not readme_path.exists():
+        return
+
+    readme_text = readme_path.read_text(encoding="utf-8")
+    updated_text, replacement_count = re.subn(
+        r"(img\.shields\.io/badge/version-)(\d+\.\d+\.\d+)(-)",
+        rf"\g<1>{new_version}\g<3>",
+        readme_text,
+        count=1,
+    )
+    if replacement_count > 0:
+        readme_path.write_text(updated_text, encoding="utf-8")
+
+
 def increment_version(version: str, type: str) -> str:
     """Increment version string based on type (major, minor, patch)"""
     major, minor, patch = map(int, version.split("."))
@@ -131,6 +148,7 @@ def main():
     new_version = increment_version(current_version, args.type)
     update_pyproject_file(new_version)
     update_codemeta_file(new_version)
+    update_readme_file(new_version)
     print(f"Version updated from {current_version} to {new_version}")
 
 

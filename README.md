@@ -2,7 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/19468976.svg)](https://doi.org/10.5281/zenodo.19468976)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://github.com/SoftwareUnderstanding/sw-metadata-bot/releases)
+[![Version](https://img.shields.io/badge/version-0.4.1-blue.svg)](https://github.com/SoftwareUnderstanding/sw-metadata-bot/releases)
 [![Python 3.10--3.12](https://img.shields.io/badge/python-3.10--3.12-blue.svg)](https://www.python.org/downloads/)
 [![CI (build)](https://github.com/SoftwareUnderstanding/sw-metadata-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/SoftwareUnderstanding/sw-metadata-bot/actions/workflows/ci.yml)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)

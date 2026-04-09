@@ -104,3 +104,27 @@ def test_update_codemeta_file_updates_version_and_date(tmp_path, monkeypatch):
     )
     assert updated_codemeta["version"] == "0.5.0"
     assert updated_codemeta["dateModified"] != "2026-01-01T00:00:00"
+
+
+def test_update_readme_file_updates_version_badge(tmp_path, monkeypatch):
+    """Update only the version value in the shields.io version badge URL."""
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nversion = "0.4.0"\n', encoding="utf-8"
+    )
+    (tmp_path / "codemeta.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "README.md").write_text(
+        "[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)]"
+        "(https://github.com/SoftwareUnderstanding/sw-metadata-bot/releases)\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        updater,
+        "__file__",
+        str(tmp_path / "tools" / "release" / "update_version_package.py"),
+    )
+
+    updater.update_readme_file("0.5.0")
+
+    updated_readme = (tmp_path / "README.md").read_text(encoding="utf-8")
+    assert "img.shields.io/badge/version-0.5.0-blue.svg" in updated_readme
+    assert "img.shields.io/badge/version-0.4.0-blue.svg" not in updated_readme
