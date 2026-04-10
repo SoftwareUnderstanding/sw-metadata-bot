@@ -1,3 +1,10 @@
+.mermaid {
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
 .mermaid svg {
     width: 100% !important;
     max-width: 100% !important;
