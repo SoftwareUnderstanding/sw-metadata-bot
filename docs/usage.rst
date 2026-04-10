@@ -141,6 +141,8 @@ The bot uses a decision tree to determine whether to create an issue for each re
 
 
 .. mermaid::
+   :name: issue_decision_tree
+   :align: center
 
    %%{init: {
      "flowchart": {
@@ -179,4 +181,18 @@ The bot uses a decision tree to determine whether to create an issue for each re
 
        same -- Yes --> openB{Previous issue open?}
        openB -- Yes --> stop2[Stop]
-       openB -- No --> newB[Open new issue]
+       openB -- No --> newA[Open new issue]
+
+      classDef orange fill:#ffedd5,stroke:#c2410c,color:#7c2d12,stroke-width:2px;
+      classDef green fill:#dcfce7,stroke:#15803d,color:#14532d,stroke-width:2px;
+      classDef red fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d,stroke-width:2px;
+
+
+      class full green;
+      class blacklist red;
+      class copy red;
+      class close green;
+      class stop1 red;
+      class update orange;
+      class newA green;
+      class stop2 red;

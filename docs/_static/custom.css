@@ -1,11 +1,21 @@
-.mermaid {
-    width: 100vw;
-    position: relative;
-    left: 50%;
-    transform: translateX(-50%);
+/* Expand Furo's central column on wide screens so large diagrams have room. */
+@media (min-width: 67em) {
+    .content {
+        width: min(78em, calc(100vw - 32em)) !important;
+        max-width: none !important;
+    }
 }
 
-.mermaid svg {
+.mermaid-container,
+pre.mermaid {
     width: 100% !important;
-    max-width: 100% !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+pre.mermaid svg {
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
 }
