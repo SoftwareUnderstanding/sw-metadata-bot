@@ -61,7 +61,13 @@ def get_rsmetacheck_version(data: dict) -> str:
     return "unknown"
 
 
-def format_report(repo_url: str, data: dict) -> str:
+def format_report(
+    repo_url: str,
+    data: dict,
+    *,
+    codemeta_missing: bool = False,
+    generated_codemeta: dict | None = None,
+) -> str:
     """Format pitfalls data into a readable report."""
     pitfalls = get_pitfalls_list(data)
     warnings = get_warnings_list(data)
@@ -92,6 +98,19 @@ def format_report(repo_url: str, data: dict) -> str:
             if w.get("suggestion"):
                 report += f"**Suggestion:** {w['suggestion']}\n\n"
 
+    if codemeta_missing:
+        report += "## 📄 Missing codemeta.json\n\n"
+        report += (
+            "No root `codemeta.json` file was detected in the repository. "
+            "A generated suggestion is provided below.\n\n"
+        )
+        if generated_codemeta:
+            report += "```json\n"
+            report += json.dumps(generated_codemeta, indent=2)
+            report += "\n```\n\n"
+        else:
+            report += "A codemeta suggestion could not be generated from the available SOMEF output.\n\n"
+
     return report
 
 
@@ -105,6 +124,7 @@ ISSUE_TEMPLATE = """\
 
 This automated issue includes:
 - Detected metadata pitfalls and warnings
+- A suggested codemeta.json when no codemeta.json was detected
 - Suggestions for fixing each issue
 
 ## Context

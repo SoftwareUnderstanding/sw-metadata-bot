@@ -73,6 +73,9 @@ def build_record_entry(
     dry_run: bool | None = None,
     issue_persistence: str | None = None,
     simulated_issue_url: str | None = None,
+    codemeta_missing: bool | None = None,
+    codemeta_generated: bool | None = None,
+    codemeta_status: str | None = None,
     file_path: Path | None = None,
     error: str | None = None,
 ) -> dict[str, object]:
@@ -112,6 +115,12 @@ def build_record_entry(
         entry["issue_persistence"] = issue_persistence
     if simulated_issue_url is not None:
         entry["simulated_issue_url"] = simulated_issue_url
+    if codemeta_missing is not None:
+        entry["codemeta_missing"] = codemeta_missing
+    if codemeta_generated is not None:
+        entry["codemeta_generated"] = codemeta_generated
+    if codemeta_status is not None:
+        entry["codemeta_status"] = codemeta_status
     if file_path is not None:
         entry["file"] = relative_to_run_root(file_path, run_root)
     if error is not None:

@@ -11,6 +11,7 @@ from . import analysis_runtime, commit_lookup, pitfalls
 from .config_utils import (
     copy_config_to_analysis_root,
     get_custom_message,
+    get_generate_codemeta_if_missing,
     get_opt_out_repositories,
     get_repositories,
     load_config,
@@ -146,6 +147,7 @@ def run_pipeline(
     config = load_config(config_file)
     repositories = get_repositories(config)
     custom_message = get_custom_message(config)
+    generate_codemeta_if_missing = get_generate_codemeta_if_missing(config)
     opt_out_repos = get_opt_out_repositories(config)
     output_root = resolve_output_root(config, config_file)
     run_folder_name = resolve_run_name(config, config_file)
@@ -215,7 +217,10 @@ def run_pipeline(
 
         if not reused_previous:
             analysis_runtime.run_metacheck_for_repo(
-                repo_url, repo_folder, rsmetacheck_command
+                repo_url,
+                repo_folder,
+                rsmetacheck_command,
+                generate_codemeta_if_missing=generate_codemeta_if_missing,
             )
 
         normalized_repo = analysis_runtime.normalize_repo_url(repo_url)

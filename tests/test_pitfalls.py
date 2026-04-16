@@ -205,6 +205,20 @@ def test_create_issue_body(sample_data):
     assert "sw-metadata-bot" in issue_body
     assert report in issue_body
     assert "unsubscribe" in issue_body
+    assert "suggested codemeta.json" in issue_body
+
+
+def test_format_report_includes_generated_codemeta_section(sample_data):
+    """Include generated codemeta payload when codemeta is missing."""
+    report = format_report(
+        "https://github.com/example/repo",
+        sample_data,
+        codemeta_missing=True,
+        generated_codemeta={"@type": "SoftwareSourceCode", "name": "demo"},
+    )
+
+    assert "Missing codemeta.json" in report
+    assert '"SoftwareSourceCode"' in report
 
 
 def test_get_pitfalls_list_verbose_mode_filters_by_output():

@@ -97,6 +97,20 @@ def get_opt_out_repositories(config: dict) -> set[str]:
     return {normalize_repo_url(url) for url in opt_outs if isinstance(url, str)}
 
 
+def get_generate_codemeta_if_missing(config: dict) -> bool:
+    """Return whether codemeta suggestions should be generated when missing."""
+    issues = config.get("issues", {})
+    if not isinstance(issues, dict):
+        raise click.ClickException("Invalid config: 'issues' must be an object")
+
+    value = issues.get("generate_codemeta_if_missing", True)
+    if not isinstance(value, bool):
+        raise click.ClickException(
+            "Invalid config: 'issues.generate_codemeta_if_missing' must be a boolean"
+        )
+    return value
+
+
 def append_opt_out_repository(config_path: Path, repo_url: str) -> bool:
     """Persist a repository to the inline opt-outs list when not already present."""
     data = load_config(config_path)

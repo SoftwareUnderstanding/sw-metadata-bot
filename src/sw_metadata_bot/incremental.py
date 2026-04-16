@@ -19,6 +19,8 @@ def evaluate(
     has_findings: bool,
     identical_findings: bool,
     previous_issue_open: bool,
+    codemeta_missing: bool,
+    previous_codemeta_missing: bool,
 ) -> Decision:
     """Evaluate the configured decision tree and return action + reason."""
     if not previous_exists:
@@ -29,6 +31,19 @@ def evaluate(
 
     if not repo_updated:
         return Decision(action="stop", reason="repo_not_updated")
+
+    if codemeta_missing and not has_findings:
+        if previous_issue_open and previous_codemeta_missing:
+            return Decision(
+                action="stop",
+                reason="missing_codemeta_identical_and_issue_open",
+            )
+        if previous_issue_open:
+            return Decision(
+                action="comment",
+                reason="missing_codemeta_changed_and_issue_open",
+            )
+        return Decision(action="create", reason="missing_codemeta")
 
     if not has_findings:
         if previous_issue_open:

@@ -85,6 +85,8 @@ def test_resolve_per_repo_paths_uses_analysis_root(tmp_path):
     assert paths["somef_output"] == repo_root / "somef_output.json"
     assert paths["pitfall_output"] == repo_root / "pitfall.jsonld"
     assert paths["issue_report"] == repo_root / "issue_report.md"
+    assert paths["codemeta_status"] == repo_root / "codemeta_status.json"
+    assert paths["codemeta_generated"] == repo_root / "codemeta_generated.json"
     assert paths["report"] == repo_root / "report.json"
 
 
@@ -144,6 +146,9 @@ def test_create_analysis_record_reads_rsmetacheck_version_from_checking_software
         ],
     }
     (repo_folder / "pitfall.jsonld").write_text(json.dumps(pitfall_payload))
+    (repo_folder / "codemeta_status.json").write_text(
+        json.dumps({"status": "present", "missing": False, "generated": False})
+    )
 
     record = analysis_runtime.create_analysis_record(
         run_root=tmp_path,
@@ -156,6 +161,45 @@ def test_create_analysis_record_reads_rsmetacheck_version_from_checking_software
     )
 
     assert record["rsmetacheck_version"] == expected_version
+
+
+def test_create_analysis_record_creates_codemeta_issue_without_findings(tmp_path):
+    """Create codemeta-only issue when no pitfalls/warnings are reported."""
+    repo_url = "https://github.com/example/repo"
+    repo_folder = tmp_path / "github_com_example_repo"
+    repo_folder.mkdir(parents=True)
+
+    (repo_folder / "pitfall.jsonld").write_text(
+        json.dumps(
+            {
+                "dateCreated": "2026-04-07T15:09:37Z",
+                "assessedSoftware": {"url": repo_url},
+                "checkingSoftware": {"softwareVersion": "0.2.1"},
+                "checks": [],
+            }
+        )
+    )
+    (repo_folder / "codemeta_status.json").write_text(
+        json.dumps({"status": "missing", "missing": True, "generated": True})
+    )
+    (repo_folder / "codemeta_generated.json").write_text(
+        json.dumps({"@type": "SoftwareSourceCode", "name": "demo"})
+    )
+
+    record = analysis_runtime.create_analysis_record(
+        run_root=tmp_path,
+        repo_url=repo_url,
+        repo_folder=repo_folder,
+        previous_record=None,
+        current_commit_id=None,
+        dry_run=True,
+        custom_message=None,
+    )
+
+    assert record["action"] == "simulated_created"
+    assert record["reason_code"] == "no_previous_analysis"
+    assert record["codemeta_missing"] is True
+    assert (repo_folder / "issue_report.md").exists()
 
 
 def test_resolve_unique_snapshot_tag_uses_requested_when_missing(tmp_path):
