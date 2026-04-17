@@ -131,6 +131,12 @@ def standardize_metacheck_outputs(repo_folder: Path) -> None:
         if legacy_dir.exists() and legacy_dir.is_dir():
             shutil.rmtree(legacy_dir)
 
+    codemeta_generated_target = repo_folder / "codemeta_generated.json"
+    if not codemeta_generated_target.exists():
+        codemeta_candidates = list(repo_folder.glob("*somef_generated_codemeta*.json"))
+        if codemeta_candidates:
+            shutil.move(str(codemeta_candidates[0]), str(codemeta_generated_target))
+
 
 def run_metacheck_for_repo(
     repo_url: str,
@@ -161,6 +167,7 @@ def run_metacheck_for_repo(
             str(repo_folder),
             "--analysis-output",
             str(temp_analysis_file),
+            ("--generate-codemeta",) if generate_codemeta_if_missing else (),
         ],
         standalone_mode=False,
     )

@@ -40,8 +40,20 @@ from rsmetacheck import cli as rsmetacheck_cli
     default=0.8,
     help="SoMEF confidence threshold (default: 0.8).",
 )
+@click.option(
+    "--generate-codemeta",
+    is_flag=True,
+    default=False,
+    help="Generate a codemeta.json suggestion from SOMEF output when no codemeta.json is detected.",
+)
 def rsmetacheck_command(
-    input, skip_somef, somef_output, pitfalls_output, analysis_output, threshold
+    input,
+    skip_somef,
+    somef_output,
+    pitfalls_output,
+    analysis_output,
+    threshold,
+    generate_codemeta,
 ):
     """Run rsmetacheck to detect metadata pitfalls in repositories."""
     # Convert click arguments to sys.argv format for rsmetacheck's argparse
@@ -52,6 +64,8 @@ def rsmetacheck_command(
 
     if skip_somef:
         argv.append("--skip-somef")
+    if generate_codemeta:
+        argv.append("--generate-codemeta")
     argv.extend(["--somef-output", somef_output])
     argv.extend(["--pitfalls-output", pitfalls_output])
     argv.extend(["--analysis-output", analysis_output])
