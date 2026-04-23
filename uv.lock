@@ -4929,7 +4929,6 @@ dependencies = [
     { name = "requests" },
     { name = "rsmetacheck" },
     { name = "setuptools", extra = ["test"] },
-    { name = "somef" },
 ]
 
 [package.optional-dependencies]
@@ -4967,7 +4966,6 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.14.13" },
     { name = "setuptools", marker = "extra == 'test'", specifier = "<83.0.0" },
     { name = "setuptools", extras = ["test"], specifier = "<83.0.0" },
-    { name = "somef", specifier = ">=0.10.1" },
     { name = "sphinx", marker = "extra == 'docs'" },
     { name = "sphinxcontrib-mermaid", marker = "extra == 'docs'", specifier = ">=1.0.0" },
     { name = "tomli", marker = "python_full_version < '3.11' and extra == 'docs'", specifier = ">=2.0.1" },
