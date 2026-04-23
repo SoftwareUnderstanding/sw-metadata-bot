@@ -65,10 +65,8 @@ def evaluate_and_persist_codemeta_status(
     repo_folder: Path,
     generate_if_missing: bool,
 ) -> dict[str, Any]:
-    """Detect codemeta presence from SOMEF output and record status.
+    """Detect codemeta presence from SOMEF output sources and record status.
 
-    Generation of codemeta_generated.json is now delegated to rsmetacheck via the
-    ``--generate-codemeta`` flag.  This function only reads the file when present
     (placed by standardize_metacheck_outputs) and records the status.
     """
     status_file = repo_folder / "codemeta_status.json"

@@ -21,7 +21,6 @@ from .config_utils import (
     sanitize_repo_name,
 )
 from .reporting import build_record_entry
-from .rsmetacheck_wrapper import rsmetacheck_command
 
 SNAPSHOT_TAG_PATTERN = re.compile(r"^(\d{8})(?:_(\d+))?$")
 SNAPSHOT_INCREMENT_PATTERN = re.compile(r"^(.+?)_(\d+)$")
@@ -219,7 +218,6 @@ def run_pipeline(
             analysis_runtime.run_metacheck_for_repo(
                 repo_url,
                 repo_folder,
-                rsmetacheck_command,
                 generate_codemeta_if_missing=generate_codemeta_if_missing,
             )
 

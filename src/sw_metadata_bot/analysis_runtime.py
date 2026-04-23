@@ -9,9 +9,9 @@ from . import history, incremental, pitfalls
 from .check_parsing import extract_check_ids
 from .codemeta_runtime import evaluate_and_persist_codemeta_status, load_codemeta_status
 from .config_utils import detect_platform, normalize_repo_url, sanitize_repo_name
-from .reporting import build_counters
+from .reporting import build_counters, build_run_metadata, write_report_file
 from .reporting import build_record_entry as build_shared_record_entry
-from .reporting import build_run_metadata, write_report_file
+from .rsmetacheck_wrapper import run_rsmetacheck
 
 
 def extract_previous_commit(record: dict) -> str | None:
@@ -141,7 +141,6 @@ def standardize_metacheck_outputs(repo_folder: Path) -> None:
 def run_metacheck_for_repo(
     repo_url: str,
     repo_folder: Path,
-    metacheck_command,
     *,
     generate_codemeta_if_missing: bool,
 ) -> None:
@@ -157,19 +156,12 @@ def run_metacheck_for_repo(
     ) as temp_file:
         temp_analysis_file = Path(temp_file.name)
 
-    metacheck_command.main(
-        args=[
-            "--input",
-            repo_url,
-            "--somef-output",
-            str(repo_folder),
-            "--pitfalls-output",
-            str(repo_folder),
-            "--analysis-output",
-            str(temp_analysis_file),
-            ("--generate-codemeta",) if generate_codemeta_if_missing else (),
-        ],
-        standalone_mode=False,
+    run_rsmetacheck(
+        input_source=repo_url,
+        somef_output=str(repo_folder),
+        pitfalls_output=str(repo_folder),
+        analysis_output=str(temp_analysis_file),
+        generate_codemeta=generate_codemeta_if_missing,
     )
 
     if temp_analysis_file is not None and temp_analysis_file.exists():
