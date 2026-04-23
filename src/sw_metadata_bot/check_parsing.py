@@ -1,6 +1,9 @@
 """Shared parsing helpers for RSMetacheck check identifiers."""
 
-RSMETACHECK_CATALOG_MARKER = "rsmetacheck/catalog"
+import re
+
+
+CHECK_CODE_PATTERN = re.compile(r"#([PW]\d+)$", re.IGNORECASE)
 
 
 def get_check_catalog_id(check: dict) -> str:
@@ -11,7 +14,11 @@ def get_check_catalog_id(check: dict) -> str:
     back to the legacy ``pitfall`` key.
     """
     indicator_id = str(check.get("assessesIndicator", {}).get("@id", ""))
-    if indicator_id and RSMETACHECK_CATALOG_MARKER in indicator_id:
+    if (
+        indicator_id
+        and "catalog" in indicator_id
+        and CHECK_CODE_PATTERN.search(indicator_id)
+    ):
         return indicator_id
 
     return str(check.get("pitfall", ""))
@@ -20,7 +27,14 @@ def get_check_catalog_id(check: dict) -> str:
 def get_short_check_code(check: dict) -> str:
     """Return short check code such as P001 or W004."""
     full_id = get_check_catalog_id(check)
-    return full_id.split("#")[-1] if full_id else ""
+    if not full_id:
+        return ""
+
+    match = CHECK_CODE_PATTERN.search(full_id)
+    if match is None:
+        return ""
+
+    return match.group(1).upper()
 
 
 def is_check_reported(check: dict) -> bool:

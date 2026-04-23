@@ -47,10 +47,9 @@ def get_warnings_list(data: dict) -> list[dict]:
     ]
 
 
-def get_metacheck_version(data: dict) -> str:
+def get_rsmetacheck_version(data: dict) -> str:
     """Get the version of RSMetacheck used for analysis.
-
-    New schema (0.2.1+): Version is in checkingSoftware.softwareVersion
+    Version is in checkingSoftware.softwareVersion
     Falls back to "unknown" if not found.
     """
     # New schema: checkingSoftware.softwareVersion
@@ -71,7 +70,7 @@ def format_report(repo_url: str, data: dict) -> str:
     report += f"**Repository:** {repo_url}\n"
     report += f"**Analysis Date:** {datetime.now().strftime('%Y-%m-%d')}\n"
     report += f"**sw-metadata-bot version:** {__version__}\n"
-    report += f"**RSMetacheck version:** {get_metacheck_version(data)}\n\n"
+    report += f"**RSMetacheck version:** {get_rsmetacheck_version(data)}\n\n"
 
     if pitfalls:
         report += f"## 🔴 Pitfalls ({len(pitfalls)})\n\n"

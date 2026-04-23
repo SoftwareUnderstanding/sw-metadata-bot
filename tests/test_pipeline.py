@@ -120,10 +120,11 @@ def test_resolve_output_root_keeps_absolute_path(tmp_path):
     assert resolved_output_root == absolute_output_root
 
 
-def test_create_analysis_record_reads_metacheck_version_from_checking_software(
+def test_create_analysis_record_reads_rsmetacheck_version_from_checking_software(
     tmp_path,
 ):
     """Read RSMetacheck version from checkingSoftware.softwareVersion."""
+    expected_version = "0.3.0"
     repo_url = "https://github.com/example/repo"
     repo_folder = tmp_path / "github_com_example_repo"
     repo_folder.mkdir(parents=True)
@@ -131,7 +132,7 @@ def test_create_analysis_record_reads_metacheck_version_from_checking_software(
     pitfall_payload = {
         "dateCreated": "2026-04-07T15:09:37Z",
         "assessedSoftware": {"url": repo_url},
-        "checkingSoftware": {"softwareVersion": "0.2.1"},
+        "checkingSoftware": {"softwareVersion": expected_version},
         "checks": [
             {
                 "assessesIndicator": {
@@ -154,7 +155,7 @@ def test_create_analysis_record_reads_metacheck_version_from_checking_software(
         custom_message=None,
     )
 
-    assert record["rsmetacheck_version"] == "0.2.1"
+    assert record["rsmetacheck_version"] == expected_version
 
 
 def test_resolve_unique_snapshot_tag_uses_requested_when_missing(tmp_path):
@@ -194,13 +195,13 @@ def test_resolve_unique_snapshot_tag_increments_existing_suffixed_tag(tmp_path):
     assert resolved == "X_5"
 
 
-def test_run_pipeline_invokes_metacheck_and_writes_reports(monkeypatch, tmp_path):
-    """Invoke metacheck with expected args and write analysis reports per snapshot."""
+def test_run_pipeline_invokes_rsmetacheck_and_writes_reports(monkeypatch, tmp_path):
+    """Invoke rsmetacheck with expected args and write analysis reports per snapshot."""
     calls: dict[str, dict] = {}
 
     def fake_rsmetacheck_main(*, args, standalone_mode):
-        """Capture metacheck invocation arguments for assertions."""
-        calls["metacheck"] = {"args": args, "standalone_mode": standalone_mode}
+        """Capture rsmetacheck invocation arguments for assertions."""
+        calls["rsmetacheck"] = {"args": args, "standalone_mode": standalone_mode}
 
     monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_rsmetacheck_main)
 
@@ -222,15 +223,15 @@ def test_run_pipeline_invokes_metacheck_and_writes_reports(monkeypatch, tmp_path
         previous_report=None,
     )
 
-    assert calls["metacheck"]["standalone_mode"] is False
-    assert calls["metacheck"]["args"][0:2] == [
+    assert calls["rsmetacheck"]["standalone_mode"] is False
+    assert calls["rsmetacheck"]["args"][0:2] == [
         "--input",
         "https://github.com/example/repo",
     ]
-    assert calls["metacheck"]["args"][2] == "--somef-output"
-    assert calls["metacheck"]["args"][3].endswith("/202603/github_com_example_repo")
-    assert calls["metacheck"]["args"][4] == "--pitfalls-output"
-    assert calls["metacheck"]["args"][5].endswith("/202603/github_com_example_repo")
+    assert calls["rsmetacheck"]["args"][2] == "--somef-output"
+    assert calls["rsmetacheck"]["args"][3].endswith("/202603/github_com_example_repo")
+    assert calls["rsmetacheck"]["args"][4] == "--pitfalls-output"
+    assert calls["rsmetacheck"]["args"][5].endswith("/202603/github_com_example_repo")
 
     run_report_path = output_root / "batch-a" / "202603" / "run_report.json"
     assert run_report_path.exists()
@@ -247,11 +248,11 @@ def test_run_pipeline_invokes_metacheck_and_writes_reports(monkeypatch, tmp_path
 def test_run_pipeline_marks_run_report_dry_run(monkeypatch, tmp_path):
     """Persist dry-run mode in run report metadata."""
 
-    def fake_metacheck_main(*, args, standalone_mode):
-        """Accept metacheck invocation without side effects."""
+    def fake_rsmetacheck_main(*, args, standalone_mode):
+        """Accept rsmetacheck invocation without side effects."""
         return None
 
-    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_rsmetacheck_main)
 
     output_root = tmp_path / "outputs"
     config = _write_config(
@@ -373,11 +374,11 @@ def test_run_pipeline_auto_discovers_previous_report(monkeypatch, tmp_path):
     """Auto-discover previous report when option is not provided."""
     calls: dict[str, dict] = {}
 
-    def fake_metacheck_main(*, args, standalone_mode):
-        """Capture metacheck invocation to keep test side-effect free."""
-        calls["metacheck"] = {"args": args, "standalone_mode": standalone_mode}
+    def fake_rsmetacheck_main(*, args, standalone_mode):
+        """Capture rsmetacheck invocation to keep test side-effect free."""
+        calls["rsmetacheck"] = {"args": args, "standalone_mode": standalone_mode}
 
-    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_rsmetacheck_main)
 
     output_root = tmp_path / "outputs"
     config = _write_config(
@@ -412,11 +413,11 @@ def test_run_pipeline_uses_incremented_snapshot_tag_on_collision(monkeypatch, tm
     """Write outputs under incremented snapshot tag when requested one already exists."""
     calls: dict[str, dict] = {}
 
-    def fake_metacheck_main(*, args, standalone_mode):
-        """Capture metacheck invocation arguments for assertions."""
-        calls["metacheck"] = {"args": args, "standalone_mode": standalone_mode}
+    def fake_rsmetacheck_main(*, args, standalone_mode):
+        """Capture rsmetacheck invocation arguments for assertions."""
+        calls["rsmetacheck"] = {"args": args, "standalone_mode": standalone_mode}
 
-    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_rsmetacheck_main)
 
     output_root = tmp_path / "outputs"
     config = _write_config(
@@ -437,12 +438,12 @@ def test_run_pipeline_uses_incremented_snapshot_tag_on_collision(monkeypatch, tm
         previous_report=None,
     )
 
-    assert calls["metacheck"]["args"][0:2] == [
+    assert calls["rsmetacheck"]["args"][0:2] == [
         "--input",
         "https://github.com/example/repo",
     ]
-    assert calls["metacheck"]["args"][2] == "--somef-output"
-    assert calls["metacheck"]["args"][3].endswith(
+    assert calls["rsmetacheck"]["args"][2] == "--somef-output"
+    assert calls["rsmetacheck"]["args"][3].endswith(
         "/batch-a/X_2/github_com_example_repo"
     )
 
@@ -544,14 +545,14 @@ def test_get_repo_head_commit_falls_back_to_generic_git(monkeypatch):
 
 
 def test_run_pipeline_skips_analysis_when_all_repos_unchanged(monkeypatch, tmp_path):
-    """Skip metacheck and write skipped-only report when all repos are unchanged."""
-    called = {"metacheck": False}
+    """Skip rsmetacheck and write skipped-only report when all repos are unchanged."""
+    called = {"rsmetacheck": False}
 
-    def fake_metacheck_main(*, args, standalone_mode):
-        """Track unexpected metacheck invocation."""
-        called["metacheck"] = True
+    def fake_rsmetacheck_main(*, args, standalone_mode):
+        """Track unexpected rsmetacheck invocation."""
+        called["rsmetacheck"] = True
 
-    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_rsmetacheck_main)
     monkeypatch.setattr(
         commit_lookup, "get_repo_head_commit", lambda repo_url: "abc123"
     )
@@ -613,7 +614,7 @@ def test_run_pipeline_skips_analysis_when_all_repos_unchanged(monkeypatch, tmp_p
         previous_report=None,
     )
 
-    assert called["metacheck"] is False
+    assert called["rsmetacheck"] is False
 
     report_path = (
         output_root / "batch-a" / "20260311" / "github_com_example_repo" / "report.json"
@@ -628,9 +629,9 @@ def test_run_pipeline_merges_pre_skipped_with_analyzed_results(monkeypatch, tmp_
     """Keep unchanged repos skipped while analyzing changed repositories."""
     calls: dict[str, dict] = {}
 
-    def fake_metacheck_main(*, args, standalone_mode):
-        """Capture metacheck args and create minimal per-repo metacheck outputs."""
-        calls["metacheck"] = {"args": args, "standalone_mode": standalone_mode}
+    def fake_rsmetacheck_main(*, args, standalone_mode):
+        """Capture rsmetacheck args and create minimal per-repo rsmetacheck outputs."""
+        calls["rsmetacheck"] = {"args": args, "standalone_mode": standalone_mode}
         repo_folder = Path(args[5])
         repo_folder.mkdir(parents=True, exist_ok=True)
         (repo_folder / "pitfall.jsonld").write_text(
@@ -647,7 +648,7 @@ def test_run_pipeline_merges_pre_skipped_with_analyzed_results(monkeypatch, tmp_
         )
         (repo_folder / "somef_output.json").write_text("{}")
 
-    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_rsmetacheck_main)
 
     def fake_get_head(repo_url: str) -> str | None:
         """Return deterministic commit hash for unchanged repo."""
@@ -717,7 +718,7 @@ def test_run_pipeline_merges_pre_skipped_with_analyzed_results(monkeypatch, tmp_
         previous_report=None,
     )
 
-    assert calls["metacheck"]["args"][1] == "https://github.com/example/new-repo"
+    assert calls["rsmetacheck"]["args"][1] == "https://github.com/example/new-repo"
 
     old_repo_report = (
         output_root
@@ -748,11 +749,11 @@ def test_run_pipeline_uses_config_snapshot_default(monkeypatch, tmp_path):
     """Use outputs.snapshot_tag_format when no CLI snapshot tag is provided."""
     calls: dict[str, dict] = {}
 
-    def fake_metacheck_main(*, args, standalone_mode):
-        """Record the call arguments for metacheck."""
-        calls["metacheck"] = {"args": args, "standalone_mode": standalone_mode}
+    def fake_rsmetacheck_main(*, args, standalone_mode):
+        """Record the call arguments for rsmetacheck."""
+        calls["rsmetacheck"] = {"args": args, "standalone_mode": standalone_mode}
 
-    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_rsmetacheck_main)
 
     output_root = tmp_path / "outputs"
     config = _write_config(
@@ -771,7 +772,7 @@ def test_run_pipeline_uses_config_snapshot_default(monkeypatch, tmp_path):
         previous_report=None,
     )
 
-    args = calls["metacheck"]["args"]
+    args = calls["rsmetacheck"]["args"]
     expected_snapshot = pipeline.resolve_snapshot_tag(
         pipeline.load_config(config), None
     )
@@ -783,13 +784,13 @@ def test_run_pipeline_skips_analysis_from_previous_dry_run_commit(
     monkeypatch, tmp_path
 ):
     """Skip analysis when previous report is simulated but commit hash is unchanged."""
-    called = {"metacheck": False}
+    called = {"rsmetacheck": False}
 
-    def fake_metacheck_main(*, args, standalone_mode):
-        """Mark metacheck as called."""
-        called["metacheck"] = True
+    def fake_rsmetacheck_main(*, args, standalone_mode):
+        """Mark rsmetacheck as called."""
+        called["rsmetacheck"] = True
 
-    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_rsmetacheck_main)
     monkeypatch.setattr(
         commit_lookup, "get_repo_head_commit", lambda repo_url: "abc123"
     )
@@ -850,7 +851,7 @@ def test_run_pipeline_skips_analysis_from_previous_dry_run_commit(
         previous_report=None,
     )
 
-    assert called["metacheck"] is False
+    assert called["rsmetacheck"] is False
 
     report_path = (
         output_root / "batch-a" / "20260311" / "github_com_example_repo" / "report.json"
@@ -860,13 +861,13 @@ def test_run_pipeline_skips_analysis_from_previous_dry_run_commit(
 
 def test_run_pipeline_unchanged_repo_does_not_update_opt_out(monkeypatch, tmp_path):
     """Analysis-only mode does not perform unsubscribe API checks or mutate opt-outs."""
-    called = {"metacheck": False}
+    called = {"rsmetacheck": False}
 
-    def fake_metacheck_main(*, args, standalone_mode):
-        """Mark metacheck as called."""
-        called["metacheck"] = True
+    def fake_rsmetacheck_main(*, args, standalone_mode):
+        """Mark rsmetacheck as called."""
+        called["rsmetacheck"] = True
 
-    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_metacheck_main)
+    monkeypatch.setattr(pipeline.rsmetacheck_command, "main", fake_rsmetacheck_main)
     monkeypatch.setattr(
         commit_lookup, "get_repo_head_commit", lambda repo_url: "abc123"
     )
@@ -929,7 +930,7 @@ def test_run_pipeline_unchanged_repo_does_not_update_opt_out(monkeypatch, tmp_pa
         previous_report=None,
     )
 
-    assert called["metacheck"] is False
+    assert called["rsmetacheck"] is False
 
     report_path = (
         output_root / "batch-a" / "20260311" / "github_com_example_repo" / "report.json"

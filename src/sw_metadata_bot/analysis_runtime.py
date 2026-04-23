@@ -8,8 +8,9 @@ from tempfile import NamedTemporaryFile
 from . import history, incremental, pitfalls
 from .check_parsing import extract_check_ids
 from .config_utils import detect_platform, normalize_repo_url, sanitize_repo_name
-from .reporting import build_counters, build_run_metadata, write_report_file
+from .reporting import build_counters
 from .reporting import build_record_entry as build_shared_record_entry
+from .reporting import build_run_metadata, write_report_file
 
 
 def extract_previous_commit(record: dict) -> str | None:
@@ -225,7 +226,7 @@ def build_record_entry(
     pitfalls_count: int,
     warnings_count: int,
     analysis_date: str,
-    metacheck_version: str,
+    rsmetacheck_version: str,
     pitfalls_ids: list[str],
     warnings_ids: list[str],
     action: str,
@@ -251,7 +252,7 @@ def build_record_entry(
         issue_url=issue_url,
         analysis_date=analysis_date,
         bot_version=pitfalls.__version__,
-        metacheck_version=metacheck_version,
+        rsmetacheck_version=rsmetacheck_version,
         pitfalls_ids=pitfalls_ids,
         warnings_ids=warnings_ids,
         action=action,
@@ -308,7 +309,7 @@ def create_analysis_record(
             pitfalls_count=0,
             warnings_count=0,
             analysis_date="unknown",
-            metacheck_version="unknown",
+            rsmetacheck_version="unknown",
             pitfalls_ids=[],
             warnings_ids=[],
             action="failed",
@@ -338,7 +339,7 @@ def create_analysis_record(
         check_ids = extract_check_ids(checks if isinstance(checks, list) else [])
         pitfalls_ids, warnings_ids = check_ids
         analysis_date = str(data.get("dateCreated", "unknown"))
-        metacheck_version = pitfalls.get_metacheck_version(data)
+        rsmetacheck_version = pitfalls.get_rsmetacheck_version(data)
         current_signature = history.findings_signature(pitfalls_ids, warnings_ids)
         has_findings = (pitfalls_count + warnings_count) > 0
 
@@ -410,7 +411,7 @@ def create_analysis_record(
                 pitfalls_count=pitfalls_count,
                 warnings_count=warnings_count,
                 analysis_date=analysis_date,
-                metacheck_version=metacheck_version,
+                rsmetacheck_version=rsmetacheck_version,
                 pitfalls_ids=pitfalls_ids,
                 warnings_ids=warnings_ids,
                 action="simulated_created",
@@ -434,7 +435,7 @@ def create_analysis_record(
                 pitfalls_count=pitfalls_count,
                 warnings_count=warnings_count,
                 analysis_date=analysis_date,
-                metacheck_version=metacheck_version,
+                rsmetacheck_version=rsmetacheck_version,
                 pitfalls_ids=pitfalls_ids,
                 warnings_ids=warnings_ids,
                 action="updated_by_comment",
@@ -458,7 +459,7 @@ def create_analysis_record(
                 pitfalls_count=pitfalls_count,
                 warnings_count=warnings_count,
                 analysis_date=analysis_date,
-                metacheck_version=metacheck_version,
+                rsmetacheck_version=rsmetacheck_version,
                 pitfalls_ids=pitfalls_ids,
                 warnings_ids=warnings_ids,
                 action="closed",
@@ -481,7 +482,7 @@ def create_analysis_record(
             pitfalls_count=pitfalls_count,
             warnings_count=warnings_count,
             analysis_date=analysis_date,
-            metacheck_version=metacheck_version,
+            rsmetacheck_version=rsmetacheck_version,
             pitfalls_ids=pitfalls_ids,
             warnings_ids=warnings_ids,
             action="skipped",
@@ -504,7 +505,7 @@ def create_analysis_record(
             pitfalls_count=0,
             warnings_count=0,
             analysis_date="unknown",
-            metacheck_version="unknown",
+            rsmetacheck_version="unknown",
             pitfalls_ids=[],
             warnings_ids=[],
             action="failed",

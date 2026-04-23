@@ -11,6 +11,7 @@ from sw_metadata_bot.pitfalls import (
     format_report,
     get_pitfalls_list,
     get_repository_url,
+    get_rsmetacheck_version,
     get_warnings_list,
     load_pitfalls,
 )
@@ -23,26 +24,26 @@ def sample_data():
         "assessedSoftware": {"url": "https://github.com/example/repo"},
         "checks": [
             {
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
+                "pitfall": "https://w3id.org/metacheck/catalog/#P001",
                 "process": "Pitfall process description",
                 "evidence": "Evidence of pitfall",
                 "suggestion": "How to fix this",
                 "output": "true",
             },
             {
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P002",
+                "pitfall": "https://w3id.org/metacheck/catalog/#P002",
                 "process": "Another pitfall",
                 "evidence": "More evidence",
                 "output": "true",
             },
             {
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001",
+                "pitfall": "https://w3id.org/metacheck/catalog/#W001",
                 "evidence": "Warning evidence",
                 "suggestion": "Warning suggestion",
                 "output": "true",
             },
             {
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W002",
+                "pitfall": "https://w3id.org/metacheck/catalog/#W002",
                 "evidence": "Another warning",
                 "output": "true",
             },
@@ -94,19 +95,19 @@ def test_get_lists_from_hashed_check_ids():
         "checks": [
             {
                 "checkId": "694a7a7c5a16db39412fac70b6d27fbadc7222b1d8ae57ff061cc6c87e6d8edc",
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
+                "pitfall": "https://w3id.org/metacheck/catalog/#P001",
                 "evidence": "P001 detected: codemeta.json version 'unknown' does not match release version '2.2.0'",
                 "output": "true",
             },
             {
                 "checkId": "95e131ef79871959cfd0f1ae06dd502d6c160851b0cd5b40844818858c0b22c4",
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001",
+                "pitfall": "https://w3id.org/metacheck/catalog/#W001",
                 "evidence": "W001 detected: pyproject.toml contains software requirements without versions.",
                 "output": "true",
             },
             {
                 "checkId": "7c48a13e4d4ef33a608362bd2142616ca01aa2b528b457e51016034a151d058e",
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W004",
+                "pitfall": "https://w3id.org/metacheck/catalog/#W004",
                 "evidence": "W004 detected: codemeta.json Programming languages without versions: Python",
                 "output": "true",
             },
@@ -183,7 +184,7 @@ def test_format_report_no_pitfalls():
         "assessedSoftware": {"url": "https://github.com/test/repo"},
         "checks": [
             {
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001",
+                "pitfall": "https://w3id.org/metacheck/catalog/#W001",
                 "evidence": "A warning",
                 "output": "true",
             }
@@ -211,19 +212,19 @@ def test_get_pitfalls_list_verbose_mode_filters_by_output():
     data = {
         "checks": [
             {
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
+                "pitfall": "https://w3id.org/metacheck/catalog/#P001",
                 "output": "true",
             },
             {
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P002",
+                "pitfall": "https://w3id.org/metacheck/catalog/#P002",
                 "output": "false",
             },
             {
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001",
+                "pitfall": "https://w3id.org/metacheck/catalog/#W001",
                 "output": "true",
             },
             {
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P003",
+                "pitfall": "https://w3id.org/metacheck/catalog/#P003",
             },
         ]
     }
@@ -239,19 +240,19 @@ def test_get_warnings_list_verbose_mode_filters_by_output():
     data = {
         "checks": [
             {
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001",
+                "pitfall": "https://w3id.org/metacheck/catalog/#W001",
                 "output": "true",
             },
             {
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W002",
+                "pitfall": "https://w3id.org/metacheck/catalog/#W002",
                 "output": "false",
             },
             {
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001",
+                "pitfall": "https://w3id.org/metacheck/catalog/#P001",
                 "output": "true",
             },
             {
-                "pitfall": "https://w3id.org/rsmetacheck/catalog/#W003",
+                "pitfall": "https://w3id.org/metacheck/catalog/#W003",
             },
         ]
     }
@@ -266,8 +267,8 @@ def test_get_lists_missing_output_are_excluded_in_strict_mode():
     """Checks without output key are excluded in strict mode."""
     data = {
         "checks": [
-            {"pitfall": "https://w3id.org/rsmetacheck/catalog/#P001"},
-            {"pitfall": "https://w3id.org/rsmetacheck/catalog/#W001"},
+            {"pitfall": "https://w3id.org/metacheck/catalog/#P001"},
+            {"pitfall": "https://w3id.org/metacheck/catalog/#W001"},
         ]
     }
 
@@ -276,3 +277,15 @@ def test_get_lists_missing_output_are_excluded_in_strict_mode():
 
     assert pitfalls == []
     assert warnings == []
+
+
+def test_get_rsmetacheck_version_reads_checking_software_dict():
+    """Read version from checkingSoftware dictionary in newer schemas."""
+    data = {
+        "checkingSoftware": {
+            "name": "RSMetacheck",
+            "softwareVersion": "0.3.0",
+        }
+    }
+
+    assert get_rsmetacheck_version(data) == "0.3.0"

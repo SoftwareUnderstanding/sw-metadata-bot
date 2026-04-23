@@ -1,9 +1,9 @@
-"""Wrapper for metacheck CLI to integrate with sw-metadata-bot."""
+"""Wrapper for rsmetacheck CLI to integrate with sw-metadata-bot."""
 
 import sys
 
 import click
-from metacheck import cli as metacheck_cli
+from rsmetacheck import cli as rsmetacheck_cli
 
 
 @click.command()
@@ -57,14 +57,14 @@ def rsmetacheck_command(
     argv.extend(["--analysis-output", analysis_output])
     argv.extend(["--threshold", str(threshold)])
 
-    # Add verbose flag for more detailed output from metacheck
+    # Add verbose flag for more detailed output from rsmetacheck
     # jsonld file will also contains pitfalls and warnings that have not been detected.
     argv.extend(["--verbose"])
 
-    # Call metacheck CLI with modified sys.argv
+    # Call rsmetacheck CLI with modified sys.argv
     original_argv = sys.argv
     try:
         sys.argv = argv
-        metacheck_cli()
+        rsmetacheck_cli()
     finally:
         sys.argv = original_argv

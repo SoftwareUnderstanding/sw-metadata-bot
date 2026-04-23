@@ -59,7 +59,7 @@ def build_record_entry(
     issue_url: str | None,
     analysis_date: str,
     bot_version: str,
-    metacheck_version: str,
+    rsmetacheck_version: str,
     pitfalls_ids: list[str] | None,
     warnings_ids: list[str] | None,
     action: str | None = None,
@@ -85,7 +85,7 @@ def build_record_entry(
         "issue_url": issue_url,
         "analysis_date": analysis_date,
         "sw_metadata_bot_version": bot_version,
-        "rsmetacheck_version": metacheck_version,
+        "rsmetacheck_version": rsmetacheck_version,
         "pitfalls_ids": pitfalls_ids or [],
         "warnings_ids": warnings_ids or [],
     }
