@@ -232,7 +232,7 @@ def run_pipeline(
                 issue_url=None,
                 analysis_date=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 bot_version=pitfalls.__version__,
-                metacheck_version="unknown",
+                rsmetacheck_version="unknown",
                 pitfalls_ids=[],
                 warnings_ids=[],
                 action="skipped",

@@ -2,6 +2,7 @@
 
 import json
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
@@ -13,6 +14,222 @@ from .config_utils import detect_platform, normalize_repo_url, sanitize_repo_nam
 from .reporting import build_counters, build_run_metadata, write_report_file
 from .reporting import build_record_entry as build_shared_record_entry
 from .rsmetacheck_wrapper import run_rsmetacheck
+
+
+@dataclass(frozen=True)
+class CurrentAnalysisContext:
+    """Parsed current-analysis state needed to build a decision record."""
+
+    repo_url: str
+    pitfall_file: Path
+    data: dict[str, Any]
+    pitfalls_count: int
+    warnings_count: int
+    pitfalls_ids: list[str]
+    warnings_ids: list[str]
+    analysis_date: str
+    rsmetacheck_version: str
+    findings_signature: str
+    has_findings: bool
+    codemeta_status: str
+    codemeta_missing: bool
+    codemeta_generated: bool
+    generated_codemeta: dict[str, Any] | None
+
+
+@dataclass(frozen=True)
+class PreviousAnalysisContext:
+    """Previous-analysis state needed for incremental decision making."""
+
+    previous_exists: bool
+    previous_issue_url: str | None
+    previous_issue_state: str | None
+    previous_commit_id: str | None
+    previous_signature: str
+    previous_issue_open: bool
+    previous_codemeta_missing: bool
+    repo_updated: bool
+
+
+def _load_generated_codemeta(repo_folder: Path) -> dict[str, Any] | None:
+    """Load generated codemeta payload when rsmetacheck created one."""
+    generated_codemeta_file = repo_folder / constants.FILENAME_CODEMETA_GENERATED
+    if not generated_codemeta_file.exists():
+        return None
+
+    with open(generated_codemeta_file, encoding="utf-8") as f:
+        loaded_generated = json.load(f)
+
+    return loaded_generated if isinstance(loaded_generated, dict) else None
+
+
+def _load_current_analysis_context(
+    repo_url: str,
+    repo_folder: Path,
+) -> CurrentAnalysisContext:
+    """Load the current repository analysis outputs into a typed context."""
+    pitfall_file = repo_folder / constants.FILENAME_PITFALL
+    data = pitfalls.load_pitfalls(pitfall_file)
+
+    detected_repo_url = pitfalls.get_repository_url(data)
+    resolved_repo_url = detected_repo_url if detected_repo_url else repo_url
+
+    pitfalls_list = pitfalls.get_pitfalls_list(data)
+    warnings_list = pitfalls.get_warnings_list(data)
+    pitfalls_count = len(pitfalls_list)
+    warnings_count = len(warnings_list)
+
+    checks = data.get("checks", [])
+    pitfalls_ids, warnings_ids = extract_check_ids(
+        checks if isinstance(checks, list) else []
+    )
+    findings_signature = history.findings_signature(pitfalls_ids, warnings_ids)
+
+    codemeta_status_data = load_codemeta_status(repo_folder)
+    codemeta_status_raw = codemeta_status_data.get("status")
+    codemeta_status = (
+        codemeta_status_raw if isinstance(codemeta_status_raw, str) else "unknown"
+    )
+
+    return CurrentAnalysisContext(
+        repo_url=resolved_repo_url,
+        pitfall_file=pitfall_file,
+        data=data,
+        pitfalls_count=pitfalls_count,
+        warnings_count=warnings_count,
+        pitfalls_ids=pitfalls_ids,
+        warnings_ids=warnings_ids,
+        analysis_date=str(data.get("dateCreated", "unknown")),
+        rsmetacheck_version=pitfalls.get_rsmetacheck_version(data),
+        findings_signature=findings_signature,
+        has_findings=(pitfalls_count + warnings_count) > 0,
+        codemeta_status=codemeta_status,
+        codemeta_missing=codemeta_status == "missing",
+        codemeta_generated=bool(codemeta_status_data.get("generated", False)),
+        generated_codemeta=_load_generated_codemeta(repo_folder),
+    )
+
+
+def _load_previous_analysis_context(
+    previous_record: dict[str, object] | None,
+    current_commit_id: str | None,
+) -> PreviousAnalysisContext:
+    """Load previous-analysis state used by the incremental decision tree."""
+    if previous_record is None:
+        return PreviousAnalysisContext(
+            previous_exists=False,
+            previous_issue_url=None,
+            previous_issue_state=None,
+            previous_commit_id=None,
+            previous_signature="",
+            previous_issue_open=False,
+            previous_codemeta_missing=False,
+            repo_updated=True,
+        )
+
+    issue_url_value = previous_record.get("issue_url")
+    if not isinstance(issue_url_value, str) or not issue_url_value:
+        issue_url_value = previous_record.get("previous_issue_url")
+    previous_issue_url = (
+        str(issue_url_value) if isinstance(issue_url_value, str) else None
+    )
+
+    previous_state_value = previous_record.get("previous_issue_state")
+    previous_issue_state = (
+        previous_state_value
+        if isinstance(previous_state_value, str) and previous_state_value
+        else None
+    )
+
+    previous_commit_id = extract_previous_commit(previous_record)
+    previous_pitfalls_ids = previous_record.get("pitfalls_ids")
+    previous_warnings_ids = previous_record.get("warnings_ids")
+    previous_signature = history.findings_signature(
+        (
+            [value for value in previous_pitfalls_ids if isinstance(value, str)]
+            if isinstance(previous_pitfalls_ids, list)
+            else None
+        ),
+        (
+            [value for value in previous_warnings_ids if isinstance(value, str)]
+            if isinstance(previous_warnings_ids, list)
+            else None
+        ),
+    )
+
+    previous_codemeta_status_raw = previous_record.get("codemeta_status")
+    previous_codemeta_missing = (
+        isinstance(previous_codemeta_status_raw, str)
+        and previous_codemeta_status_raw == "missing"
+    )
+
+    repo_updated = True
+    if (
+        previous_commit_id
+        and current_commit_id
+        and previous_commit_id != "Unknown"
+        and current_commit_id != "Unknown"
+    ):
+        repo_updated = previous_commit_id != current_commit_id
+
+    return PreviousAnalysisContext(
+        previous_exists=True,
+        previous_issue_url=previous_issue_url,
+        previous_issue_state=previous_issue_state,
+        previous_commit_id=previous_commit_id,
+        previous_signature=previous_signature,
+        previous_issue_open=is_previous_issue_open(previous_record),
+        previous_codemeta_missing=previous_codemeta_missing,
+        repo_updated=repo_updated,
+    )
+
+
+def _build_decision_record(
+    *,
+    run_root: Path,
+    repo_url: str,
+    platform: str | None,
+    current_analysis: CurrentAnalysisContext,
+    previous_analysis: PreviousAnalysisContext,
+    current_commit_id: str | None,
+    dry_run: bool,
+    action: str,
+    reason_code: str,
+) -> dict[str, object]:
+    """Build the persisted analysis record for a resolved incremental action."""
+    issue_url = None
+    issue_persistence = "none"
+
+    if action == "simulated_created":
+        issue_persistence = "simulated"
+    elif action in {"updated_by_comment", "closed"}:
+        issue_persistence = "simulated"
+        issue_url = previous_analysis.previous_issue_url
+
+    return build_record_entry(
+        run_root=run_root,
+        repo_url=repo_url,
+        platform=platform,
+        pitfalls_count=current_analysis.pitfalls_count,
+        warnings_count=current_analysis.warnings_count,
+        analysis_date=current_analysis.analysis_date,
+        rsmetacheck_version=current_analysis.rsmetacheck_version,
+        pitfalls_ids=current_analysis.pitfalls_ids,
+        warnings_ids=current_analysis.warnings_ids,
+        action=action,
+        reason_code=reason_code,
+        findings_signature=current_analysis.findings_signature,
+        current_commit_id=current_commit_id,
+        previous_commit_id=previous_analysis.previous_commit_id,
+        previous_issue_url=previous_analysis.previous_issue_url,
+        previous_issue_state=previous_analysis.previous_issue_state,
+        dry_run=dry_run,
+        issue_persistence=issue_persistence,
+        issue_url=issue_url,
+        file_path=current_analysis.pitfall_file,
+        codemeta_generated=current_analysis.codemeta_generated,
+        codemeta_status=current_analysis.codemeta_status,
+    )
 
 
 def extract_previous_commit(record: dict) -> str | None:
@@ -426,7 +643,7 @@ def create_analysis_record(
     custom_message: str | None,
 ) -> dict[str, object]:
     """Create a decision record for a repository without platform API calls."""
-    pitfall_file = repo_folder / "pitfall.jsonld"
+    pitfall_file = repo_folder / constants.FILENAME_PITFALL
     if not pitfall_file.exists():
         return build_record_entry(
             run_root=run_root,
@@ -453,227 +670,89 @@ def create_analysis_record(
         )
 
     try:
-        data = pitfalls.load_pitfalls(pitfall_file)
-        detected_repo_url = pitfalls.get_repository_url(data)
-        if detected_repo_url:
-            repo_url = detected_repo_url
-        pitfalls_list = pitfalls.get_pitfalls_list(data)
-        warnings_list = pitfalls.get_warnings_list(data)
-        pitfalls_count = len(pitfalls_list)
-        warnings_count = len(warnings_list)
-        checks = data.get("checks", [])
-        check_ids = extract_check_ids(checks if isinstance(checks, list) else [])
-        pitfalls_ids, warnings_ids = check_ids
-        analysis_date = str(data.get("dateCreated", "unknown"))
-        rsmetacheck_version = pitfalls.get_rsmetacheck_version(data)
-        current_signature = history.findings_signature(pitfalls_ids, warnings_ids)
-        has_findings = (pitfalls_count + warnings_count) > 0
-        codemeta_status_data = load_codemeta_status(repo_folder)
-        codemeta_status_value_raw = codemeta_status_data.get("status")
-        codemeta_status_value = (
-            codemeta_status_value_raw
-            if isinstance(codemeta_status_value_raw, str)
-            else "unknown"
-        )
-        codemeta_missing = codemeta_status_value == "missing"
-        codemeta_generated = bool(codemeta_status_data.get("generated", False))
+        current_analysis = _load_current_analysis_context(repo_url, repo_folder)
+        repo_url = current_analysis.repo_url
 
-        generated_codemeta: dict | None = None
-        generated_codemeta_file = repo_folder / "codemeta_generated.json"
-        if generated_codemeta_file.exists():
-            with open(generated_codemeta_file, encoding="utf-8") as f:
-                loaded_generated = json.load(f)
-            if isinstance(loaded_generated, dict):
-                generated_codemeta = loaded_generated
-
-        if has_findings or codemeta_missing:
+        if current_analysis.has_findings or current_analysis.codemeta_missing:
             formatted = pitfalls.format_report(
                 repo_url,
-                data,
-                codemeta_missing=codemeta_missing,
-                generated_codemeta=generated_codemeta,
+                current_analysis.data,
+                codemeta_missing=current_analysis.codemeta_missing,
+                generated_codemeta=current_analysis.generated_codemeta,
             )
             issue_body = pitfalls.create_issue_body(formatted, custom_message)
-            (repo_folder / "issue_report.md").write_text(issue_body, encoding="utf-8")
+            (repo_folder / constants.FILENAME_ISSUE_REPORT).write_text(
+                issue_body, encoding="utf-8"
+            )
 
         platform = detect_platform_from_repo_url(repo_url)
-        previous_issue_url: str | None = None
-        previous_issue_state: str | None = None
-        previous_commit_id: str | None = None
-        previous_signature = ""
-        previous_exists = previous_record is not None
-        previous_issue_open = False
-        previous_codemeta_missing = False
-        repo_updated = True
-
-        if previous_record is not None:
-            issue_url_value = previous_record.get("issue_url")
-            if not isinstance(issue_url_value, str) or not issue_url_value:
-                issue_url_value = previous_record.get("previous_issue_url")
-            previous_issue_url = (
-                str(issue_url_value) if isinstance(issue_url_value, str) else None
-            )
-
-            previous_state_value = previous_record.get("previous_issue_state")
-            if isinstance(previous_state_value, str) and previous_state_value:
-                previous_issue_state = previous_state_value
-
-            previous_commit_id = extract_previous_commit(previous_record)
-            previous_pitfalls_ids = previous_record.get("pitfalls_ids")
-            previous_warnings_ids = previous_record.get("warnings_ids")
-            previous_signature = history.findings_signature(
-                (
-                    [value for value in previous_pitfalls_ids if isinstance(value, str)]
-                    if isinstance(previous_pitfalls_ids, list)
-                    else None
-                ),
-                (
-                    [value for value in previous_warnings_ids if isinstance(value, str)]
-                    if isinstance(previous_warnings_ids, list)
-                    else None
-                ),
-            )
-            previous_issue_open = is_previous_issue_open(previous_record)
-            previous_codemeta_status_raw = previous_record.get("codemeta_status")
-            if isinstance(previous_codemeta_status_raw, str):
-                previous_codemeta_missing = previous_codemeta_status_raw == "missing"
-
-            if (
-                previous_commit_id
-                and current_commit_id
-                and previous_commit_id != "Unknown"
-                and current_commit_id != "Unknown"
-            ):
-                repo_updated = previous_commit_id != current_commit_id
+        previous_analysis = _load_previous_analysis_context(
+            previous_record, current_commit_id
+        )
 
         decision = incremental.evaluate(
-            previous_exists=previous_exists,
+            previous_exists=previous_analysis.previous_exists,
             unsubscribed=False,
-            repo_updated=repo_updated,
-            has_findings=has_findings,
-            identical_findings=current_signature == previous_signature,
-            previous_issue_open=previous_issue_open,
-            codemeta_missing=codemeta_missing,
-            previous_codemeta_missing=previous_codemeta_missing,
+            repo_updated=previous_analysis.repo_updated,
+            has_findings=current_analysis.has_findings,
+            identical_findings=(
+                current_analysis.findings_signature
+                == previous_analysis.previous_signature
+            ),
+            previous_issue_open=previous_analysis.previous_issue_open,
+            codemeta_missing=current_analysis.codemeta_missing,
+            previous_codemeta_missing=previous_analysis.previous_codemeta_missing,
         )
 
         if decision.action == "create":
-            return build_record_entry(
+            return _build_decision_record(
                 run_root=run_root,
                 repo_url=repo_url,
                 platform=platform,
-                pitfalls_count=pitfalls_count,
-                warnings_count=warnings_count,
-                analysis_date=analysis_date,
-                rsmetacheck_version=rsmetacheck_version,
-                pitfalls_ids=pitfalls_ids,
-                warnings_ids=warnings_ids,
+                current_analysis=current_analysis,
+                previous_analysis=previous_analysis,
+                current_commit_id=current_commit_id,
+                dry_run=dry_run,
                 action="simulated_created",
                 reason_code=decision.reason,
-                findings_signature=current_signature,
-                current_commit_id=current_commit_id,
-                previous_commit_id=previous_commit_id,
-                previous_issue_url=previous_issue_url,
-                previous_issue_state=previous_issue_state,
-                dry_run=dry_run,
-                issue_persistence="simulated",
-                issue_url=None,
-                file_path=pitfall_file,
-                codemeta_generated=codemeta_generated,
-                codemeta_status=(
-                    codemeta_status_value
-                    if isinstance(codemeta_status_value, str)
-                    else None
-                ),
             )
 
         if decision.action == "comment":
-            return build_record_entry(
+            return _build_decision_record(
                 run_root=run_root,
                 repo_url=repo_url,
                 platform=platform,
-                pitfalls_count=pitfalls_count,
-                warnings_count=warnings_count,
-                analysis_date=analysis_date,
-                rsmetacheck_version=rsmetacheck_version,
-                pitfalls_ids=pitfalls_ids,
-                warnings_ids=warnings_ids,
+                current_analysis=current_analysis,
+                previous_analysis=previous_analysis,
+                current_commit_id=current_commit_id,
+                dry_run=dry_run,
                 action="updated_by_comment",
                 reason_code=decision.reason,
-                findings_signature=current_signature,
-                current_commit_id=current_commit_id,
-                previous_commit_id=previous_commit_id,
-                previous_issue_url=previous_issue_url,
-                previous_issue_state=previous_issue_state,
-                dry_run=dry_run,
-                issue_persistence="simulated",
-                issue_url=previous_issue_url,
-                file_path=pitfall_file,
-                codemeta_generated=codemeta_generated,
-                codemeta_status=(
-                    codemeta_status_value
-                    if isinstance(codemeta_status_value, str)
-                    else None
-                ),
             )
 
         if decision.action == "close":
-            return build_record_entry(
+            return _build_decision_record(
                 run_root=run_root,
                 repo_url=repo_url,
                 platform=platform,
-                pitfalls_count=pitfalls_count,
-                warnings_count=warnings_count,
-                analysis_date=analysis_date,
-                rsmetacheck_version=rsmetacheck_version,
-                pitfalls_ids=pitfalls_ids,
-                warnings_ids=warnings_ids,
+                current_analysis=current_analysis,
+                previous_analysis=previous_analysis,
+                current_commit_id=current_commit_id,
+                dry_run=dry_run,
                 action="closed",
                 reason_code=decision.reason,
-                findings_signature=current_signature,
-                current_commit_id=current_commit_id,
-                previous_commit_id=previous_commit_id,
-                previous_issue_url=previous_issue_url,
-                previous_issue_state=previous_issue_state,
-                dry_run=dry_run,
-                issue_persistence="simulated",
-                issue_url=previous_issue_url,
-                file_path=pitfall_file,
-                codemeta_generated=codemeta_generated,
-                codemeta_status=(
-                    codemeta_status_value
-                    if isinstance(codemeta_status_value, str)
-                    else None
-                ),
             )
 
-        return build_record_entry(
+        return _build_decision_record(
             run_root=run_root,
             repo_url=repo_url,
             platform=platform,
-            pitfalls_count=pitfalls_count,
-            warnings_count=warnings_count,
-            analysis_date=analysis_date,
-            rsmetacheck_version=rsmetacheck_version,
-            pitfalls_ids=pitfalls_ids,
-            warnings_ids=warnings_ids,
+            current_analysis=current_analysis,
+            previous_analysis=previous_analysis,
+            current_commit_id=current_commit_id,
+            dry_run=dry_run,
             action="skipped",
             reason_code=decision.reason,
-            findings_signature=current_signature,
-            current_commit_id=current_commit_id,
-            previous_commit_id=previous_commit_id,
-            previous_issue_url=previous_issue_url,
-            previous_issue_state=previous_issue_state,
-            dry_run=dry_run,
-            issue_persistence="none",
-            issue_url=None,
-            file_path=pitfall_file,
-            codemeta_generated=codemeta_generated,
-            codemeta_status=(
-                codemeta_status_value
-                if isinstance(codemeta_status_value, str)
-                else None
-            ),
         )
     except Exception as exc:
         return build_record_entry(
