@@ -226,7 +226,7 @@ def run_pipeline(
             record = build_record_entry(
                 run_root=run_root,
                 repo_url=repo_url,
-                platform=analysis_runtime.detect_platform_from_repo_url(repo_url),
+                platform=analysis_runtime.detect_repo_platform(repo_url),
                 analysis=RecordAnalysis(
                     analysis_date=datetime.now(timezone.utc).strftime(
                         "%Y-%m-%dT%H:%M:%SZ"

@@ -23,7 +23,7 @@ class GitHubAPI(IssueAPIBase):
         self.base_url = "https://api.github.com"
 
     @staticmethod
-    def parse_url(url: str) -> tuple[str, str]:
+    def parse_repo_url(url: str) -> tuple[str, str]:
         """
         Parse GitHub URL to extract owner and repo.
 
@@ -41,8 +41,13 @@ class GitHubAPI(IssueAPIBase):
         owner, repo = parts[0], parts[1].removesuffix(".git")
         return owner, repo
 
-    def test_auth(self) -> bool:
-        """Test if authentication works."""
+    @staticmethod
+    def parse_url(url: str) -> tuple[str, str]:
+        """Backward-compatible alias for parse_repo_url."""
+        return GitHubAPI.parse_repo_url(url)
+
+    def check_auth(self) -> bool:
+        """Check whether authentication works."""
         if self.dry_run:
             return True
 
@@ -57,6 +62,10 @@ class GitHubAPI(IssueAPIBase):
         except Exception as e:
             print(f"GitHub auth failed: {e}")
             return False
+
+    def test_auth(self) -> bool:
+        """Backward-compatible alias for check_auth."""
+        return self.check_auth()
 
     def verify_auth(self) -> dict:
         """
@@ -136,7 +145,7 @@ class GitHubAPI(IssueAPIBase):
         Returns:
             URL of created issue (or fake URL in dry-run mode)
         """
-        owner, repo = self.parse_url(repo_url)
+        owner, repo = self.parse_repo_url(repo_url)
 
         if self.dry_run:
             return f"https://github.com/{owner}/{repo}/issues/0"

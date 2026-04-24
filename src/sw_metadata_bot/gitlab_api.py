@@ -22,7 +22,7 @@ class GitLabAPI(IssueAPIBase):
         self.dry_run = dry_run
 
     @staticmethod
-    def parse_url(url: str) -> tuple[str, str, str]:
+    def parse_repo_url(url: str) -> tuple[str, str, str]:
         """
         Parse GitLab URL to extract host, owner, and repo.
 
@@ -42,12 +42,17 @@ class GitLabAPI(IssueAPIBase):
         owner, repo = parts[0], parts[1].removesuffix(".git")
         return host, owner, repo
 
+    @staticmethod
+    def parse_url(url: str) -> tuple[str, str, str]:
+        """Backward-compatible alias for parse_repo_url."""
+        return GitLabAPI.parse_repo_url(url)
+
     def get_base_url(self, host: str) -> str:
         """Get API base URL for GitLab host."""
         return f"https://{host}/api/v4"
 
-    def test_auth(self, host: str = "gitlab.com") -> bool:
-        """Test if authentication works."""
+    def check_auth(self, host: str = "gitlab.com") -> bool:
+        """Check whether authentication works."""
         if self.dry_run:
             return True
 
@@ -64,6 +69,10 @@ class GitLabAPI(IssueAPIBase):
             print(f"GitLab auth failed: {e}")
             return False
 
+    def test_auth(self, host: str = "gitlab.com") -> bool:
+        """Backward-compatible alias for check_auth."""
+        return self.check_auth(host)
+
     def verify_auth(self, host: str = "gitlab.com") -> dict:
         """
         Verify authentication and return detailed information.
@@ -71,7 +80,7 @@ class GitLabAPI(IssueAPIBase):
         Returns:
             Dictionary with authentication details including user, scopes, and permissions.
         """
-        result = {
+        result: dict[str, Any] = {
             "platform": "GitLab",
             "host": host,
             "token_set": bool(self.token),
@@ -169,7 +178,7 @@ class GitLabAPI(IssueAPIBase):
         Returns:
             URL of created issue (or fake URL in dry-run mode)
         """
-        host, owner, repo = self.parse_url(repo_url)
+        host, owner, repo = self.parse_repo_url(repo_url)
         project_id = f"{owner}/{repo}"
 
         if self.dry_run:
