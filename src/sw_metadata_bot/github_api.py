@@ -1,13 +1,15 @@
 """GitHub API client."""
 
+from typing import Any
 from urllib.parse import ParseResult, urlparse
 
 import requests
 
+from .platform_api import IssueAPIBase
 from .token_resolver import resolve_token
 
 
-class GitHubAPI:
+class GitHubAPI(IssueAPIBase):
     """Simple GitHub API client."""
 
     def __init__(self, token: str | None = None, dry_run: bool = False):
@@ -158,6 +160,34 @@ class GitHubAPI:
             headers["Authorization"] = f"token {self.token}"
         return headers
 
+    def _issue_api_url(self, issue_url: str) -> str:
+        """Build API URL for a GitHub issue."""
+        owner, repo, issue_number = self.parse_issue_url(issue_url)
+        return f"{self.base_url}/repos/{owner}/{repo}/issues/{issue_number}"
+
+    def _issue_comments_api_url(self, issue_url: str) -> str:
+        """Build API URL for GitHub issue comments."""
+        owner, repo, issue_number = self.parse_issue_url(issue_url)
+        return f"{self.base_url}/repos/{owner}/{repo}/issues/{issue_number}/comments"
+
+    def _dry_run_issue_fallback(self, issue_url: str) -> dict[str, Any]:
+        """Return fallback issue payload for dry-run mode."""
+        owner, repo, issue_number = self.parse_issue_url(issue_url)
+        return {
+            "state": "open",
+            "html_url": issue_url,
+            "number": issue_number,
+            "repository_url": f"https://github.com/{owner}/{repo}",
+        }
+
+    def _close_issue_request(self, issue_url: str) -> tuple[str, str, dict[str, str]]:
+        """Return HTTP request shape for closing a GitHub issue."""
+        return "PATCH", self._issue_api_url(issue_url), {"state": "closed"}
+
+    def _comment_body_from_item(self, item: dict[str, Any]) -> str:
+        """Extract comment body from one GitHub comment payload."""
+        return str(item.get("body", ""))
+
     @staticmethod
     def parse_issue_url(issue_url: str) -> tuple[str, str, int]:
         """Parse a GitHub issue URL and return owner/repo/number."""
@@ -172,81 +202,3 @@ class GitHubAPI:
         owner, repo = parts[0], parts[1].removesuffix(".git")
         issue_number = int(parts[3])
         return owner, repo, issue_number
-
-    def get_issue(self, issue_url: str) -> dict:
-        """Fetch issue details from GitHub."""
-        owner, repo, issue_number = self.parse_issue_url(issue_url)
-
-        url = f"{self.base_url}/repos/{owner}/{repo}/issues/{issue_number}"
-        headers = self._build_headers()
-        if self.dry_run:
-            try:
-                response = requests.get(url, headers=headers, timeout=10)
-                response.raise_for_status()
-                return response.json()
-            except Exception:
-                return {
-                    "state": "open",
-                    "html_url": issue_url,
-                    "number": issue_number,
-                    "repository_url": f"https://github.com/{owner}/{repo}",
-                }
-
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        return response.json()
-
-    def get_issue_comments(self, issue_url: str) -> list[str]:
-        """Fetch issue comments and return bodies."""
-        owner, repo, issue_number = self.parse_issue_url(issue_url)
-
-        url = f"{self.base_url}/repos/{owner}/{repo}/issues/{issue_number}/comments"
-        headers = self._build_headers()
-        if self.dry_run:
-            try:
-                response = requests.get(url, headers=headers, timeout=10)
-                response.raise_for_status()
-                data = response.json()
-                return [
-                    str(item.get("body", "")) for item in data if isinstance(item, dict)
-                ]
-            except Exception:
-                return []
-
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        return [str(item.get("body", "")) for item in data if isinstance(item, dict)]
-
-    def add_issue_comment(self, issue_url: str, body: str) -> None:
-        """Add a comment to an issue."""
-        if self.dry_run:
-            return
-
-        owner, repo, issue_number = self.parse_issue_url(issue_url)
-        url = f"{self.base_url}/repos/{owner}/{repo}/issues/{issue_number}/comments"
-        headers = {
-            "Authorization": f"token {self.token}",
-            "Accept": "application/vnd.github.v3+json",
-        }
-        response = requests.post(url, json={"body": body}, headers=headers, timeout=10)
-        response.raise_for_status()
-
-    def close_issue(self, issue_url: str) -> None:
-        """Close an existing issue."""
-        if self.dry_run:
-            return
-
-        owner, repo, issue_number = self.parse_issue_url(issue_url)
-        url = f"{self.base_url}/repos/{owner}/{repo}/issues/{issue_number}"
-        headers = {
-            "Authorization": f"token {self.token}",
-            "Accept": "application/vnd.github.v3+json",
-        }
-        response = requests.patch(
-            url,
-            json={"state": "closed"},
-            headers=headers,
-            timeout=10,
-        )
-        response.raise_for_status()
