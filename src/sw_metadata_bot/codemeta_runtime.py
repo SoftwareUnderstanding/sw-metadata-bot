@@ -67,7 +67,8 @@ def evaluate_and_persist_codemeta_status(
 ) -> dict[str, Any]:
     """Detect codemeta presence from SOMEF output sources and record status.
 
-    (placed by standardize_metacheck_outputs) and records the status.
+    The optional generated codemeta payload is created by rsmetacheck and
+    normalized to ``codemeta_generated.json`` by standardization helpers.
     """
     status_file = repo_folder / "codemeta_status.json"
     generated_file = repo_folder / "codemeta_generated.json"

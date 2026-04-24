@@ -90,6 +90,45 @@ def test_resolve_per_repo_paths_uses_analysis_root(tmp_path):
     assert paths["report"] == repo_root / "report.json"
 
 
+def test_standardize_metacheck_outputs_recovers_swapped_somef_and_codemeta(tmp_path):
+    """Recover when output_*.json is SOMEF and somef_output.json is generated codemeta."""
+    repo_folder = tmp_path / "github_com_example_repo"
+    repo_folder.mkdir(parents=True)
+
+    (repo_folder / "output_1.json").write_text(
+        json.dumps(
+            {
+                "somef_provenance": {
+                    "somef_version": "0.10.1",
+                    "somef_schema_version": "1.0.0",
+                    "date": "2026-04-24 08:16:59",
+                },
+                "name": [{"result": {"value": "demo"}}],
+            }
+        )
+    )
+    (repo_folder / "somef_output.json").write_text(
+        json.dumps(
+            {
+                "@context": "https://w3id.org/codemeta/3.0",
+                "@type": ["SoftwareSourceCode"],
+                "name": "demo",
+            }
+        )
+    )
+
+    analysis_runtime.standardize_metacheck_outputs(repo_folder)
+
+    normalized_somef = json.loads((repo_folder / "somef_output.json").read_text())
+    normalized_codemeta = json.loads(
+        (repo_folder / "codemeta_generated.json").read_text()
+    )
+
+    assert "somef_provenance" in normalized_somef
+    assert normalized_codemeta["@context"] == "https://w3id.org/codemeta/3.0"
+    assert not (repo_folder / "output_1.json").exists()
+
+
 def test_resolve_output_root_relative_uses_project_root(tmp_path):
     """Resolve relative output root from project root rather than config directory."""
     (tmp_path / "pyproject.toml").write_text("[project]\nname = 'example'\n")
@@ -198,7 +237,7 @@ def test_create_analysis_record_creates_codemeta_issue_without_findings(tmp_path
 
     assert record["action"] == "simulated_created"
     assert record["reason_code"] == "no_previous_analysis"
-    assert record["codemeta_missing"] is True
+    assert record["codemeta_status"] == "missing"
     assert (repo_folder / "issue_report.md").exists()
 
 

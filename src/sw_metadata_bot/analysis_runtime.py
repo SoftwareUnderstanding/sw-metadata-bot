@@ -4,6 +4,7 @@ import json
 import shutil
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import Any
 
 from . import history, incremental, pitfalls
 from .check_parsing import extract_check_ids
@@ -98,6 +99,38 @@ def load_previous_repo_record(
 
 def standardize_metacheck_outputs(repo_folder: Path) -> None:
     """Normalize metacheck output names to stable per-repo filenames."""
+
+    def _load_json_object(path: Path) -> dict[str, Any] | None:
+        """Load a JSON file and return a dict payload when possible."""
+        try:
+            with open(path, encoding="utf-8") as f:
+                loaded = json.load(f)
+        except Exception:
+            return None
+        return loaded if isinstance(loaded, dict) else None
+
+    def _looks_like_somef_payload(path: Path) -> bool:
+        """Identify SOMEF extraction payloads by their provenance key."""
+        payload = _load_json_object(path)
+        return isinstance(payload, dict) and "somef_provenance" in payload
+
+    def _looks_like_codemeta_payload(path: Path) -> bool:
+        """Identify codemeta-like payloads by context/type keys."""
+        payload = _load_json_object(path)
+        if not isinstance(payload, dict):
+            return False
+        if "@context" not in payload or "@type" not in payload:
+            return False
+        context_value = payload.get("@context")
+        if isinstance(context_value, str):
+            return "codemeta" in context_value.lower()
+        if isinstance(context_value, list):
+            return any(
+                isinstance(item, str) and "codemeta" in item.lower()
+                for item in context_value
+            )
+        return False
+
     repo_folder.mkdir(parents=True, exist_ok=True)
 
     pitfall_target = repo_folder / "pitfall.jsonld"
@@ -108,9 +141,27 @@ def standardize_metacheck_outputs(repo_folder: Path) -> None:
         if pitfall_candidates:
             shutil.move(str(pitfall_candidates[0]), str(pitfall_target))
 
+    codemeta_generated_target = repo_folder / "codemeta_generated.json"
+    if not codemeta_generated_target.exists():
+        codemeta_named_candidates = list(
+            repo_folder.glob("*somef_generated_codemeta*.json")
+        )
+        if codemeta_named_candidates:
+            shutil.move(
+                str(codemeta_named_candidates[0]), str(codemeta_generated_target)
+            )
+
     somef_target = repo_folder / "somef_output.json"
+    if somef_target.exists() and _looks_like_codemeta_payload(somef_target):
+        if not codemeta_generated_target.exists():
+            shutil.move(str(somef_target), str(codemeta_generated_target))
+
     if not somef_target.exists():
-        somef_candidates = list((repo_folder / "somef_outputs").glob("*.json"))
+        somef_candidates = [
+            path
+            for path in (repo_folder / "somef_outputs").glob("*.json")
+            if _looks_like_somef_payload(path)
+        ]
         if not somef_candidates:
             somef_candidates = [
                 path
@@ -121,8 +172,11 @@ def standardize_metacheck_outputs(repo_folder: Path) -> None:
                     "analysis_results.json",
                     "config.json",
                     "run_report.json",
+                    "codemeta_status.json",
+                    "codemeta_generated.json",
                 }
                 and not path.name.startswith("metacheck_")
+                and _looks_like_somef_payload(path)
             ]
         if somef_candidates:
             shutil.move(str(somef_candidates[0]), str(somef_target))
@@ -131,9 +185,21 @@ def standardize_metacheck_outputs(repo_folder: Path) -> None:
         if legacy_dir.exists() and legacy_dir.is_dir():
             shutil.rmtree(legacy_dir)
 
-    codemeta_generated_target = repo_folder / "codemeta_generated.json"
     if not codemeta_generated_target.exists():
-        codemeta_candidates = list(repo_folder.glob("*somef_generated_codemeta*.json"))
+        codemeta_candidates = [
+            path
+            for path in repo_folder.glob("*.json")
+            if path.name
+            not in {
+                "somef_output.json",
+                "codemeta_status.json",
+                "report.json",
+                "analysis_results.json",
+                "config.json",
+                "run_report.json",
+            }
+            and _looks_like_codemeta_payload(path)
+        ]
         if codemeta_candidates:
             shutil.move(str(codemeta_candidates[0]), str(codemeta_generated_target))
 
@@ -255,7 +321,6 @@ def build_record_entry(
     issue_persistence: str,
     issue_url: str | None,
     file_path: Path,
-    codemeta_missing: bool | None = None,
     codemeta_generated: bool | None = None,
     codemeta_status: str | None = None,
     error: str | None = None,
@@ -283,7 +348,6 @@ def build_record_entry(
         dry_run=dry_run,
         issue_persistence=issue_persistence,
         file_path=file_path,
-        codemeta_missing=codemeta_missing,
         codemeta_generated=codemeta_generated,
         codemeta_status=codemeta_status,
         error=error,
@@ -364,9 +428,14 @@ def create_analysis_record(
         current_signature = history.findings_signature(pitfalls_ids, warnings_ids)
         has_findings = (pitfalls_count + warnings_count) > 0
         codemeta_status_data = load_codemeta_status(repo_folder)
-        codemeta_missing = bool(codemeta_status_data.get("missing", False))
+        codemeta_status_value_raw = codemeta_status_data.get("status")
+        codemeta_status_value = (
+            codemeta_status_value_raw
+            if isinstance(codemeta_status_value_raw, str)
+            else "unknown"
+        )
+        codemeta_missing = codemeta_status_value == "missing"
         codemeta_generated = bool(codemeta_status_data.get("generated", False))
-        codemeta_status_value = codemeta_status_data.get("status")
 
         generated_codemeta: dict | None = None
         generated_codemeta_file = repo_folder / "codemeta_generated.json"
@@ -424,9 +493,9 @@ def create_analysis_record(
                 ),
             )
             previous_issue_open = is_previous_issue_open(previous_record)
-            previous_codemeta_missing_raw = previous_record.get("codemeta_missing")
-            if isinstance(previous_codemeta_missing_raw, bool):
-                previous_codemeta_missing = previous_codemeta_missing_raw
+            previous_codemeta_status_raw = previous_record.get("codemeta_status")
+            if isinstance(previous_codemeta_status_raw, str):
+                previous_codemeta_missing = previous_codemeta_status_raw == "missing"
 
             if (
                 previous_commit_id
@@ -469,7 +538,6 @@ def create_analysis_record(
                 issue_persistence="simulated",
                 issue_url=None,
                 file_path=pitfall_file,
-                codemeta_missing=codemeta_missing,
                 codemeta_generated=codemeta_generated,
                 codemeta_status=(
                     codemeta_status_value
@@ -500,7 +568,6 @@ def create_analysis_record(
                 issue_persistence="simulated",
                 issue_url=previous_issue_url,
                 file_path=pitfall_file,
-                codemeta_missing=codemeta_missing,
                 codemeta_generated=codemeta_generated,
                 codemeta_status=(
                     codemeta_status_value
@@ -531,7 +598,6 @@ def create_analysis_record(
                 issue_persistence="simulated",
                 issue_url=previous_issue_url,
                 file_path=pitfall_file,
-                codemeta_missing=codemeta_missing,
                 codemeta_generated=codemeta_generated,
                 codemeta_status=(
                     codemeta_status_value
@@ -561,7 +627,6 @@ def create_analysis_record(
             issue_persistence="none",
             issue_url=None,
             file_path=pitfall_file,
-            codemeta_missing=codemeta_missing,
             codemeta_generated=codemeta_generated,
             codemeta_status=(
                 codemeta_status_value

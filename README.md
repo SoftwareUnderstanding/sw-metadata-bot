@@ -24,14 +24,16 @@ The issue contains:
 - **Pitfalls**: Critical metadata issues that should be fixed
 - **Warnings**: Metadata improvements that are recommended
 - **Suggestions**: Specific recommendations on how to fix each issue
+- **Codemeta.json generation**: if your repo does not contain any `codemeta.json` file, the bot suggests one.  
 
 ### Example Issues You Might See
 
-    ### P017
+```md
+### [P002](https://w3id.org/rsmetacheck/catalog/#P002)
+**Evidence:** P002 detected: LICENSE file contains unreplaced template placeholders
 
-    **Evidence*: P017 detected: codemeta.json version '0.2.0' does not match package version
-
-    **Suggestion**: You need
+**Suggestion:** Update the copyright section with accurate names, organizations, and the current year. Personalizing this section ensures clarity and legal accuracy.
+```
 
 ---
 
