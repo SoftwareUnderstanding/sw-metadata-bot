@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
 
-from . import history, incremental, pitfalls
+from . import constants, history, incremental, pitfalls, utils
 from .check_parsing import extract_check_ids
 from .codemeta_runtime import evaluate_and_persist_codemeta_status, load_codemeta_status
 from .config_utils import detect_platform, normalize_repo_url, sanitize_repo_name
@@ -71,19 +71,23 @@ def load_previous_repo_record(
 
     repo_folder = previous_snapshot_root / sanitize_repo_name(repo_url)
     report_path = repo_folder / "report.json"
-    if report_path.exists():
-        with open(report_path, encoding="utf-8") as f:
-            data = json.load(f)
+    try:
+        data = utils.load_json_file(
+            report_path, required=False, description="previous report"
+        )
         records = data.get("records") if isinstance(data, dict) else None
         if isinstance(records, list) and records:
             record = records[0]
             if isinstance(record, dict):
                 return record
+    except (ValueError, json.JSONDecodeError):
+        pass
 
     run_report = previous_snapshot_root / "run_report.json"
-    if run_report.exists():
-        with open(run_report, encoding="utf-8") as f:
-            data = json.load(f)
+    try:
+        data = utils.load_json_file(
+            run_report, required=False, description="previous run report"
+        )
         records = data.get("records") if isinstance(data, dict) else None
         if isinstance(records, list):
             normalized = normalize_repo_url(repo_url)
@@ -93,12 +97,35 @@ def load_previous_repo_record(
                 value = record.get("repo_url")
                 if isinstance(value, str) and normalize_repo_url(value) == normalized:
                     return record
+    except (ValueError, json.JSONDecodeError):
+        pass
 
     return None
 
 
 def standardize_metacheck_outputs(repo_folder: Path) -> None:
-    """Normalize metacheck output names to stable per-repo filenames."""
+    """Normalize metacheck output names to stable per-repo filenames.
+
+    RSMetacheck outputs multiple artifacts with varying names depending on tool
+    version and configuration. This function consolidates them into a standard
+    naming scheme for consistent downstream processing.
+
+    Normalization Strategy (for research software clarity):
+    - Pitfalls (JSON-LD): Often named with repository name or timestamp
+      → Standardized to: pitfall.jsonld
+    - SOMEF output: Can be nested in subdirectories or root
+      → Standardized to: somef_output.json
+    - Generated codemeta: Created by rsmetacheck if metadata missing
+      → Standardized to: codemeta_generated.json
+
+    File Discovery Uses Fallback Strategy:
+    1. Try explicit subdirectory (metacheck's preferred location)
+    2. Fall back to glob patterns if subdirectory empty
+    3. Apply heuristics (payload inspection) to disambiguate similar files
+
+    This defensive approach handles different metacheck versions gracefully
+    without failing when directory structure differs from expectations.
+    """
 
     def _load_json_object(path: Path) -> dict[str, Any] | None:
         """Load a JSON file and return a dict payload when possible."""
@@ -133,16 +160,20 @@ def standardize_metacheck_outputs(repo_folder: Path) -> None:
 
     repo_folder.mkdir(parents=True, exist_ok=True)
 
+    # PITFALLS: JSON-LD format from rsmetacheck. Try subdirectory first, then root.
     pitfall_target = repo_folder / "pitfall.jsonld"
     if not pitfall_target.exists():
         pitfall_candidates = list((repo_folder / "pitfalls_outputs").glob("*.jsonld"))
         if not pitfall_candidates:
+            # Fallback: search root for legacy naming patterns
             pitfall_candidates = list(repo_folder.glob("*_pitfalls.jsonld"))
         if pitfall_candidates:
             shutil.move(str(pitfall_candidates[0]), str(pitfall_target))
 
+    # CODEMETA GENERATED: If rsmetacheck generated metadata (flag enabled)
     codemeta_generated_target = repo_folder / "codemeta_generated.json"
     if not codemeta_generated_target.exists():
+        # First, look for explicitly-named generated codemeta by SOMEF
         codemeta_named_candidates = list(
             repo_folder.glob("*somef_generated_codemeta*.json")
         )
@@ -152,28 +183,35 @@ def standardize_metacheck_outputs(repo_folder: Path) -> None:
             )
 
     somef_target = repo_folder / "somef_output.json"
+    # Defensive: If somef_output.json exists but looks like codemeta (swapped),
+    # move it to the codemeta target location
     if somef_target.exists() and _looks_like_codemeta_payload(somef_target):
         if not codemeta_generated_target.exists():
             shutil.move(str(somef_target), str(codemeta_generated_target))
 
+    # SOMEF OUTPUT: SOMEF metadata extraction results. Try subdirectory first.
     if not somef_target.exists():
+        # Try subdirectory (metacheck's preferred location)
         somef_candidates = [
             path
             for path in (repo_folder / "somef_outputs").glob("*.json")
             if _looks_like_somef_payload(path)
         ]
         if not somef_candidates:
+            # Fallback: search root for JSON files that look like SOMEF output.
+            # Exclude report files and files starting with "metacheck_" to avoid
+            # false positives (they're not SOMEF outputs).
             somef_candidates = [
                 path
                 for path in repo_folder.glob("*.json")
                 if path.name
                 not in {
-                    "report.json",
-                    "analysis_results.json",
-                    "config.json",
-                    "run_report.json",
-                    "codemeta_status.json",
-                    "codemeta_generated.json",
+                    constants.FILENAME_REPORT,
+                    constants.FILENAME_ANALYSIS_RESULTS,
+                    constants.FILENAME_CONFIG_SNAPSHOT,
+                    constants.FILENAME_RUN_REPORT,
+                    constants.FILENAME_CODEMETA_STATUS,
+                    constants.FILENAME_CODEMETA_GENERATED,
                 }
                 and not path.name.startswith("metacheck_")
                 and _looks_like_somef_payload(path)
@@ -181,22 +219,25 @@ def standardize_metacheck_outputs(repo_folder: Path) -> None:
         if somef_candidates:
             shutil.move(str(somef_candidates[0]), str(somef_target))
 
+    # CLEANUP: Remove legacy subdirectories that were used as intermediate locations
     for legacy_dir in (repo_folder / "somef_outputs", repo_folder / "pitfalls_outputs"):
         if legacy_dir.exists() and legacy_dir.is_dir():
             shutil.rmtree(legacy_dir)
 
+    # FALLBACK CODEMETA: If still no codemeta_generated, search for codemeta files
+    # in root that weren't already matched (e.g., uploaded by user or legacy runs)
     if not codemeta_generated_target.exists():
         codemeta_candidates = [
             path
             for path in repo_folder.glob("*.json")
             if path.name
             not in {
-                "somef_output.json",
-                "codemeta_status.json",
-                "report.json",
-                "analysis_results.json",
-                "config.json",
-                "run_report.json",
+                constants.FILENAME_SOMEF_OUTPUT,
+                constants.FILENAME_CODEMETA_STATUS,
+                constants.FILENAME_REPORT,
+                constants.FILENAME_ANALYSIS_RESULTS,
+                constants.FILENAME_CONFIG_SNAPSHOT,
+                constants.FILENAME_RUN_REPORT,
             }
             and _looks_like_codemeta_payload(path)
         ]

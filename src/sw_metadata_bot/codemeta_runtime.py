@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from . import utils
+
 
 def _iter_sources(entry: dict[str, Any]) -> list[str]:
     """Collect normalized source links from a SOMEF extraction entry."""
@@ -37,18 +39,12 @@ def codemeta_detected_in_somef(somef_data: dict[str, Any]) -> bool:
 def load_codemeta_status(repo_folder: Path) -> dict[str, Any]:
     """Load codemeta status file if present, else return default absent status."""
     status_file = repo_folder / "codemeta_status.json"
-    if not status_file.exists():
-        return {
-            "status": "unknown",
-            "missing": False,
-            "generated": False,
-            "reason": "status_file_missing",
-        }
-
-    with open(status_file, encoding="utf-8") as f:
-        data = json.load(f)
-
-    if not isinstance(data, dict):
+    try:
+        data = utils.load_json_file(
+            status_file, required=False, description="codemeta status"
+        )
+        return data
+    except ValueError:
         return {
             "status": "unknown",
             "missing": False,
@@ -56,7 +52,12 @@ def load_codemeta_status(repo_folder: Path) -> dict[str, Any]:
             "reason": "invalid_status_payload",
         }
 
-    return data
+    return {
+        "status": "unknown",
+        "missing": False,
+        "generated": False,
+        "reason": "status_file_missing",
+    }
 
 
 def evaluate_and_persist_codemeta_status(
@@ -89,8 +90,9 @@ def evaluate_and_persist_codemeta_status(
         return status
 
     try:
-        with open(somef_file, encoding="utf-8") as f:
-            somef_data = json.load(f)
+        somef_data = utils.load_json_file(
+            somef_file, required=True, description="SOMEF output"
+        )
     except Exception as exc:
         status["reason"] = "invalid_somef_output"
         status["error"] = str(exc)

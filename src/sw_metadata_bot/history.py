@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+from . import utils
 from .config_utils import normalize_repo_url
 
 
@@ -11,10 +12,12 @@ def _read_report_records(report_path: Path | None) -> list[dict]:
     if report_path is None or not report_path.exists():
         return []
 
-    with open(report_path, encoding="utf-8") as f:
-        raw = json.load(f)
+    try:
+        data = utils.load_json_file(report_path, required=False, description="report")
+    except (ValueError, json.JSONDecodeError):
+        return []
 
-    records = raw.get("records") if isinstance(raw, dict) else None
+    records = data.get("records") if isinstance(data, dict) else None
     if not isinstance(records, list):
         return []
     return [item for item in records if isinstance(item, dict)]

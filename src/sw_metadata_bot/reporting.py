@@ -4,6 +4,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from . import constants
+
 
 def relative_to_run_root(path: Path | None, run_root: Path) -> str | None:
     """Return a run-root-relative path string.
@@ -22,12 +24,16 @@ def build_counters(records: list[dict[str, object]]) -> dict[str, int]:
     """Build unified counters from report records."""
     return {
         "total": len(records),
-        "created": sum(1 for r in records if r.get("action") == "created"),
-        "simulated": sum(1 for r in records if r.get("action") == "simulated_created"),
-        "updated_by_comment": sum(
-            1 for r in records if r.get("action") == "updated_by_comment"
+        "created": sum(
+            1 for r in records if r.get("action") == constants.ACTION_CREATED
         ),
-        "closed": sum(1 for r in records if r.get("action") == "closed"),
+        "simulated": sum(
+            1 for r in records if r.get("action") == constants.ACTION_SIMULATED_CREATED
+        ),
+        "updated_by_comment": sum(
+            1 for r in records if r.get("action") == constants.ACTION_UPDATED_BY_COMMENT
+        ),
+        "closed": sum(1 for r in records if r.get("action") == constants.ACTION_CLOSED),
         "skipped": sum(1 for r in records if r.get("action") == "skipped"),
         "failed": sum(1 for r in records if r.get("action") == "failed"),
     }

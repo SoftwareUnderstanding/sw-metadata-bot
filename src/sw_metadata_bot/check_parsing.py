@@ -1,9 +1,24 @@
-"""Shared parsing helpers for RSMetacheck check identifiers."""
+"""Shared parsing helpers for RSMetacheck check identifiers.
+
+RSMetacheck evaluates each repository against a catalog of checks for metadata
+quality. Checks are identified by a code: P#### for Pitfalls (high-priority issues
+that indicate missing or invalid metadata) or W#### for Warnings (informational
+checks or best-practice recommendations). The #### segment is a 3-4 digit code
+within each category.
+
+Example check codes:
+- P001: Repository lacks codemeta.json file
+- W001: Incomplete metadata field descriptions
+- P042: Missing license information
+
+See constants.py for related definitions (CHECK_TYPE_*, CHECK_CODE_REGEX_PATTERN).
+"""
 
 import re
 
+from . import constants
 
-CHECK_CODE_PATTERN = re.compile(r"#([PW]\d+)$", re.IGNORECASE)
+CHECK_CODE_PATTERN = re.compile(constants.CHECK_CODE_REGEX_PATTERN, re.IGNORECASE)
 
 
 def get_check_catalog_id(check: dict) -> str:
