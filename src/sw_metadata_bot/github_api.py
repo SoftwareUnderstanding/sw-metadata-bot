@@ -41,11 +41,6 @@ class GitHubAPI(IssueAPIBase):
         owner, repo = parts[0], parts[1].removesuffix(".git")
         return owner, repo
 
-    @staticmethod
-    def parse_url(url: str) -> tuple[str, str]:
-        """Backward-compatible alias for parse_repo_url."""
-        return GitHubAPI.parse_repo_url(url)
-
     def check_auth(self) -> bool:
         """Check whether authentication works."""
         if self.dry_run:
@@ -62,10 +57,6 @@ class GitHubAPI(IssueAPIBase):
         except Exception as e:
             print(f"GitHub auth failed: {e}")
             return False
-
-    def test_auth(self) -> bool:
-        """Backward-compatible alias for check_auth."""
-        return self.check_auth()
 
     def verify_auth(self) -> dict:
         """

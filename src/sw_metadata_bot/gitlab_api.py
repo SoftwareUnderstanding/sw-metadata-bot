@@ -42,11 +42,6 @@ class GitLabAPI(IssueAPIBase):
         owner, repo = parts[0], parts[1].removesuffix(".git")
         return host, owner, repo
 
-    @staticmethod
-    def parse_url(url: str) -> tuple[str, str, str]:
-        """Backward-compatible alias for parse_repo_url."""
-        return GitLabAPI.parse_repo_url(url)
-
     def get_base_url(self, host: str) -> str:
         """Get API base URL for GitLab host."""
         return f"https://{host}/api/v4"
@@ -68,10 +63,6 @@ class GitLabAPI(IssueAPIBase):
         except Exception as e:
             print(f"GitLab auth failed: {e}")
             return False
-
-    def test_auth(self, host: str = "gitlab.com") -> bool:
-        """Backward-compatible alias for check_auth."""
-        return self.check_auth(host)
 
     def verify_auth(self, host: str = "gitlab.com") -> dict:
         """

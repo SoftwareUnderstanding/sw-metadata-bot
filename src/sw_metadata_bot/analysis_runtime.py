@@ -541,11 +541,6 @@ def detect_repo_platform(repo_url: str) -> str | None:
     return detect_platform(repo_url)
 
 
-def detect_platform_from_repo_url(repo_url: str) -> str | None:
-    """Backward-compatible alias for detect_repo_platform."""
-    return detect_repo_platform(repo_url)
-
-
 def is_previous_issue_open(previous_record: dict[str, object]) -> bool:
     """Infer whether previous issue was open from stored metadata only."""
     state_value = previous_record.get("previous_issue_state")

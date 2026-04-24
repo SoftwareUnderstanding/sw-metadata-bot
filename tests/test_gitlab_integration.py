@@ -15,4 +15,4 @@ def test_gitlab_token_authentication_smoke():
         pytest.skip("GITLAB_API_TOKEN is not set")
 
     api = GitLabAPI(dry_run=False)
-    assert api.test_auth("gitlab.com") is True
+    assert api.check_auth("gitlab.com") is True
