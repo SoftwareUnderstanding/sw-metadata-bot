@@ -1,0 +1,26 @@
+{
+  "repositories": [
+    "https://github.com/SoftwareUnderstanding/arxiv_category_pull",
+    "https://github.com/SoftwareUnderstanding/CodeMetaSoft_website",
+    "https://github.com/SoftwareUnderstanding/Metadata-Adoption-Quantify",
+    "https://github.com/SoftwareUnderstanding/ScientificSoftwareKG",
+    "https://github.com/SoftwareUnderstanding/auto-papers-with-artifacts",
+    "https://github.com/SoftwareUnderstanding/somef_server",
+    "https://github.com/SoftwareUnderstanding/inspect4py",
+    "https://github.com/SoftwareUnderstanding/SOMEF-Vider",
+    "https://github.com/SoftwareUnderstanding/completeR",
+    "https://github.com/SoftwareUnderstanding/rolf",
+    "https://github.com/SoftwareUnderstanding/software_types",
+    "https://github.com/SoftwareUnderstanding/c2t"
+  ],
+  "issues": {
+    "custom_message": "You are part of the Software Understanding metadata quality initiative. Several metadata issues were identified and could be addressed.",
+    "generate_codemeta_if_missing": true,
+    "opt_outs": []
+  },
+  "outputs": {
+    "root_dir": "outputs",
+    "run_name": "SoftwareUnderstanding_new",
+    "snapshot_tag_format": "%Y%m%d"
+  }
+}
