@@ -2,7 +2,6 @@
 
 import sys
 
-import click
 from rsmetacheck import cli as rsmetacheck_cli
 
 
@@ -39,64 +38,3 @@ def run_rsmetacheck(
         rsmetacheck_cli()
     finally:
         sys.argv = original_argv
-
-
-@click.command()
-@click.option(
-    "--input",
-    multiple=False,
-    required=True,
-    help="Repository URL or JSON file path containing repositories to analyze.",
-)
-@click.option(
-    "--skip-somef",
-    is_flag=True,
-    default=False,
-    help="Skip SoMEF execution and analyze existing SoMEF output files directly.",
-)
-@click.option(
-    "--somef-output",
-    default="somef_outputs",
-    help="Directory to store SoMEF output files.",
-)
-@click.option(
-    "--pitfalls-output",
-    default="pitfalls_outputs",
-    help="Directory to store pitfall JSON-LD files.",
-)
-@click.option(
-    "--analysis-output",
-    default="analysis_results.json",
-    help="File path for summary results.",
-)
-@click.option(
-    "--threshold",
-    type=float,
-    default=0.8,
-    help="SoMEF confidence threshold (default: 0.8).",
-)
-@click.option(
-    "--generate-codemeta",
-    is_flag=True,
-    default=False,
-    help="Generate a codemeta.json suggestion from SOMEF output when no codemeta.json is detected.",
-)
-def rsmetacheck_command(
-    input,
-    skip_somef,
-    somef_output,
-    pitfalls_output,
-    analysis_output,
-    threshold,
-    generate_codemeta,
-):
-    """Run rsmetacheck to detect metadata pitfalls in repositories."""
-    run_rsmetacheck(
-        input_source=input,
-        skip_somef=skip_somef,
-        somef_output=somef_output,
-        pitfalls_output=pitfalls_output,
-        analysis_output=analysis_output,
-        threshold=threshold,
-        generate_codemeta=generate_codemeta,
-    )
