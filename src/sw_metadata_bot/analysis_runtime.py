@@ -338,13 +338,14 @@ def standardize_metacheck_outputs(repo_folder: Path) -> None:
     version and configuration. This function consolidates them into a standard
     naming scheme for consistent downstream processing.
 
-    Normalization Strategy (for research software clarity):
-    - Pitfalls (JSON-LD): Often named with repository name or timestamp
-      → Standardized to: pitfall.jsonld
-    - SOMEF output: Can be nested in subdirectories or root
-      → Standardized to: somef_output.json
-    - Generated codemeta: Created by rsmetacheck if metadata missing
-      → Standardized to: codemeta_generated.json
+        Normalization Strategy (for research software clarity):
+
+        - Pitfalls (JSON-LD): Often named with repository name or timestamp.
+            Standardized to ``pitfall.jsonld``.
+        - SOMEF output: Can be nested in subdirectories or root.
+            Standardized to ``somef_output.json``.
+        - Generated codemeta: Created by rsmetacheck if metadata is missing.
+            Standardized to ``codemeta_generated.json``.
 
     File Discovery Uses Fallback Strategy:
     1. Try explicit subdirectory (metacheck's preferred location)

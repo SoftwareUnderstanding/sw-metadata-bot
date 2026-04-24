@@ -28,45 +28,45 @@ def evaluate(
     create a new issue, update an existing one with a comment, close it, or stop
     (skip). The logic prioritizes certain conditions to prevent unnecessary noise.
 
-    Decision Tree (evaluated in order):
+        Decision Tree (evaluated in order)::
 
-    1. NO PREVIOUS ANALYSIS
-       → action="create" (first-time analysis, always create issue)
+                1. NO PREVIOUS ANALYSIS
+                     action="create" (first-time analysis, always create issue)
 
-    2. UNSUBSCRIBE DETECTED
-       → action="stop" (user explicitly unsubscribed, respect their choice)
+                2. UNSUBSCRIBE DETECTED
+                     action="stop" (user explicitly unsubscribed, respect their choice)
 
-    3. REPOSITORY NOT UPDATED
-       → action="stop" (no changes since last analysis, skip)
+                3. REPOSITORY NOT UPDATED
+                     action="stop" (no changes since last analysis, skip)
 
-    4. MISSING CODEMETA WITHOUT OTHER FINDINGS
-       → Check if codemeta status changed:
-         - If issue open AND codemeta status unchanged
-           → action="stop" (already reported, issue still relevant)
-         - If issue open AND codemeta status changed
-           → action="comment" (report that codemeta was added/removed)
-         - If no issue open
-           → action="create" (new codemeta issue)
+                4. MISSING CODEMETA WITHOUT OTHER FINDINGS
+                     Check if codemeta status changed:
+                     - If issue open AND codemeta status unchanged:
+                         action="stop" (already reported, issue still relevant)
+                     - If issue open AND codemeta status changed:
+                         action="comment" (report that codemeta was added/removed)
+                     - If no issue open:
+                         action="create" (new codemeta issue)
 
-    5. NO FINDINGS (REPO IS CLEAN)
-       - If issue is open
-         → action="close" (metadata quality improved, close issue)
-       - If no issue
-         → action="stop" (nothing to report)
+                5. NO FINDINGS (REPO IS CLEAN)
+                     - If issue is open:
+                         action="close" (metadata quality improved, close issue)
+                     - If no issue:
+                         action="stop" (nothing to report)
 
-    6. FINDINGS IDENTICAL TO PREVIOUS
-       → Check issue state:
-         - If issue open
-           → action="stop" (same issue already posted)
-         - If issue closed
-           → action="create" (quality got worse again after improvements)
+                6. FINDINGS IDENTICAL TO PREVIOUS
+                     Check issue state:
+                     - If issue open:
+                         action="stop" (same issue already posted)
+                     - If issue closed:
+                         action="create" (quality got worse again after improvements)
 
-    7. FINDINGS CHANGED (DEFAULT CASE)
-       → Check issue state:
-         - If issue open
-           → action="comment" (update existing issue with new findings)
-         - If no issue
-           → Return None (caller should create, but this case typically caught above)
+                7. FINDINGS CHANGED (DEFAULT CASE)
+                     Check issue state:
+                     - If issue open:
+                         action="comment" (update existing issue with new findings)
+                     - If no issue:
+                         return "create" (quality changed while issue is closed)
 
     Args:
         previous_exists: Whether a previous analysis snapshot exists

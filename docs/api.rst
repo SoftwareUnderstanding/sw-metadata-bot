@@ -35,10 +35,10 @@ Config Utils Module
    :undoc-members:
    :show-inheritance:
 
-Create Issues Module
---------------------
+RSMetaCheck Wrapper Module
+--------------------------
 
-.. automodule:: sw_metadata_bot.create_issues
+.. automodule:: sw_metadata_bot.rsmetacheck_wrapper
    :members:
    :undoc-members:
    :show-inheritance:
@@ -83,13 +83,6 @@ Main Module
    :undoc-members:
    :show-inheritance:
 
-MetaCheck Wrapper Module
-------------------------
-
-.. automodule:: sw_metadata_bot.metacheck_wrapper
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
 Pipeline Module
 ---------------
