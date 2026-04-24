@@ -11,7 +11,13 @@ from . import constants, history, incremental, pitfalls, utils
 from .check_parsing import extract_check_ids
 from .codemeta_runtime import evaluate_and_persist_codemeta_status, load_codemeta_status
 from .config_utils import detect_platform, normalize_repo_url, sanitize_repo_name
-from .reporting import build_counters, build_run_metadata, write_report_file
+from .reporting import (
+    RecordAnalysis,
+    RecordLifecycle,
+    build_counters,
+    build_run_metadata,
+    write_report_file,
+)
 from .reporting import build_record_entry as build_shared_record_entry
 from .rsmetacheck_wrapper import run_rsmetacheck
 
@@ -206,29 +212,34 @@ def _build_decision_record(
         issue_persistence = "simulated"
         issue_url = previous_analysis.previous_issue_url
 
-    return build_record_entry(
+    return build_shared_record_entry(
         run_root=run_root,
         repo_url=repo_url,
         platform=platform,
-        pitfalls_count=current_analysis.pitfalls_count,
-        warnings_count=current_analysis.warnings_count,
-        analysis_date=current_analysis.analysis_date,
-        rsmetacheck_version=current_analysis.rsmetacheck_version,
-        pitfalls_ids=current_analysis.pitfalls_ids,
-        warnings_ids=current_analysis.warnings_ids,
-        action=action,
-        reason_code=reason_code,
-        findings_signature=current_analysis.findings_signature,
-        current_commit_id=current_commit_id,
-        previous_commit_id=previous_analysis.previous_commit_id,
-        previous_issue_url=previous_analysis.previous_issue_url,
-        previous_issue_state=previous_analysis.previous_issue_state,
-        dry_run=dry_run,
-        issue_persistence=issue_persistence,
-        issue_url=issue_url,
-        file_path=current_analysis.pitfall_file,
-        codemeta_generated=current_analysis.codemeta_generated,
-        codemeta_status=current_analysis.codemeta_status,
+        analysis=RecordAnalysis(
+            analysis_date=current_analysis.analysis_date,
+            bot_version=pitfalls.__version__,
+            rsmetacheck_version=current_analysis.rsmetacheck_version,
+            pitfalls_count=current_analysis.pitfalls_count,
+            warnings_count=current_analysis.warnings_count,
+            pitfalls_ids=current_analysis.pitfalls_ids,
+            warnings_ids=current_analysis.warnings_ids,
+        ),
+        lifecycle=RecordLifecycle(
+            issue_url=issue_url,
+            action=action,
+            reason_code=reason_code,
+            previous_issue_url=previous_analysis.previous_issue_url,
+            previous_issue_state=previous_analysis.previous_issue_state,
+            findings_signature=current_analysis.findings_signature,
+            current_commit_id=current_commit_id,
+            previous_commit_id=previous_analysis.previous_commit_id,
+            dry_run=dry_run,
+            issue_persistence=issue_persistence,
+            codemeta_generated=current_analysis.codemeta_generated,
+            codemeta_status=current_analysis.codemeta_status,
+            file_path=current_analysis.pitfall_file,
+        ),
     )
 
 
@@ -588,27 +599,31 @@ def build_record_entry(
         run_root=run_root,
         repo_url=repo_url,
         platform=platform,
-        pitfalls_count=pitfalls_count,
-        warnings_count=warnings_count,
-        issue_url=issue_url,
-        analysis_date=analysis_date,
-        bot_version=pitfalls.__version__,
-        rsmetacheck_version=rsmetacheck_version,
-        pitfalls_ids=pitfalls_ids,
-        warnings_ids=warnings_ids,
-        action=action,
-        reason_code=reason_code,
-        findings_signature=findings_signature,
-        current_commit_id=current_commit_id,
-        previous_commit_id=previous_commit_id,
-        previous_issue_url=previous_issue_url,
-        previous_issue_state=previous_issue_state,
-        dry_run=dry_run,
-        issue_persistence=issue_persistence,
-        file_path=file_path,
-        codemeta_generated=codemeta_generated,
-        codemeta_status=codemeta_status,
-        error=error,
+        analysis=RecordAnalysis(
+            analysis_date=analysis_date,
+            bot_version=pitfalls.__version__,
+            rsmetacheck_version=rsmetacheck_version,
+            pitfalls_count=pitfalls_count,
+            warnings_count=warnings_count,
+            pitfalls_ids=pitfalls_ids,
+            warnings_ids=warnings_ids,
+        ),
+        lifecycle=RecordLifecycle(
+            issue_url=issue_url,
+            action=action,
+            reason_code=reason_code,
+            previous_issue_url=previous_issue_url,
+            previous_issue_state=previous_issue_state,
+            findings_signature=findings_signature,
+            current_commit_id=current_commit_id,
+            previous_commit_id=previous_commit_id,
+            dry_run=dry_run,
+            issue_persistence=issue_persistence,
+            codemeta_generated=codemeta_generated,
+            codemeta_status=codemeta_status,
+            file_path=file_path,
+            error=error,
+        ),
     )
 
 

@@ -20,7 +20,7 @@ from .config_utils import (
     resolve_snapshot_tag,
     sanitize_repo_name,
 )
-from .reporting import build_record_entry
+from .reporting import RecordAnalysis, RecordLifecycle, build_record_entry
 
 SNAPSHOT_TAG_PATTERN = re.compile(r"^(\d{8})(?:_(\d+))?$")
 SNAPSHOT_INCREMENT_PATTERN = re.compile(r"^(.+?)_(\d+)$")
@@ -227,20 +227,25 @@ def run_pipeline(
                 run_root=run_root,
                 repo_url=repo_url,
                 platform=analysis_runtime.detect_platform_from_repo_url(repo_url),
-                pitfalls_count=0,
-                warnings_count=0,
-                issue_url=None,
-                analysis_date=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                bot_version=pitfalls.__version__,
-                rsmetacheck_version="unknown",
-                pitfalls_ids=[],
-                warnings_ids=[],
-                action="skipped",
-                reason_code="in_opt_out_list",
-                dry_run=dry_run,
-                issue_persistence="none",
-                current_commit_id=current_commit_id,
-                file_path=repo_folder / "pitfall.jsonld",
+                analysis=RecordAnalysis(
+                    analysis_date=datetime.now(timezone.utc).strftime(
+                        "%Y-%m-%dT%H:%M:%SZ"
+                    ),
+                    bot_version=pitfalls.__version__,
+                    rsmetacheck_version="unknown",
+                    pitfalls_count=0,
+                    warnings_count=0,
+                    pitfalls_ids=[],
+                    warnings_ids=[],
+                ),
+                lifecycle=RecordLifecycle(
+                    action="skipped",
+                    reason_code="in_opt_out_list",
+                    current_commit_id=current_commit_id,
+                    dry_run=dry_run,
+                    issue_persistence="none",
+                    file_path=repo_folder / "pitfall.jsonld",
+                ),
             )
         else:
             record = analysis_runtime.create_analysis_record(

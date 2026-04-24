@@ -1,10 +1,46 @@
 """Shared report serialization helpers for all workflow stages."""
 
 import json
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 from . import constants
+
+
+@dataclass(frozen=True)
+class RecordAnalysis:
+    """Core analysis fields persisted for each repository record."""
+
+    analysis_date: str
+    bot_version: str
+    rsmetacheck_version: str
+    pitfalls_count: int | None
+    warnings_count: int | None
+    pitfalls_ids: list[str] | None = None
+    warnings_ids: list[str] | None = None
+
+
+@dataclass(frozen=True)
+class RecordLifecycle:
+    """Optional lifecycle and enrichment fields for repository records."""
+
+    issue_url: str | None = None
+    action: str | None = None
+    reason_code: str | None = None
+    previous_issue_url: str | None = None
+    previous_issue_state: str | None = None
+    findings_signature: str | None = None
+    current_commit_id: str | None = None
+    previous_commit_id: str | None = None
+    unsubscribe_detected: bool | None = None
+    dry_run: bool | None = None
+    issue_persistence: str | None = None
+    simulated_issue_url: str | None = None
+    codemeta_generated: bool | None = None
+    codemeta_status: str | None = None
+    file_path: Path | None = None
+    error: str | None = None
 
 
 def relative_to_run_root(path: Path | None, run_root: Path) -> str | None:
@@ -60,74 +96,55 @@ def build_record_entry(
     run_root: Path,
     repo_url: str | None,
     platform: str | None,
-    pitfalls_count: int | None,
-    warnings_count: int | None,
-    issue_url: str | None,
-    analysis_date: str,
-    bot_version: str,
-    rsmetacheck_version: str,
-    pitfalls_ids: list[str] | None,
-    warnings_ids: list[str] | None,
-    action: str | None = None,
-    reason_code: str | None = None,
-    previous_issue_url: str | None = None,
-    previous_issue_state: str | None = None,
-    findings_signature: str | None = None,
-    current_commit_id: str | None = None,
-    previous_commit_id: str | None = None,
-    unsubscribe_detected: bool | None = None,
-    dry_run: bool | None = None,
-    issue_persistence: str | None = None,
-    simulated_issue_url: str | None = None,
-    codemeta_generated: bool | None = None,
-    codemeta_status: str | None = None,
-    file_path: Path | None = None,
-    error: str | None = None,
+    analysis: RecordAnalysis,
+    lifecycle: RecordLifecycle | None = None,
 ) -> dict[str, object]:
     """Build a report record with optional shared fields."""
+    lifecycle_data = lifecycle if lifecycle is not None else RecordLifecycle()
+
     entry: dict[str, object] = {
         "repo_url": repo_url,
         "platform": platform,
-        "pitfalls_count": pitfalls_count,
-        "warnings_count": warnings_count,
-        "issue_url": issue_url,
-        "analysis_date": analysis_date,
-        "sw_metadata_bot_version": bot_version,
-        "rsmetacheck_version": rsmetacheck_version,
-        "pitfalls_ids": pitfalls_ids or [],
-        "warnings_ids": warnings_ids or [],
+        "pitfalls_count": analysis.pitfalls_count,
+        "warnings_count": analysis.warnings_count,
+        "issue_url": lifecycle_data.issue_url,
+        "analysis_date": analysis.analysis_date,
+        "sw_metadata_bot_version": analysis.bot_version,
+        "rsmetacheck_version": analysis.rsmetacheck_version,
+        "pitfalls_ids": analysis.pitfalls_ids or [],
+        "warnings_ids": analysis.warnings_ids or [],
     }
 
-    if action is not None:
-        entry["action"] = action
-    if reason_code is not None:
-        entry["reason_code"] = reason_code
-    if previous_issue_url is not None:
-        entry["previous_issue_url"] = previous_issue_url
-    if previous_issue_state is not None:
-        entry["previous_issue_state"] = previous_issue_state
-    if findings_signature is not None:
-        entry["findings_signature"] = findings_signature
-    if current_commit_id is not None:
-        entry["current_commit_id"] = current_commit_id
-    if previous_commit_id is not None:
-        entry["previous_commit_id"] = previous_commit_id
-    if unsubscribe_detected is not None:
-        entry["unsubscribe_detected"] = unsubscribe_detected
-    if dry_run is not None:
-        entry["dry_run"] = dry_run
-    if issue_persistence is not None:
-        entry["issue_persistence"] = issue_persistence
-    if simulated_issue_url is not None:
-        entry["simulated_issue_url"] = simulated_issue_url
-    if codemeta_generated is not None:
-        entry["codemeta_generated"] = codemeta_generated
-    if codemeta_status is not None:
-        entry["codemeta_status"] = codemeta_status
-    if file_path is not None:
-        entry["file"] = relative_to_run_root(file_path, run_root)
-    if error is not None:
-        entry["error"] = error
+    if lifecycle_data.action is not None:
+        entry["action"] = lifecycle_data.action
+    if lifecycle_data.reason_code is not None:
+        entry["reason_code"] = lifecycle_data.reason_code
+    if lifecycle_data.previous_issue_url is not None:
+        entry["previous_issue_url"] = lifecycle_data.previous_issue_url
+    if lifecycle_data.previous_issue_state is not None:
+        entry["previous_issue_state"] = lifecycle_data.previous_issue_state
+    if lifecycle_data.findings_signature is not None:
+        entry["findings_signature"] = lifecycle_data.findings_signature
+    if lifecycle_data.current_commit_id is not None:
+        entry["current_commit_id"] = lifecycle_data.current_commit_id
+    if lifecycle_data.previous_commit_id is not None:
+        entry["previous_commit_id"] = lifecycle_data.previous_commit_id
+    if lifecycle_data.unsubscribe_detected is not None:
+        entry["unsubscribe_detected"] = lifecycle_data.unsubscribe_detected
+    if lifecycle_data.dry_run is not None:
+        entry["dry_run"] = lifecycle_data.dry_run
+    if lifecycle_data.issue_persistence is not None:
+        entry["issue_persistence"] = lifecycle_data.issue_persistence
+    if lifecycle_data.simulated_issue_url is not None:
+        entry["simulated_issue_url"] = lifecycle_data.simulated_issue_url
+    if lifecycle_data.codemeta_generated is not None:
+        entry["codemeta_generated"] = lifecycle_data.codemeta_generated
+    if lifecycle_data.codemeta_status is not None:
+        entry["codemeta_status"] = lifecycle_data.codemeta_status
+    if lifecycle_data.file_path is not None:
+        entry["file"] = relative_to_run_root(lifecycle_data.file_path, run_root)
+    if lifecycle_data.error is not None:
+        entry["error"] = lifecycle_data.error
 
     return entry
 
