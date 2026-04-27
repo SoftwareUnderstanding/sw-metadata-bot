@@ -1,17 +1,12 @@
 """Utility function to update version in all relevant files in the current package"""
 
+import argparse
 import json
 import re
 from datetime import date
-from importlib import import_module
 from pathlib import Path
 
-try:
-    tomllib = import_module("tomllib")
-except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback for doc builds
-    tomllib = import_module("tomli")
-
-import argparse
+import tomllib
 
 
 def get_project_root() -> Path:
