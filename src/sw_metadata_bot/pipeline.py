@@ -7,7 +7,7 @@ from pathlib import Path
 
 import click
 
-from . import analysis_runtime, commit_lookup, pitfalls
+from . import __version__, analysis_runtime, commit_lookup, constants
 from .config_utils import (
     copy_config_to_analysis_root,
     get_custom_message,
@@ -83,12 +83,11 @@ def _find_latest_previous_snapshot_root(
             continue
 
         has_new_layout = any(
-            candidate.is_dir() and (candidate / "report.json").exists()
+            candidate.is_dir() and (candidate / constants.FILENAME_REPORT).exists()
             for candidate in child.iterdir()
         )
-        has_old_layout = (child / "issues_out" / "report.json").exists()
-        has_run_report = (child / "run_report.json").exists()
-        if has_new_layout or has_old_layout or has_run_report:
+        has_run_report = (child / constants.FILENAME_RUN_REPORT).exists()
+        if has_new_layout or has_run_report:
             candidates.append((key, child))
 
     if not candidates:
@@ -112,13 +111,9 @@ def find_latest_previous_report(
     if snapshot_root is None:
         return None
 
-    run_report = snapshot_root / "run_report.json"
+    run_report = snapshot_root / constants.FILENAME_RUN_REPORT
     if run_report.exists():
         return run_report
-
-    legacy_report = snapshot_root / "issues_out" / "report.json"
-    if legacy_report.exists():
-        return legacy_report
 
     return None
 
@@ -127,12 +122,6 @@ def _snapshot_root_from_report_path(report_path: Path | None) -> Path | None:
     """Resolve snapshot root directory from a report file path."""
     if report_path is None:
         return None
-    if report_path.name == "run_report.json":
-        return report_path.parent
-    if report_path.name == "report.json" and report_path.parent.name == "issues_out":
-        return report_path.parent.parent
-    if report_path.name == "report.json":
-        return report_path.parent.parent
     return report_path.parent
 
 
@@ -161,7 +150,7 @@ def run_pipeline(
     analysis_root = (
         run_root / resolved_snapshot_tag if resolved_snapshot_tag else run_root
     )
-    analysis_output_file = analysis_root / "analysis_results.json"
+    analysis_output_file = analysis_root / constants.FILENAME_ANALYSIS_RESULTS
 
     copy_config_to_analysis_root(config_file, analysis_root)
     analysis_root.mkdir(parents=True, exist_ok=True)
@@ -231,7 +220,7 @@ def run_pipeline(
                     analysis_date=datetime.now(timezone.utc).strftime(
                         "%Y-%m-%dT%H:%M:%SZ"
                     ),
-                    bot_version=pitfalls.__version__,
+                    bot_version=__version__,
                     rsmetacheck_version="unknown",
                     pitfalls_count=0,
                     warnings_count=0,
@@ -287,7 +276,7 @@ def run_pipeline(
         analysis_summary_file=analysis_output_file,
         previous_report=resolved_previous_report,
     )
-    run_report_file = analysis_root / "run_report.json"
+    run_report_file = analysis_root / constants.FILENAME_RUN_REPORT
     with open(run_report_file, "w", encoding="utf-8") as f:
         json.dump(run_report, f, indent=2)
 

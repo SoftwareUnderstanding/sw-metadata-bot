@@ -7,7 +7,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
 
-from . import constants, history, incremental, pitfalls, utils
+from . import __version__, constants, history, incremental, pitfalls, utils
 from .check_parsing import extract_check_ids
 from .codemeta_runtime import evaluate_and_persist_codemeta_status, load_codemeta_status
 from .config_utils import detect_platform, normalize_repo_url, sanitize_repo_name
@@ -218,7 +218,7 @@ def _build_decision_record(
         platform=platform,
         analysis=RecordAnalysis(
             analysis_date=current_analysis.analysis_date,
-            bot_version=pitfalls.__version__,
+            bot_version=__version__,
             rsmetacheck_version=current_analysis.rsmetacheck_version,
             pitfalls_count=current_analysis.pitfalls_count,
             warnings_count=current_analysis.warnings_count,
@@ -263,12 +263,12 @@ def resolve_per_repo_paths(analysis_root: Path, repo_url: str) -> dict[str, Path
 
     return {
         "repo_folder": repo_folder,
-        "somef_output": repo_folder / "somef_output.json",
-        "pitfall_output": repo_folder / "pitfall.jsonld",
-        "issue_report": repo_folder / "issue_report.md",
-        "codemeta_status": repo_folder / "codemeta_status.json",
-        "codemeta_generated": repo_folder / "codemeta_generated.json",
-        "report": repo_folder / "report.json",
+        "somef_output": repo_folder / constants.FILENAME_SOMEF_OUTPUT,
+        "pitfall_output": repo_folder / constants.FILENAME_PITFALL,
+        "issue_report": repo_folder / constants.FILENAME_ISSUE_REPORT,
+        "codemeta_status": repo_folder / constants.FILENAME_CODEMETA_STATUS,
+        "codemeta_generated": repo_folder / constants.FILENAME_CODEMETA_GENERATED,
+        "report": repo_folder / constants.FILENAME_REPORT,
     }
 
 
@@ -278,12 +278,12 @@ def copy_previous_repo_artifacts(
     """Copy previous snapshot repository artifacts into current snapshot folder."""
     current_repo_folder.mkdir(parents=True, exist_ok=True)
     for name in (
-        "somef_output.json",
-        "pitfall.jsonld",
-        "issue_report.md",
-        "codemeta_status.json",
-        "codemeta_generated.json",
-        "report.json",
+        constants.FILENAME_SOMEF_OUTPUT,
+        constants.FILENAME_PITFALL,
+        constants.FILENAME_ISSUE_REPORT,
+        constants.FILENAME_CODEMETA_STATUS,
+        constants.FILENAME_CODEMETA_GENERATED,
+        constants.FILENAME_REPORT,
     ):
         src = previous_repo_folder / name
         if src.exists():
@@ -298,7 +298,7 @@ def load_previous_repo_record(
         return None
 
     repo_folder = previous_snapshot_root / sanitize_repo_name(repo_url)
-    report_path = repo_folder / "report.json"
+    report_path = repo_folder / constants.FILENAME_REPORT
     try:
         data = utils.load_json_file(
             report_path, required=False, description="previous report"
@@ -311,7 +311,7 @@ def load_previous_repo_record(
     except (ValueError, json.JSONDecodeError):
         pass
 
-    run_report = previous_snapshot_root / "run_report.json"
+    run_report = previous_snapshot_root / constants.FILENAME_RUN_REPORT
     try:
         data = utils.load_json_file(
             run_report, required=False, description="previous run report"
@@ -602,7 +602,7 @@ def build_record_entry(
         platform=platform,
         analysis=RecordAnalysis(
             analysis_date=analysis_date,
-            bot_version=pitfalls.__version__,
+            bot_version=__version__,
             rsmetacheck_version=rsmetacheck_version,
             pitfalls_count=pitfalls_count,
             warnings_count=warnings_count,
@@ -639,7 +639,7 @@ def write_analysis_repo_report(
 ) -> None:
     """Write per-repository analysis report using analysis-stage counters."""
     write_report_file(
-        report_file=repo_folder / "report.json",
+        report_file=repo_folder / constants.FILENAME_REPORT,
         records=[record],
         dry_run=dry_run,
         run_root=run_root,

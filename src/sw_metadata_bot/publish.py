@@ -142,7 +142,7 @@ def _load_publish_body(analysis_root: Path, repo_url: str) -> str:
         )
 
     data = pitfalls.load_pitfalls(pitfall_file)
-    config_file = analysis_root / "config.json"
+    config_file = analysis_root / constants.FILENAME_CONFIG_SNAPSHOT
     custom_message = None
     if config_file.exists():
         custom_message = get_custom_message(load_config(config_file))
@@ -176,7 +176,9 @@ def _write_per_repo_report(
         return
 
     write_report_file(
-        report_file=analysis_root / sanitize_repo_name(repo_url) / "report.json",
+        report_file=analysis_root
+        / sanitize_repo_name(repo_url)
+        / constants.FILENAME_REPORT,
         records=[record],
         dry_run=False,
         run_root=analysis_root.parent,
@@ -187,7 +189,7 @@ def _write_per_repo_report(
 
 def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
     """Publish issues from an existing analysis snapshot without re-running analysis."""
-    run_report_file = analysis_root / "run_report.json"
+    run_report_file = analysis_root / constants.FILENAME_RUN_REPORT
     try:
         run_report = utils.load_json_file(
             run_report_file, required=True, description="run report"

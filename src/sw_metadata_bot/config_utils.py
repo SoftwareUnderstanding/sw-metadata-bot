@@ -6,6 +6,8 @@ from pathlib import Path
 
 import click
 
+from . import constants
+
 DEFAULT_OUTPUT_ROOT = Path("outputs")
 DEFAULT_SNAPSHOT_TAG_FORMAT = "%Y%m%d"
 PROJECT_ROOT_MARKERS = ("pyproject.toml", ".git")
@@ -251,7 +253,7 @@ def copy_config_to_analysis_root(config_path: Path, analysis_root: Path) -> None
     analysis_root.mkdir(parents=True, exist_ok=True)
 
     # Copy config to config.json in analysis root
-    dest_path = analysis_root / "config.json"
+    dest_path = analysis_root / constants.FILENAME_CONFIG_SNAPSHOT
 
     with open(config_path, "r", encoding="utf-8") as src:
         content = json.load(src)
