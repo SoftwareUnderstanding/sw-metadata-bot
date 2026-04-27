@@ -18,5 +18,5 @@ uv sync
 NEW_VERSION=$(uv run python -c "from importlib.metadata import version; print(version('sw-metadata-bot'))")
 echo "Updated version to $NEW_VERSION"  
 # commit the changes
-git add pyproject.toml codemeta.json uv.lock
+git add pyproject.toml codemeta.json uv.lock README.md
 git commit -m "Update version to $NEW_VERSION"
