@@ -1,22 +1,35 @@
 #!/bin/sh
+# Before running this script, please use `uv version --bump <part>` to bump the version, which will automatically update the version in pyproject.toml and uv.lock.
 
-# This script updates the version
-# Usage: ./update_version_package.sh patch|minor|major
-# return error if no argument is provided
-if [ -z "$1" ]; then
-  echo "Error: No version type provided. Please specify 'patch', 'minor', or 'major'."
-  exit 1
-fi
+# This script aims to replace the version in metadata files with the version from uv. 
+# It also updates the dateModified field in codemeta.json and the version badge in README.md. 
+# Finally, it commits the changes to git.
 
-# update files
-uv run python tools/release/update_version_package.py $1
+## Currently handles:
+# - codemeta.json: updates the version and dateModified fields
+# - README.md: updates the version badge
+
+NEW_VERSION=$(uv version | cut -d' ' -f2)
+TODAY=$(date +%Y-%m-%d)
+
+# Update codemeta.json
+uv run python -c "
+import json
+with open('codemeta.json', 'r') as f:
+    data = json.load(f)
+data['version'] = '$NEW_VERSION'
+data['dateModified'] = '$TODAY'
+with open('codemeta.json', 'w') as f:
+    json.dump(data, f, indent=2)
+"
+
+# Update README.md
+sed -i "s|badge/version-[^)]*-|badge/version-$NEW_VERSION-|g" README.md
 
 # update the uv.lock file
 uv sync
 
-# retrieve new version
-NEW_VERSION=$(uv run python -c "from importlib.metadata import version; print(version('sw-metadata-bot'))")
 echo "Updated version to $NEW_VERSION"  
 # commit the changes
 git add pyproject.toml codemeta.json uv.lock README.md
-git commit -m "Update version to $NEW_VERSION"
+git commit -m "Bump version to $NEW_VERSION"
