@@ -25,7 +25,13 @@
   "keywords": ["codemeta", "bot", "software", "metadata"],
   "license": "https://spdx.org/licenses/MIT",
   "name": "sw-metadata-bot",
-  "programmingLanguage": "Python 3",
+  "programmingLanguage": [
+    {
+      "@type": "ComputerLanguage",
+      "name": "Python",
+      "version": "3"
+    }
+  ],
   "runtimePlatform": "Python 3.11, Python 3.12",
   "releaseNotes": "## What's Changed\n* Fix beta test feedbacks by @francoto in https://github.com/SoftwareUnderstanding/sw-metadata-bot/pull/7\n\n\n**Full Changelog**: https://github.com/SoftwareUnderstanding/sw-metadata-bot/compare/v0.1.0...v0.1.1",
   "softwareRequirements": [
