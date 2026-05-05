@@ -160,6 +160,49 @@ def test_publish_updated_by_comment_posts_comment(tmp_path, monkeypatch):
     assert record.get("dry_run") is False
 
 
+def test_publish_closed_issue_opens_new_issue_instead_of_comment(tmp_path, monkeypatch):
+    """publish creates a new issue when the previous issue is already closed."""
+    snapshot_dir = tmp_path / "snapshot"
+    snapshot_dir.mkdir()
+    repo_url = "https://github.com/example/repo"
+    issue_url = f"{repo_url}/issues/5"
+
+    _write_run_report(
+        snapshot_dir,
+        records=[
+            {
+                "repo_url": repo_url,
+                "action": "updated_by_comment",
+                "platform": "github",
+                "issue_url": issue_url,
+                "dry_run": True,
+                "issue_persistence": "simulated",
+            }
+        ],
+    )
+    _write_issue_report(snapshot_dir, repo_url)
+
+    class _ClosedIssueClient(_FakeIssueClient):
+        def get_issue(self, issue_url: str) -> dict:
+            return {"state": "closed"}
+
+    fake = _ClosedIssueClient()
+    _patch_clients(monkeypatch, fake)
+
+    runner = CliRunner()
+    result = runner.invoke(publish_command, ["--analysis-root", str(snapshot_dir)])
+
+    assert result.exit_code == 0, result.output
+    assert len(fake.created) == 1
+    assert not fake.commented
+
+    report = json.loads((snapshot_dir / "run_report.json").read_text())
+    record = report["records"][0]
+    assert record["action"] == "created"
+    assert record["issue_persistence"] == "posted"
+    assert record.get("dry_run") is False
+
+
 def test_publish_closed_closes_issue(tmp_path, monkeypatch):
     """publish closes the issue for closed records."""
     snapshot_dir = tmp_path / "snapshot"

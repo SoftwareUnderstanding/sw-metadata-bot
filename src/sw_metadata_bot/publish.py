@@ -164,6 +164,17 @@ def _issue_url_for_publish(record: dict[str, object]) -> str | None:
     return None
 
 
+def _issue_is_closed(issue_data: dict[str, object] | None) -> bool:
+    """Return True when issue data indicates the issue is already closed."""
+    if not isinstance(issue_data, dict):
+        return False
+    state_value = issue_data.get("state")
+    return isinstance(state_value, str) and state_value.strip().lower() in {
+        "closed",
+        "close",
+    }
+
+
 def _write_per_repo_report(
     analysis_root: Path,
     record: dict[str, object],
@@ -318,6 +329,16 @@ def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
                         previous_report,
                     )
                     continue
+
+                issue_data = issue_client.get_issue(issue_url)
+                if action == constants.ACTION_UPDATED_BY_COMMENT and _issue_is_closed(
+                    issue_data
+                ):
+                    record["action"] = constants.ACTION_SIMULATED_CREATED
+                    record["reason_code"] = "changed_and_issue_closed"
+                    record["previous_issue_url"] = issue_url
+                    record.pop("issue_url", None)
+                    action = constants.ACTION_SIMULATED_CREATED
 
             if action == constants.ACTION_SIMULATED_CREATED:
                 body = _load_publish_body(analysis_root, repo_url)
