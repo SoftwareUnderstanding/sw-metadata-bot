@@ -387,6 +387,7 @@ def test_run_analysis_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
             "2026-03",
             "--previous-report",
             str(config),
+            "--force-analysis",
         ],
     )
 
@@ -396,6 +397,7 @@ def test_run_analysis_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
         "dry_run": True,
         "snapshot_tag": "2026-03",
         "previous_report": config,
+        "force_analysis": True,
     }
 
 
@@ -1016,3 +1018,85 @@ def test_run_pipeline_unchanged_repo_does_not_update_opt_out(monkeypatch, tmp_pa
 
     updated_config = json.loads(config.read_text())
     assert updated_config["issues"]["opt_outs"] == []
+
+
+def test_run_pipeline_force_analysis_reruns_metacheck_when_commit_unchanged(
+    monkeypatch, tmp_path
+):
+    """Force-analysis mode bypasses artifact reuse for unchanged repositories."""
+    called = {"rsmetacheck": False}
+
+    def fake_run_rsmetacheck(**kwargs):
+        called["rsmetacheck"] = True
+
+    monkeypatch.setattr(analysis_runtime, "run_rsmetacheck", fake_run_rsmetacheck)
+    monkeypatch.setattr(
+        commit_lookup, "get_repo_head_commit", lambda repo_url: "abc123"
+    )
+
+    output_root = tmp_path / "outputs"
+    config = _write_config(
+        tmp_path,
+        repositories=["https://github.com/example/repo"],
+        outputs={
+            "root_dir": str(output_root),
+            "run_name": "batch-a",
+            "snapshot_tag_format": None,
+        },
+    )
+
+    prev_root = output_root / "batch-a" / "20260310"
+    prev_repo = prev_root / "github_com_example_repo"
+    prev_repo.mkdir(parents=True)
+    (prev_repo / "somef_output.json").write_text("{}")
+    (prev_repo / "pitfall.jsonld").write_text(
+        json.dumps(
+            {
+                "assessedSoftware": {"url": "https://github.com/example/repo"},
+                "checks": [],
+            }
+        )
+    )
+    (prev_repo / "report.json").write_text(
+        json.dumps(
+            {
+                "records": [
+                    {
+                        "repo_url": "https://github.com/example/repo",
+                        "issue_url": "https://github.com/example/repo/issues/7",
+                        "issue_persistence": "posted",
+                        "current_commit_id": "abc123",
+                    }
+                ]
+            }
+        )
+    )
+    (prev_root / "run_report.json").write_text(
+        json.dumps(
+            {
+                "records": [
+                    {
+                        "repo_url": "https://github.com/example/repo",
+                        "current_commit_id": "abc123",
+                    }
+                ]
+            }
+        )
+    )
+
+    pipeline.run_pipeline(
+        config_file=config,
+        dry_run=True,
+        snapshot_tag="20260311",
+        previous_report=None,
+        force_analysis=True,
+    )
+
+    assert called["rsmetacheck"] is True
+
+    report_path = (
+        output_root / "batch-a" / "20260311" / "github_com_example_repo" / "report.json"
+    )
+    assert report_path.exists()
+    report = json.loads(report_path.read_text())
+    assert report["records"][0]["reason_code"] != "repo_not_updated"
