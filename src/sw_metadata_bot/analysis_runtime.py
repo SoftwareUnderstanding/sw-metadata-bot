@@ -119,6 +119,7 @@ def _load_current_analysis_context(
 def _load_previous_analysis_context(
     previous_record: dict[str, object] | None,
     current_commit_id: str | None,
+    force_analysis: bool = False,
 ) -> PreviousAnalysisContext:
     """Load previous-analysis state used by the incremental decision tree."""
     if previous_record is None:
@@ -170,7 +171,7 @@ def _load_previous_analysis_context(
     )
 
     repo_updated = True
-    if (
+    if not force_analysis and (
         previous_commit_id
         and current_commit_id
         and previous_commit_id != "Unknown"
@@ -657,6 +658,7 @@ def create_analysis_record(
     current_commit_id: str | None,
     dry_run: bool,
     custom_message: str | None,
+    force_analysis: bool = False,
 ) -> dict[str, object]:
     """Create a decision record for a repository without platform API calls."""
     pitfall_file = repo_folder / constants.FILENAME_PITFALL
@@ -703,7 +705,9 @@ def create_analysis_record(
 
         platform = detect_repo_platform(repo_url)
         previous_analysis = _load_previous_analysis_context(
-            previous_record, current_commit_id
+            previous_record,
+            current_commit_id,
+            force_analysis=force_analysis,
         )
 
         decision = incremental.evaluate(

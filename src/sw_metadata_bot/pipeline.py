@@ -130,8 +130,13 @@ def run_pipeline(
     dry_run: bool,
     snapshot_tag: str | None,
     previous_report: Path | None,
+    force_analysis: bool = False,
 ) -> None:
-    """Run analysis and write issue decision records without API side effects."""
+    """Run analysis and write issue decision records without API side effects.
+
+    When force_analysis is True, the pipeline will bypass artifact reuse for
+    unchanged repositories and treat them as if the repository was updated.
+    """
     config = load_config(config_file)
     repositories = get_repositories(config)
     custom_message = get_custom_message(config)
@@ -187,7 +192,7 @@ def run_pipeline(
             current_commit_id = None
 
         reused_previous = False
-        if (
+        if not force_analysis and (
             previous_snapshot_root is not None
             and previous_record is not None
             and previous_commit_id
@@ -245,6 +250,7 @@ def run_pipeline(
                 current_commit_id=current_commit_id,
                 dry_run=dry_run,
                 custom_message=custom_message,
+                force_analysis=force_analysis,
             )
 
         analysis_runtime.write_analysis_repo_report(
@@ -300,10 +306,17 @@ def run_pipeline(
     default=None,
     help="Previous run_report.json used for incremental issue handling.",
 )
+@click.option(
+    "--force-analysis",
+    is_flag=True,
+    default=False,
+    help="Force analysis even when the repository commit id is unchanged.",
+)
 def run_analysis_command(
     config_file: Path,
     snapshot_tag: str | None,
     previous_report: Path | None,
+    force_analysis: bool,
 ) -> None:
     """Run analysis and compute issue lifecycle decisions in dry-run mode."""
     run_pipeline(
@@ -311,4 +324,5 @@ def run_analysis_command(
         dry_run=True,
         snapshot_tag=snapshot_tag,
         previous_report=previous_report,
+        force_analysis=force_analysis,
     )
