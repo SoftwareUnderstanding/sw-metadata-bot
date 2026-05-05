@@ -1,6 +1,13 @@
 #!/bin/sh
 # Before running this script, please use `uv version --bump <part>` to bump the version, which will automatically update the version in pyproject.toml and uv.lock.
 
+# usecases:
+# - new dev for a patch: `uv version --bump patch --bump dev`
+# - set tag to stable (remove dev suffix): `uv version --bump stable`
+# - new patch for a stable release: `uv version --bump patch`
+# - new minor release: `uv version --bump minor`
+# - new major release: `uv version --bump major`
+
 # This script aims to replace the version in metadata files with the version from uv. 
 # It also updates the dateModified field in codemeta.json and the version badge in README.md. 
 # Finally, it commits the changes to git.
