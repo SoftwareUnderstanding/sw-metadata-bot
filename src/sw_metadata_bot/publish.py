@@ -9,6 +9,7 @@ import click
 
 from . import constants, github_api, gitlab_api, pitfalls, utils
 from .config_utils import (
+    append_opt_out_repository,
     detect_platform,
     get_custom_message,
     load_config,
@@ -312,6 +313,12 @@ def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
                     _is_unsubscribe_comment(comment) for comment in comments
                 )
                 if unsubscribe_detected:
+                    # update config of analysis snapshot
+                    config_file = analysis_root / constants.FILENAME_CONFIG_SNAPSHOT
+                    append_opt_out_repository(config_file, repo_url)
+                    # also update the input config file ?
+
+                    # skip publish
                     record["action"] = constants.ACTION_SKIPPED
                     record["reason_code"] = constants.REASON_CODE_UNSUBSCRIBE
                     record["unsubscribe_detected"] = True
