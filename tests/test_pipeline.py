@@ -1,6 +1,7 @@
 """Tests for pipeline module."""
 
 import json
+import os
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -384,6 +385,49 @@ def test_run_pipeline_persists_input_config_file_in_run_metadata(monkeypatch, tm
         snapshot_tag="202603",
         previous_report=None,
     )
+
+    run_report_path = output_root / "batch-a" / "202603" / "run_report.json"
+    assert run_report_path.exists()
+    run_report = json.loads(run_report_path.read_text())
+    assert run_report["run_metadata"]["input_config_file"] == str(config)
+
+
+def test_run_pipeline_persists_relative_input_config_file_in_run_metadata(
+    monkeypatch, tmp_path
+):
+    """Persist a relative input config file path as an absolute path in run report metadata."""
+
+    def fake_run_rsmetacheck(**kwargs):
+        return None
+
+    monkeypatch.setattr(analysis_runtime, "run_rsmetacheck", fake_run_rsmetacheck)
+
+    output_root = tmp_path / "outputs"
+    config = _write_config(
+        tmp_path,
+        repositories=[],
+        outputs={
+            "root_dir": str(output_root),
+            "run_name": "batch-a",
+            "snapshot_tag_format": "202603",
+        },
+    )
+
+    cwd = Path.cwd()
+    try:
+        # Run from a different current working directory to simulate CLI usage.
+        Path(tmp_path / "cwd").mkdir()
+        os.chdir(tmp_path / "cwd")
+        relative_config = Path(os.path.relpath(config, start=Path.cwd()))
+
+        pipeline.run_pipeline(
+            config_file=relative_config,
+            dry_run=True,
+            snapshot_tag="202603",
+            previous_report=None,
+        )
+    finally:
+        os.chdir(cwd)
 
     run_report_path = output_root / "batch-a" / "202603" / "run_report.json"
     assert run_report_path.exists()

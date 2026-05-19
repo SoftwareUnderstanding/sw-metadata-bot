@@ -397,6 +397,52 @@ def test_publish_unsubscribe_persists_opt_out_to_input_config(tmp_path, monkeypa
     assert original_data["issues"]["opt_outs"] == [repo_url]
 
 
+def test_simulate_publish_command_updates_opt_out_with_fake_unsubscribe(tmp_path):
+    """simulate-publish can use a fake unsubscribe comment and update config files."""
+    snapshot_dir = tmp_path / "snapshot"
+    snapshot_dir.mkdir()
+    repo_url = "https://github.com/example/repo"
+    issue_url = f"{repo_url}/issues/3"
+    original_config = tmp_path / "config.json"
+
+    original_config.write_text(
+        json.dumps({"repositories": [repo_url]}), encoding="utf-8"
+    )
+    (snapshot_dir / "config.json").write_text(
+        json.dumps({"repositories": [repo_url]}), encoding="utf-8"
+    )
+
+    _write_run_report(
+        snapshot_dir,
+        records=[
+            {
+                "repo_url": repo_url,
+                "action": "updated_by_comment",
+                "platform": "github",
+                "issue_url": issue_url,
+                "dry_run": True,
+                "issue_persistence": "simulated",
+            }
+        ],
+        run_metadata={"input_config_file": str(original_config)},
+    )
+    _write_issue_report(snapshot_dir, repo_url)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        publish_module.simulate_publish_command,
+        ["--analysis-root", str(snapshot_dir), "--unsubscribe"],
+    )
+
+    assert result.exit_code == 0, result.output
+
+    snapshot_data = json.loads((snapshot_dir / "config.json").read_text())
+    original_data = json.loads(original_config.read_text())
+
+    assert snapshot_data["issues"]["opt_outs"] == [repo_url]
+    assert original_data["issues"]["opt_outs"] == [repo_url]
+
+
 def test_publish_api_error_marks_record_as_failed(tmp_path, monkeypatch):
     """publish catches API errors and records them as failed with error message."""
     snapshot_dir = tmp_path / "snapshot"

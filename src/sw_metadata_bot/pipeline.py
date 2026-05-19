@@ -137,6 +137,9 @@ def run_pipeline(
     When force_analysis is True, the pipeline will bypass artifact reuse for
     unchanged repositories and treat them as if the repository was updated.
     """
+    # Ensure the provided config path is absolute and resolvable so we can
+    # persist a resolvable `input_config_file` in run metadata.
+    config_file = config_file.resolve()
     config = load_config(config_file)
     repositories = get_repositories(config)
     custom_message = get_custom_message(config)

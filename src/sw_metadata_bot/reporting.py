@@ -46,18 +46,20 @@ class RecordLifecycle:
 def relative_to_run_root(path: Path | None, run_root: Path) -> str | None:
     """Return a run-root-relative path string.
 
-    Accepts both absolute and already-relative input paths. Absolute paths are
-    converted to a relative path when they are inside run_root; otherwise the
-    absolute path string is preserved.
+    Accepts both absolute and relative input paths.
+    Relative paths are resolved against the current working directory before
+    comparing against run_root.
     """
     if path is None:
         return None
-    if path.is_absolute():
-        try:
-            return str(path.relative_to(run_root))
-        except ValueError:
-            return str(path)
-    return str(path)
+
+    if not path.is_absolute():
+        path = path.resolve()
+
+    try:
+        return str(path.relative_to(run_root))
+    except ValueError:
+        return str(path)
 
 
 def build_counters(records: list[dict[str, object]]) -> dict[str, int]:

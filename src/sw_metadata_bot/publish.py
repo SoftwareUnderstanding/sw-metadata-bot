@@ -20,6 +20,32 @@ from .reporting import build_counters, write_report_file
 MAX_PUBLISH_RETRY_ATTEMPTS = 3
 
 
+class FakeIssueClient:
+    """Issue client used only for local publish simulation."""
+
+    def __init__(self, comments_for=None):
+        self._comments_for = comments_for or (lambda url: [])
+        self.created: list[tuple[str, str, str]] = []
+        self.commented: list[str] = []
+        self.closed: list[str] = []
+
+    def create_issue(self, repo_url: str, title: str, body: str) -> str:
+        self.created.append((repo_url, title, body))
+        return f"{repo_url}/issues/99"
+
+    def get_issue(self, issue_url: str) -> dict[str, object]:
+        return {"state": "open"}
+
+    def get_issue_comments(self, issue_url: str) -> list[str]:
+        return self._comments_for(issue_url)
+
+    def add_issue_comment(self, issue_url: str, body: str) -> None:
+        self.commented.append(issue_url)
+
+    def close_issue(self, issue_url: str) -> None:
+        self.closed.append(issue_url)
+
+
 def _is_unsubscribe_comment(comment: str) -> bool:
     """Return True when a comment is exactly the unsubscribe keyword."""
     return comment.strip().lower() == "unsubscribe"
@@ -199,7 +225,12 @@ def _write_per_repo_report(
     )
 
 
-def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
+def publish_analysis(
+    analysis_root: Path,
+    retry_failed: bool = False,
+    github_client: github_api.GitHubAPI | None = None,
+    gitlab_client: gitlab_api.GitLabAPI | None = None,
+) -> None:
     """Publish issues from an existing analysis snapshot without re-running analysis."""
     run_report_file = analysis_root / constants.FILENAME_RUN_REPORT
     try:
@@ -235,21 +266,21 @@ def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
             f"Invalid run_report.json format in {run_report_file}: records must be a list"
         )
 
-    github_client: github_api.GitHubAPI | None = None
-    gitlab_client: gitlab_api.GitLabAPI | None = None
+    github_client_instance = github_client
+    gitlab_client_instance = gitlab_client
 
     def issue_client_for_platform(platform: str):
         """Return lazily initialized issue client for the requested platform."""
-        nonlocal github_client, gitlab_client
+        nonlocal github_client_instance, gitlab_client_instance
         if platform == "github":
-            if github_client is None:
-                github_client = github_api.GitHubAPI(dry_run=False)
-            return github_client
+            if github_client_instance is None:
+                github_client_instance = github_api.GitHubAPI(dry_run=False)
+            return github_client_instance
 
         if platform in {"gitlab", "gitlab.com"}:
-            if gitlab_client is None:
-                gitlab_client = gitlab_api.GitLabAPI(dry_run=False)
-            return gitlab_client
+            if gitlab_client_instance is None:
+                gitlab_client_instance = gitlab_api.GitLabAPI(dry_run=False)
+            return gitlab_client_instance
 
         raise click.ClickException(f"Unsupported platform for publish: {platform}")
 
@@ -490,3 +521,48 @@ def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
 def publish_command(analysis_root: Path, retry_failed: bool) -> None:
     """Publish issues using precomputed decisions from an analysis snapshot."""
     publish_analysis(analysis_root, retry_failed=retry_failed)
+
+
+@click.command()
+@click.option(
+    "--analysis-root",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
+    required=True,
+    help="Existing analysis snapshot folder containing run_report.json.",
+)
+@click.option(
+    "--retry-failed",
+    is_flag=True,
+    default=False,
+    help="Retry records previously marked as failed when they are eligible for retry.",
+)
+@click.option(
+    "--unsubscribe",
+    is_flag=True,
+    default=False,
+    help="Simulate an unsubscribe comment on all issue comment checks.",
+)
+@click.option(
+    "--fake-comment",
+    multiple=True,
+    help="Fake issue comment text returned for all issue URLs. Can be repeated.",
+)
+def simulate_publish_command(
+    analysis_root: Path,
+    retry_failed: bool,
+    unsubscribe: bool,
+    fake_comment: tuple[str, ...],
+) -> None:
+    """Simulate publish using a local fake issue client without external API access."""
+    fake_comments = []
+    if unsubscribe:
+        fake_comments.append("unsubscribe")
+    fake_comments.extend(fake_comment)
+
+    fake_client = FakeIssueClient(comments_for=lambda url: list(fake_comments))
+    publish_analysis(
+        analysis_root,
+        retry_failed=retry_failed,
+        github_client=fake_client,
+        gitlab_client=fake_client,
+    )
