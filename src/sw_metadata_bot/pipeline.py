@@ -281,6 +281,7 @@ def run_pipeline(
         run_root=run_root,
         analysis_summary_file=analysis_output_file,
         previous_report=resolved_previous_report,
+        input_config_file=config_file,
     )
     run_report_file = analysis_root / constants.FILENAME_RUN_REPORT
     with open(run_report_file, "w", encoding="utf-8") as f:

@@ -313,10 +313,19 @@ def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
                     _is_unsubscribe_comment(comment) for comment in comments
                 )
                 if unsubscribe_detected:
-                    # update config of analysis snapshot
+                    # update config of analysis snapshot when present
                     config_file = analysis_root / constants.FILENAME_CONFIG_SNAPSHOT
-                    append_opt_out_repository(config_file, repo_url)
-                    # also update the input config file ?
+                    if config_file.exists():
+                        append_opt_out_repository(config_file, repo_url)
+
+                    # also update the original input config file when available
+                    input_config_value = run_metadata.get("input_config_file")
+                    if isinstance(input_config_value, str):
+                        input_config_path = Path(input_config_value)
+                        if not input_config_path.is_absolute():
+                            input_config_path = analysis_root.parent / input_config_path
+                        if input_config_path.exists():
+                            append_opt_out_repository(input_config_path, repo_url)
 
                     # skip publish
                     record["action"] = constants.ACTION_SKIPPED

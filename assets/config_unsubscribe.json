@@ -1,0 +1,15 @@
+{
+  "repositories": [
+    "https://github.com/SoftwareUnderstanding/ScientificSoftwareKG"
+  ],
+  "issues": {
+    "custom_message": "Unsubscribe list",
+    "opt_outs": [
+    ]
+  },
+  "outputs": {
+    "root_dir": "outputs",
+    "run_name": "unsubscribe",
+    "snapshot_tag_format": "%Y%m%d"
+  }
+}   

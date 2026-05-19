@@ -358,6 +358,39 @@ def test_run_pipeline_marks_run_report_dry_run(monkeypatch, tmp_path):
     assert run_report["run_metadata"]["dry_run"] is True
 
 
+def test_run_pipeline_persists_input_config_file_in_run_metadata(monkeypatch, tmp_path):
+    """Persist the input config file path in run report metadata."""
+
+    def fake_run_rsmetacheck(**kwargs):
+        """Accept rsmetacheck invocation without side effects."""
+        return None
+
+    monkeypatch.setattr(analysis_runtime, "run_rsmetacheck", fake_run_rsmetacheck)
+
+    output_root = tmp_path / "outputs"
+    config = _write_config(
+        tmp_path,
+        repositories=[],
+        outputs={
+            "root_dir": str(output_root),
+            "run_name": "batch-a",
+            "snapshot_tag_format": "202603",
+        },
+    )
+
+    pipeline.run_pipeline(
+        config_file=config,
+        dry_run=True,
+        snapshot_tag="202603",
+        previous_report=None,
+    )
+
+    run_report_path = output_root / "batch-a" / "202603" / "run_report.json"
+    assert run_report_path.exists()
+    run_report = json.loads(run_report_path.read_text())
+    assert run_report["run_metadata"]["input_config_file"] == str(config)
+
+
 def test_run_analysis_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
     """run-analysis CLI wrapper forwards arguments and enforces dry-run mode."""
     captured: dict[str, object] = {}

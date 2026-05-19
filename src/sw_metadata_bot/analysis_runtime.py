@@ -524,6 +524,7 @@ def build_analysis_run_report(
     run_root: Path,
     analysis_summary_file: Path,
     previous_report: Path | None,
+    input_config_file: Path | None = None,
 ) -> dict[str, object]:
     """Build run-level report payload from analysis decision records."""
     return {
@@ -532,6 +533,7 @@ def build_analysis_run_report(
             run_root=run_root,
             analysis_summary_file=analysis_summary_file,
             previous_report=previous_report,
+            input_config_file=input_config_file,
         ),
         "counters": build_analysis_counters(records),
         "records": records,

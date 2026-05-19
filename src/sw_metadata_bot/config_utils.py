@@ -12,6 +12,12 @@ DEFAULT_OUTPUT_ROOT = Path("outputs")
 DEFAULT_SNAPSHOT_TAG_FORMAT = "%Y%m%d"
 PROJECT_ROOT_MARKERS = ("pyproject.toml", ".git")
 
+CONFIG_SECTION_ISSUES = "issues"
+CONFIG_KEY_CUSTOM_MESSAGE = "custom_message"
+CONFIG_KEY_GENERATE_CODEMETA_IF_MISSING = "generate_codemeta_if_missing"
+CONFIG_KEY_OPT_OUTS = "opt_outs"
+CONFIG_SECTION_OUTPUTS = "outputs"
+
 
 def normalize_repo_url(url: str) -> str:
     """Normalize repository URLs for matching and persistence."""
@@ -37,18 +43,138 @@ def load_config(config_path: Path) -> dict:
     with open(config_path, encoding="utf-8") as f:
         data = json.load(f)
 
-    if not isinstance(data, dict):
+    validate_config(data, config_path)
+    return data
+
+
+def validate_config(config: dict, config_path: Path | None = None) -> None:
+    """Validate the structure and types of a unified configuration object."""
+    if not isinstance(config, dict):
         raise click.ClickException(
-            f"Invalid format in {config_path}: top-level JSON value must be an object"
+            f"Invalid format{f' in {config_path}' if config_path else ''}: top-level JSON value must be an object"
         )
 
-    repositories = data.get("repositories")
+    repositories = config.get("repositories")
     if not isinstance(repositories, list):
         raise click.ClickException(
-            f"Invalid format in {config_path}: 'repositories' must be a list"
+            f"Invalid format{f' in {config_path}' if config_path else ''}: 'repositories' must be a list"
         )
 
-    return data
+    for item in repositories:
+        if not isinstance(item, str):
+            raise click.ClickException(
+                f"Invalid config{f' in {config_path}' if config_path else ''}: 'repositories' must contain only strings"
+            )
+
+    issues = config.get(CONFIG_SECTION_ISSUES, {})
+    if not isinstance(issues, dict):
+        raise click.ClickException(
+            f"Invalid config{f' in {config_path}' if config_path else ''}: '{CONFIG_SECTION_ISSUES}' must be an object"
+        )
+
+    custom_message = issues.get(CONFIG_KEY_CUSTOM_MESSAGE)
+    if custom_message is not None and not isinstance(custom_message, str):
+        raise click.ClickException(
+            f"Invalid config{f' in {config_path}' if config_path else ''}: '{CONFIG_SECTION_ISSUES}.{CONFIG_KEY_CUSTOM_MESSAGE}' must be a string"
+        )
+
+    generate_if_missing = issues.get(CONFIG_KEY_GENERATE_CODEMETA_IF_MISSING)
+    if generate_if_missing is not None and not isinstance(generate_if_missing, bool):
+        raise click.ClickException(
+            f"Invalid config{f' in {config_path}' if config_path else ''}: '{CONFIG_SECTION_ISSUES}.{CONFIG_KEY_GENERATE_CODEMETA_IF_MISSING}' must be a boolean"
+        )
+
+    opt_outs = issues.get(CONFIG_KEY_OPT_OUTS)
+    if opt_outs is not None:
+        if not isinstance(opt_outs, list):
+            raise click.ClickException(
+                f"Invalid config{f' in {config_path}' if config_path else ''}: '{CONFIG_SECTION_ISSUES}.{CONFIG_KEY_OPT_OUTS}' must be a list"
+            )
+        for item in opt_outs:
+            if not isinstance(item, str):
+                raise click.ClickException(
+                    f"Invalid config{f' in {config_path}' if config_path else ''}: '{CONFIG_SECTION_ISSUES}.{CONFIG_KEY_OPT_OUTS}' must contain only strings"
+                )
+
+    outputs = config.get(CONFIG_SECTION_OUTPUTS, {})
+    if not isinstance(outputs, dict):
+        raise click.ClickException(
+            f"Invalid config{f' in {config_path}' if config_path else ''}: '{CONFIG_SECTION_OUTPUTS}' must be an object"
+        )
+
+    root_dir = outputs.get("root_dir")
+    if root_dir is not None and (not isinstance(root_dir, str) or not root_dir.strip()):
+        raise click.ClickException(
+            f"Invalid config{f' in {config_path}' if config_path else ''}: '{CONFIG_SECTION_OUTPUTS}.root_dir' must be a non-empty string"
+        )
+
+    run_name = outputs.get("run_name")
+    if run_name is not None and (not isinstance(run_name, str) or not run_name.strip()):
+        raise click.ClickException(
+            f"Invalid config{f' in {config_path}' if config_path else ''}: '{CONFIG_SECTION_OUTPUTS}.run_name' must be a non-empty string"
+        )
+
+    snapshot_tag_format = outputs.get("snapshot_tag_format")
+    if snapshot_tag_format is not None and (
+        not isinstance(snapshot_tag_format, str) or not snapshot_tag_format.strip()
+    ):
+        raise click.ClickException(
+            f"Invalid config{f' in {config_path}' if config_path else ''}: '{CONFIG_SECTION_OUTPUTS}.snapshot_tag_format' must be a string or null"
+        )
+
+
+def build_explicit_config(
+    config: dict, config_path: Path | None = None
+) -> dict[str, object]:
+    """Return an explicit config with defaults populated for missing values."""
+    validate_config(config, config_path)
+
+    issues = config.get(CONFIG_SECTION_ISSUES, {})
+    outputs = config.get(CONFIG_SECTION_OUTPUTS, {})
+
+    explicit_issues: dict[str, object | None] = {
+        CONFIG_KEY_CUSTOM_MESSAGE: issues.get(CONFIG_KEY_CUSTOM_MESSAGE),
+        CONFIG_KEY_GENERATE_CODEMETA_IF_MISSING: issues.get(
+            CONFIG_KEY_GENERATE_CODEMETA_IF_MISSING, True
+        ),
+        CONFIG_KEY_OPT_OUTS: [
+            normalize_repo_url(url)
+            for url in issues.get(CONFIG_KEY_OPT_OUTS, [])
+            if isinstance(url, str)
+        ],
+    }
+
+    explicit_outputs: dict[str, object | None] = {
+        "root_dir": outputs.get("root_dir", str(DEFAULT_OUTPUT_ROOT)),
+        "run_name": outputs.get(
+            "run_name", config_path.stem if config_path is not None else None
+        ),
+        "snapshot_tag_format": outputs.get(
+            "snapshot_tag_format", DEFAULT_SNAPSHOT_TAG_FORMAT
+        ),
+    }
+
+    return {
+        "repositories": [normalize_repo_url(url) for url in config["repositories"]],
+        CONFIG_SECTION_ISSUES: explicit_issues,
+        CONFIG_SECTION_OUTPUTS: explicit_outputs,
+    }
+
+
+def export_config(
+    config_path: Path,
+    explicit: bool = False,
+    output_path: Path | None = None,
+) -> dict[str, object]:
+    """Export configuration as either defined-only or explicit config."""
+    config = load_config(config_path)
+    exported = build_explicit_config(config, config_path) if explicit else config
+
+    if output_path is not None:
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(exported, f, indent=2)
+
+    return exported
 
 
 def get_repositories(config: dict) -> list[str]:
