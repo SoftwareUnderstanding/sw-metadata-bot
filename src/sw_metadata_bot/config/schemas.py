@@ -41,7 +41,7 @@ class OutputConfig(BaseModel):
     snapshot_tag_format is an optional string that defines the format for snapshot tags used in output filenames. This can include placeholders for dynamic content such as timestamps or repository names. If not provided, it defaults to a standard format defined in constants.py.
     """
 
-    output_root_dir: Optional[Path] = Path(DEFAULT_OUTPUT_ROOT)
+    output_root_dir: Optional[str] = DEFAULT_OUTPUT_ROOT
     run_name: Optional[str] = None
     snapshot_tag_format: Optional[str] = DEFAULT_SNAPSHOT_TAG_FORMAT
 
