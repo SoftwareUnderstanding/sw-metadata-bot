@@ -8,7 +8,10 @@ from sw_metadata_bot.config.schemas import BotConfig
 
 CONFIG_DATA = {
     "analysis": {
-        "repositories": ["https://github.com/SoftwareUnderstanding/sw-metadata-bot"]
+        "repositories": [
+            "https://github.com/SoftwareUnderstanding/sw-metadata-bot",
+            "https://github.com/example/repo3",
+        ]
     },
     "issues": {
         "custom_issue_message": "This is a custom issue message.",
@@ -184,3 +187,67 @@ def test_bot_config_export_to_json_explicit(tmp_path):
     assert exported_data["outputs"]["output_root_dir"] == "outputs"
     assert exported_data["outputs"]["run_name"] is None
     assert exported_data["outputs"]["snapshot_tag_format"] == "%Y%m%d"
+
+
+## getters
+
+
+def test_bot_config_getters(tmp_path):
+    """Test that the getter methods on BotConfig return the expected values."""
+    config = BotConfig.model_validate(CONFIG_DATA)
+
+    assert config.get_repositories() == CONFIG_DATA["analysis"]["repositories"]
+    assert (
+        config.get_custom_issue_message()
+        == CONFIG_DATA["issues"]["custom_issue_message"]
+    )
+    assert config.get_issue_opt_outs() == CONFIG_DATA["issues"]["opt_outs"]
+    assert config.get_output_root_dir() == CONFIG_DATA["outputs"]["output_root_dir"]
+    assert config.get_run_name() == CONFIG_DATA["outputs"]["run_name"]
+    assert (
+        config.get_snapshot_tag_format()
+        == CONFIG_DATA["outputs"]["snapshot_tag_format"]
+    )
+
+
+def test_bot_config_add_opt_out_repository(tmp_path):
+    """Test that adding an opt-out repository works and that it is reflected in the config."""
+    config = BotConfig.model_validate(CONFIG_DATA)
+
+    new_opt_out = "https://github.com/example/repo3"
+    result = config.add_opt_out_repository(new_opt_out)
+    assert result is True
+    assert new_opt_out in config.get_issue_opt_outs()
+
+
+def test_bot_config_add_opt_out_repository_invalid(tmp_path):
+    """Test that adding an opt-out repository that is not in the repositories list does not work."""
+    config = BotConfig.model_validate(CONFIG_DATA)
+
+    invalid_opt_out = "https://github.com/example/repo4"
+    result = config.add_opt_out_repository(invalid_opt_out)
+    assert result is False
+    assert invalid_opt_out not in config.get_issue_opt_outs()
+
+
+def test_bot_config_add_opt_out_repository_export_and_duplicate(tmp_path):
+    """Double test:
+    1/ that after adding an opt-out repository, exporting the config to JSON reflects the change.
+    2/ that if we add the same opt-out repository again, it does not create duplicates in the config.
+    """
+    config = BotConfig.model_validate(CONFIG_DATA)
+
+    new_opt_out = "https://github.com/example/repo3"
+    config.add_opt_out_repository(new_opt_out)
+
+    config_file = tmp_path / "config_export_opt_out.json"
+    config.to_json(config_file, explicit=False)
+
+    # load exported config and compare to original
+    new_config = BotConfig.from_json(config_file)
+    assert new_config.get_issue_opt_outs() == [new_opt_out]
+
+    # also check that if we add this repo again it does not create duplicates
+    result = new_config.add_opt_out_repository(new_opt_out)
+    assert result is False
+    assert new_config.get_issue_opt_outs() == [new_opt_out]
