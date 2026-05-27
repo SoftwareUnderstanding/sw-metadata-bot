@@ -55,25 +55,26 @@ class BotConfig(BaseModel):
     issues: IssueConfig = Field(default_factory=IssueConfig)
     outputs: OutputConfig = Field(default_factory=OutputConfig)
 
+    @model_validator(mode="after")
+    def validate_opt_outs(self) -> "BotConfig":
+        """Validate that opt-out repository URLs parts of the repositories list.
+        If any opt-out URL is not in the repositories list, remove it from the config and log a warning."""
+        valid_opt_outs = []
+        if not self.issues.opt_outs:
+            return self
+        for url in self.issues.opt_outs:
+            if url not in self.analysis.repositories:
+                print(
+                    f"Warning: Opt-out URL '{url}' is not in the repositories list and will be ignored."
+                )
+            else:
+                valid_opt_outs.append(url)
+        self.issues.opt_outs = valid_opt_outs
 
-@model_validator(mode="after")
-def validate_opt_outs(self) -> BotConfig:
-    """Validate that opt-out repository URLs parts of the repositories list.
-    If any opt-out URL is not in the repositories list, remove it from the config and log a warning."""
-    valid_opt_outs = []
-    for url in self.issues.opt_outs:
-        if url not in self.analysis.repositories:
-            print(
-                f"Warning: Opt-out URL '{url}' is not in the repositories list and will be ignored."
-            )
-        else:
-            valid_opt_outs.append(url)
-    self.issues.opt_outs = valid_opt_outs
-
-    return self
+        return self
 
     @classmethod
-    def from_json(cls, path: Path) -> BotConfig:
+    def from_json(cls, path: Path) -> "BotConfig":
         """Load configuration from a JSON file and validate it against the schema.
         The extra="forbid" option in model validation ensures that any unexpected fields in the config will raise a validation error, helping catch typos and misconfigurations early.
         """
