@@ -18,6 +18,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "requests>=2.32.5",
     "setuptools[test]<83.0.0",
+    "pydantic>=2.13.4",
 ]
 
 keywords = ["codemeta", "metadata", "bot", "quality software"]
