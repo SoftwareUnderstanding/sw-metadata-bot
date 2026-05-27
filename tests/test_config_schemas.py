@@ -122,6 +122,7 @@ def test_bot_config_schema_from_json_invalid_field(tmp_path):
 
 
 def test_bot_config_schema_from_json_invalid_type_field(tmp_path):
+    """Test that if the config JSON contains a field with an invalid type, a validation error is raised."""
     import copy
 
     """Test that if the config JSON contains an unexpected field, a validation error is raised."""
