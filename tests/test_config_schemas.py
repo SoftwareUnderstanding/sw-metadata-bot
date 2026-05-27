@@ -2,6 +2,8 @@
 
 import json
 
+from pydantic import ValidationError
+
 from sw_metadata_bot.config.schemas import BotConfig
 
 CONFIG_DATA = {
@@ -103,6 +105,39 @@ def test_bot_config_schema_from_json_invalid_opt_out(tmp_path):
 
     # The invalid opt-out should be removed from the config and a warning printed
     assert config.issues.opt_outs == []
+
+
+def test_bot_config_schema_from_json_invalid_field(tmp_path):
+    """Test that if the config JSON contains an unexpected field, a validation error is raised."""
+    invalid_config_data = CONFIG_DATA.copy()
+    invalid_config_data["unexpected_field"] = "unexpected_value"
+    config_file = tmp_path / "config_invalid_field.json"
+    json.dump(invalid_config_data, config_file.open("w"), indent=4)
+
+    try:
+        _ = BotConfig.from_json(config_file)
+        assert False, "Expected validation error for unexpected field in config"
+    except Exception as e:
+        assert "unexpected_field" in str(e)
+
+
+def test_bot_config_schema_from_json_invalid_type_field(tmp_path):
+    import copy
+
+    """Test that if the config JSON contains an unexpected field, a validation error is raised."""
+    invalid_config_data = copy.deepcopy(CONFIG_DATA)
+    invalid_config_data["analysis"]["repositories"] = "not_a_list"
+    config_file = tmp_path / "config_invalid_type_field.json"
+    json.dump(invalid_config_data, config_file.open("w"), indent=4)
+
+    try:
+        _ = BotConfig.from_json(config_file)
+        assert False, "Expected validation error for unexpected field in config"
+    except ValidationError as e:
+        assert "list" in str(e)
+
+
+# export tests
 
 
 def test_bot_config_export_to_json(tmp_path):
