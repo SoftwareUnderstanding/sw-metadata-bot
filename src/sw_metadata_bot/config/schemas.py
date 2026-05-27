@@ -45,6 +45,23 @@ class OutputConfig(BaseModel):
     run_name: Optional[str] = None
     snapshot_tag_format: Optional[str] = DEFAULT_SNAPSHOT_TAG_FORMAT
 
+    @field_validator("snapshot_tag_format", mode="after")
+    @classmethod
+    def validate_snapshot_tag_format(cls, v):
+        """Check that snapshot_tag_format is a valid string format handled by strftime."""
+        if v is None:
+            return v
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("snapshot_tag_format must be a non-empty string or null")
+        # Test that the format string can be used with strftime
+        try:
+            from datetime import datetime
+
+            datetime.now().strftime(v)
+        except Exception as e:
+            raise ValueError(f"Invalid snapshot_tag_format: {e}")
+        return v
+
 
 class BotConfig(BaseModel):
     """Top-level configuration model for the bot."""
@@ -94,3 +111,45 @@ class BotConfig(BaseModel):
         data = self.model_dump(exclude_unset=not explicit)
         with path.open("w") as f:
             json.dump(data, f, indent=4)
+
+    def get_repositories(self) -> list[str]:
+        """Return the list of repositories to analyze, excluding any opt-outs."""
+        return self.analysis.repositories
+
+    def get_issue_opt_outs(self) -> list[str]:
+        """Return the list of repositories that are opted out of issue creation."""
+        if self.issues.opt_outs is None:
+            return []
+        return self.issues.opt_outs
+
+    def get_custom_issue_message(self) -> Optional[str]:
+        """Return the custom issue message template, or None if not set."""
+        return self.issues.custom_issue_message
+
+    def get_output_root_dir(self) -> str:
+        """Return the configured output root directory."""
+        return self.outputs.output_root_dir or DEFAULT_OUTPUT_ROOT
+
+    def get_snapshot_tag_format(self) -> str:
+        """Return the configured snapshot tag format."""
+        return self.outputs.snapshot_tag_format or DEFAULT_SNAPSHOT_TAG_FORMAT
+
+    def get_run_name(self) -> str:
+        """Return the configured run name, or None if not set."""
+        return self.outputs.run_name or ""
+
+    def add_opt_out_repository(self, repo_url: str) -> bool:
+        """Add a repository URL to the opt-out list for issue creation. Returns True if the URL was added, False if it was already in the opt-out list."""
+        if repo_url not in self.analysis.repositories:
+            print(
+                f"Warning: Cannot add '{repo_url}' to opt-out list because it is not in the repositories list."
+            )
+            return False
+            # create empty list if opt_outs is None (should not happen due to default_factory, but linters may not recognize it)
+        if self.issues.opt_outs is None:
+            self.issues.opt_outs = []
+        if repo_url in self.issues.opt_outs:
+            print(f"Repository '{repo_url}' is already in the opt-out list.")
+            return False
+        self.issues.opt_outs.append(repo_url)
+        return True
