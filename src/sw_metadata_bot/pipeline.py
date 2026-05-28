@@ -7,17 +7,10 @@ from pathlib import Path
 
 import click
 
+from sw_metadata_bot.config.schemas import BotConfig
+
 from . import __version__, analysis_runtime, commit_lookup, constants
-from .config_utils import (
-    copy_config_to_analysis_root,
-    get_custom_message,
-    get_generate_codemeta_if_missing,
-    get_opt_out_repositories,
-    get_repositories,
-    load_config,
-    resolve_output_root,
-    resolve_run_name,
-    resolve_snapshot_tag,
+from .config.config_utils import (
     sanitize_repo_name,
 )
 from .reporting import RecordAnalysis, RecordLifecycle, build_record_entry
@@ -140,14 +133,14 @@ def run_pipeline(
     # Ensure the provided config path is absolute and resolvable so we can
     # persist a resolvable `input_config_file` in run metadata.
     config_file = config_file.resolve()
-    config = load_config(config_file)
-    repositories = get_repositories(config)
-    custom_message = get_custom_message(config)
-    generate_codemeta_if_missing = get_generate_codemeta_if_missing(config)
-    opt_out_repos = get_opt_out_repositories(config)
-    output_root = resolve_output_root(config, config_file)
-    run_folder_name = resolve_run_name(config, config_file)
-    requested_snapshot_tag = resolve_snapshot_tag(config, snapshot_tag)
+    config = BotConfig.from_json(config_file)
+    repositories = config.get_repositories()
+    custom_message = config.get_custom_issue_message()
+    generate_codemeta_if_missing = config.get_generate_codemeta_if_missing()
+    opt_out_repos = config.get_issue_opt_outs()
+    output_root = Path(config.get_output_root_dir())
+    run_folder_name = config.get_run_name()
+    requested_snapshot_tag = config.resolve_snapshot_tag(snapshot_tag)
 
     run_root = output_root / run_folder_name
     resolved_snapshot_tag = _resolve_unique_snapshot_tag(
@@ -158,10 +151,9 @@ def run_pipeline(
     analysis_root = (
         run_root / resolved_snapshot_tag if resolved_snapshot_tag else run_root
     )
-    analysis_output_file = analysis_root / constants.FILENAME_ANALYSIS_RESULTS
-
-    copy_config_to_analysis_root(config_file, analysis_root)
     analysis_root.mkdir(parents=True, exist_ok=True)
+    analysis_output_file = analysis_root / constants.FILENAME_ANALYSIS_RESULTS
+    config.to_json(analysis_output_file, explicit=True)
 
     resolved_previous_report = previous_report
     if resolved_previous_report is None:

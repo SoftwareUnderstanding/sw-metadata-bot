@@ -10,7 +10,7 @@ from typing import Any
 from . import __version__, constants, history, incremental, pitfalls, utils
 from .check_parsing import extract_check_ids
 from .codemeta_runtime import evaluate_and_persist_codemeta_status, load_codemeta_status
-from .config_utils import detect_platform, normalize_repo_url, sanitize_repo_name
+from .config.config_utils import detect_platform, normalize_repo_url, sanitize_repo_name
 from .reporting import (
     RecordAnalysis,
     RecordLifecycle,

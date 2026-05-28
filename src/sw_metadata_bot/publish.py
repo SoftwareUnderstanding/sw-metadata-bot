@@ -8,13 +8,12 @@ from typing import cast
 import click
 
 from . import constants, github_api, gitlab_api, pitfalls, utils
-from .config_utils import (
-    append_opt_out_repository,
+from .config.config_utils import (
+    append_opt_out_to_config,
     detect_platform,
-    get_custom_message,
-    load_config,
     sanitize_repo_name,
 )
+from .config.schemas import BotConfig
 from .reporting import build_counters, write_report_file
 
 MAX_PUBLISH_RETRY_ATTEMPTS = 3
@@ -172,7 +171,8 @@ def _load_publish_body(analysis_root: Path, repo_url: str) -> str:
     config_file = analysis_root / constants.FILENAME_CONFIG_SNAPSHOT
     custom_message = None
     if config_file.exists():
-        custom_message = get_custom_message(load_config(config_file))
+        config = BotConfig.from_json(config_file)
+        custom_message = config.get_custom_issue_message()
     report = pitfalls.format_report(repo_url, data)
     return pitfalls.create_issue_body(report, custom_message)
 
@@ -347,7 +347,7 @@ def publish_analysis(
                     # update config of analysis snapshot when present
                     config_file = analysis_root / constants.FILENAME_CONFIG_SNAPSHOT
                     if config_file.exists():
-                        append_opt_out_repository(config_file, repo_url)
+                        append_opt_out_to_config(config_file, repo_url)
 
                     # also update the original input config file when available
                     input_config_value = run_metadata.get("input_config_file")
@@ -356,7 +356,7 @@ def publish_analysis(
                         if not input_config_path.is_absolute():
                             input_config_path = analysis_root.parent / input_config_path
                         if input_config_path.exists():
-                            append_opt_out_repository(input_config_path, repo_url)
+                            append_opt_out_to_config(input_config_path, repo_url)
 
                     # skip publish
                     record["action"] = constants.ACTION_SKIPPED

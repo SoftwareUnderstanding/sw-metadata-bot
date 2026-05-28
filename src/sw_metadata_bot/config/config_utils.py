@@ -1,9 +1,10 @@
 """Helpers for the unified configuration file."""
 
-from datetime import datetime, timezone
 from pathlib import Path
 
 import click
+
+from sw_metadata_bot.config.schemas import BotConfig
 
 from .. import constants
 
@@ -88,15 +89,11 @@ def resolve_run_name(run_name: str | None, config_path: Path) -> str:
     return config_path.stem
 
 
-def resolve_snapshot_tag(
-    snapshot_tag_format: str,
-    explicit_snapshot_tag: str | None,
-) -> str | None:
-    """Resolve the snapshot tag from CLI override or config defaults.
-    If an explicit snapshot tag is provided via CLI, it takes precedence.
-    Otherwise, the snapshot tag is generated based on the current timestamp and the format specified.
-    """
-    if explicit_snapshot_tag is not None:
-        return explicit_snapshot_tag
+def append_opt_out_to_config(config_file: Path, repo_url: str) -> None:
+    """Helper to append a repository URL to the config's opt-out list from file."""
+    normalized_url = normalize_repo_url(repo_url)
 
-    return datetime.now(timezone.utc).strftime(snapshot_tag_format)
+    config = BotConfig.from_json(config_file)
+    is_new_repo_added = config.add_opt_out_repository(normalized_url)
+    if is_new_repo_added:
+        config.to_json(config_file)

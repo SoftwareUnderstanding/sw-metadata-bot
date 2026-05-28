@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -122,6 +123,10 @@ class BotConfig(BaseModel):
             return []
         return self.issues.opt_outs
 
+    def get_generate_codemeta_if_missing(self) -> bool:
+        """Return whether to generate codemeta.json if missing, defaulting to True."""
+        return self.analysis.generate_codemeta_if_missing
+
     def get_custom_issue_message(self) -> Optional[str]:
         """Return the custom issue message template, or None if not set."""
         return self.issues.custom_issue_message
@@ -153,3 +158,11 @@ class BotConfig(BaseModel):
             return False
         self.issues.opt_outs.append(repo_url)
         return True
+
+    def resolve_snapshot_tag(self, explicit_snapshot_tag: Optional[str] = None) -> str:
+        """Resolve the snapshot tag to use for output files.
+        If an explicit snapshot tag is provided, it takes precedence. Otherwise, the snapshot tag is generated based on the current timestamp and the configured format."""
+        snapshot_tag_format = self.get_snapshot_tag_format()
+        if explicit_snapshot_tag is not None:
+            return explicit_snapshot_tag
+        return datetime.now(timezone.utc).strftime(snapshot_tag_format)
