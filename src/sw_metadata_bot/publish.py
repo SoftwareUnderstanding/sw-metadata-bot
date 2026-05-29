@@ -251,6 +251,7 @@ def publish_analysis(
         run_metadata = {}
     analysis_summary_value = run_metadata.get("analysis_summary_file")
     previous_report_value = run_metadata.get("previous_report_source")
+    input_config_value = run_metadata.get("input_config_file")
     analysis_summary_file = (
         Path(analysis_summary_value)
         if isinstance(analysis_summary_value, str)
@@ -258,6 +259,9 @@ def publish_analysis(
     )
     previous_report = (
         Path(previous_report_value) if isinstance(previous_report_value, str) else None
+    )
+    input_config_file = (
+        Path(input_config_value) if isinstance(input_config_value, str) else None
     )
 
     records = run_report.get("records") if isinstance(run_report, dict) else None
@@ -297,6 +301,45 @@ def publish_analysis(
             updated_records.append(record)
             continue
 
+        action = str(record.get("action", ""))
+        platform = _detect_platform_for_publish(repo_url, record)
+        issue_url = _issue_url_for_publish(record)
+
+        if action == constants.ACTION_SKIPPED and issue_url:
+            issue_client = issue_client_for_platform(platform)
+            comments = issue_client.get_issue_comments(issue_url)
+            unsubscribe_detected = any(
+                _is_unsubscribe_comment(comment) for comment in comments
+            )
+            record["unsubscribe_detected"] = unsubscribe_detected
+            if unsubscribe_detected:
+                config_file = analysis_root / constants.FILENAME_CONFIG_SNAPSHOT
+                if config_file.exists():
+                    append_opt_out_to_config(config_file, repo_url, explicit=False)
+
+                if input_config_file is not None:
+                    original_input_path = input_config_file
+                    if not original_input_path.is_absolute():
+                        original_input_path = analysis_root.parent / original_input_path
+                    if original_input_path.exists():
+                        append_opt_out_to_config(
+                            original_input_path, repo_url, explicit=False
+                        )
+
+                record["action"] = constants.ACTION_SKIPPED
+                record["reason_code"] = constants.REASON_CODE_UNSUBSCRIBE
+                record["dry_run"] = False
+                record["issue_persistence"] = "none"
+                record.pop("simulated_issue_url", None)
+                updated_records.append(record)
+                _write_per_repo_report(
+                    analysis_root,
+                    record,
+                    analysis_summary_file,
+                    previous_report,
+                )
+                continue
+
         if (
             record.get("dry_run") is False
             and record.get("action") != constants.ACTION_FAILED
@@ -305,7 +348,6 @@ def publish_analysis(
             updated_records.append(record)
             continue
 
-        action = str(record.get("action", ""))
         if action == constants.ACTION_FAILED:
             if not retry_failed:
                 skipped_failed_retry += 1
@@ -490,6 +532,7 @@ def publish_analysis(
         run_root=analysis_root.parent,
         analysis_summary_file=analysis_summary_file,
         previous_report=previous_report,
+        input_config_file=input_config_file,
     )
     run_metadata_candidate = run_report.get("run_metadata")
     if isinstance(run_metadata_candidate, dict):

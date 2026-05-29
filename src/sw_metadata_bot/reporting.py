@@ -165,17 +165,25 @@ def write_report_file(
     run_root: Path,
     analysis_summary_file: Path | None,
     previous_report: Path | None,
+    input_config_file: Path | None = None,
 ) -> dict[str, object]:
     """Write a report payload to disk and return the payload."""
+    normalized_records: list[dict[str, object]] = []
+    for record in records:
+        if isinstance(record, dict):
+            record.setdefault("unsubscribe_detected", False)
+        normalized_records.append(record)
+
     payload = {
         "run_metadata": build_run_metadata(
             dry_run=dry_run,
             run_root=run_root,
             analysis_summary_file=analysis_summary_file,
             previous_report=previous_report,
+            input_config_file=input_config_file,
         ),
-        "counters": build_counters(records),
-        "records": records,
+        "counters": build_counters(normalized_records),
+        "records": normalized_records,
     }
     report_file.parent.mkdir(parents=True, exist_ok=True)
     with open(report_file, "w", encoding="utf-8") as f:

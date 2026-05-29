@@ -407,6 +407,96 @@ def test_publish_unsubscribe_persists_opt_out_to_input_config(tmp_path, monkeypa
     assert original_config.issues.opt_outs == [repo_url]
 
 
+def test_publish_preserves_input_config_file_in_run_report(tmp_path, monkeypatch):
+    """publish preserves run_metadata.input_config_file when rewriting the report."""
+    snapshot_dir = tmp_path / "snapshot"
+    snapshot_dir.mkdir()
+    repo_url = "https://github.com/example/repo"
+    issue_url = f"{repo_url}/issues/3"
+    original_config_path = tmp_path / "config.json"
+    _create_minimal_config_with_repos(original_config_path, repo_url)
+
+    _write_run_report(
+        snapshot_dir,
+        records=[
+            {
+                "repo_url": repo_url,
+                "action": "updated_by_comment",
+                "platform": "github",
+                "issue_url": issue_url,
+                "dry_run": True,
+                "issue_persistence": "simulated",
+            }
+        ],
+        run_metadata={"input_config_file": str(original_config_path)},
+    )
+    _write_issue_report(snapshot_dir, repo_url)
+
+    fake = _FakeIssueClient(comments_for=lambda url: ["unsubscribe"])
+    _patch_clients(monkeypatch, fake)
+
+    runner = CliRunner()
+    result = runner.invoke(publish_command, ["--analysis-root", str(snapshot_dir)])
+
+    assert result.exit_code == 0, result.output
+    report = json.loads((snapshot_dir / "run_report.json").read_text())
+    assert report["run_metadata"]["input_config_file"] is not None
+    assert (
+        Path(report["run_metadata"]["input_config_file"]).name
+        == original_config_path.name
+    )
+
+
+def test_publish_detects_unsubscribe_on_skipped_previous_issue_url(
+    tmp_path, monkeypatch
+):
+    """publish detects unsubscribe on skipped records that carry previous_issue_url."""
+    snapshot_dir = tmp_path / "snapshot"
+    snapshot_dir.mkdir()
+    repo_url = "https://github.com/example/repo"
+    issue_url = f"{repo_url}/issues/3"
+    original_config_path = tmp_path / "config.json"
+    snapshot_config_path = snapshot_dir / "config.json"
+    _create_minimal_config_with_repos(original_config_path, repo_url)
+    _create_minimal_config_with_repos(snapshot_config_path, repo_url)
+
+    _write_run_report(
+        snapshot_dir,
+        records=[
+            {
+                "repo_url": repo_url,
+                "action": "skipped",
+                "platform": "github",
+                "reason_code": "repo_not_updated",
+                "previous_issue_url": issue_url,
+                "dry_run": False,
+                "issue_persistence": "none",
+            }
+        ],
+        run_metadata={"input_config_file": str(original_config_path)},
+    )
+    _write_issue_report(snapshot_dir, repo_url)
+
+    fake = _FakeIssueClient(comments_for=lambda url: ["unsubscribe"])
+    _patch_clients(monkeypatch, fake)
+
+    runner = CliRunner()
+    result = runner.invoke(publish_command, ["--analysis-root", str(snapshot_dir)])
+
+    assert result.exit_code == 0, result.output
+
+    report = json.loads((snapshot_dir / "run_report.json").read_text())
+    record = report["records"][0]
+    assert record["action"] == "skipped"
+    assert record["reason_code"] == "unsubscribe"
+    assert record["unsubscribe_detected"] is True
+
+    snapshot_config = BotConfig.from_json(snapshot_config_path)
+    original_config = BotConfig.from_json(original_config_path)
+    assert snapshot_config.issues.opt_outs == [repo_url]
+    assert original_config.issues.opt_outs == [repo_url]
+
+
 def test_simulate_publish_command_updates_opt_out_with_fake_unsubscribe(tmp_path):
     """simulate-publish can use a fake unsubscribe comment and update config files."""
     snapshot_dir = tmp_path / "snapshot"
