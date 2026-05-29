@@ -344,27 +344,49 @@ def test_run_pipeline_persists_input_config_file_in_run_metadata(monkeypatch, tm
     monkeypatch.setattr(analysis_runtime, "run_rsmetacheck", fake_run_rsmetacheck)
 
     output_root = tmp_path / "outputs"
+    snapshot_tag = "202603"
     config_path = _write_config(
         tmp_path,
         analysis={"repositories": ["https://github.com/example/repo"]},
         outputs={
             "output_root_dir": str(output_root),
             "run_name": "batch-a",
-            "snapshot_tag_format": "202603",
+            "snapshot_tag_format": "%Y%m%d",
         },
     )
 
     pipeline.run_pipeline(
         config_file=config_path,
         dry_run=True,
-        snapshot_tag="202603",
+        snapshot_tag=snapshot_tag,
         previous_report=None,
     )
-
-    run_report_path = output_root / "batch-a" / "202603" / "run_report.json"
+    analysis_root = output_root / "batch-a" / snapshot_tag
+    run_report_path = analysis_root / "run_report.json"
     assert run_report_path.exists()
     run_report = json.loads(run_report_path.read_text())
     assert run_report["run_metadata"]["input_config_file"] == str(config_path)
+
+    # check if config file has been created in analysis root with expected content
+    config_file_path = analysis_root / "config.json"
+    assert config_file_path.exists(), "Config file should be copied to analysis root"
+    with open(config_file_path, "r") as f:
+        config_content = json.load(f)
+
+    # check that config content matches the given inputs and has default keys populated
+    assert config_content["analysis"]["repositories"] == [
+        "https://github.com/example/repo"
+    ]
+    assert config_content["issues"]["custom_issue_message"] is None
+    assert config_content["issues"]["opt_outs"] == []
+    assert config_content["outputs"]["output_root_dir"] == str(output_root)
+    assert config_content["outputs"]["run_name"] == "batch-a"
+    assert config_content["outputs"]["snapshot_tag_format"] == "%Y%m%d"
+    assert config_content["outputs"]["snapshot_tag_format"] == "%Y%m%d"
+
+    # default content is popolated (don't check default values)
+    assert config_content["analysis"]["generate_codemeta_if_missing"] is not None
+    assert config_content["version"] is not None
 
 
 def test_run_pipeline_persists_relative_input_config_file_in_run_metadata(

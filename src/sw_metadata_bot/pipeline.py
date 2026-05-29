@@ -132,6 +132,7 @@ def run_pipeline(
     # persist a resolvable `input_config_file` in run metadata.
     config_file = config_file.resolve()
     config = BotConfig.from_json(config_file)
+
     repositories = config.get_repositories()
     custom_message = config.get_custom_issue_message()
     generate_codemeta_if_missing = config.get_generate_codemeta_if_missing()
@@ -151,8 +152,9 @@ def run_pipeline(
         run_root / resolved_snapshot_tag if resolved_snapshot_tag else run_root
     )
     analysis_root.mkdir(parents=True, exist_ok=True)
-    analysis_output_file = analysis_root / constants.FILENAME_ANALYSIS_RESULTS
-    config.to_json(analysis_output_file, explicit=True)
+    config_analysis_path = analysis_root / constants.FILENAME_CONFIG_SNAPSHOT
+    analysis_report_path = analysis_root / constants.FILENAME_ANALYSIS_RESULTS
+    config.to_json(config_analysis_path, explicit=True)
 
     resolved_previous_report = previous_report
     if resolved_previous_report is None:
@@ -252,7 +254,7 @@ def run_pipeline(
             record,
             dry_run=dry_run,
             run_root=run_root,
-            analysis_summary_file=analysis_output_file,
+            analysis_summary_file=analysis_report_path,
             previous_report=resolved_previous_report,
         )
         run_records.append(record)
@@ -266,14 +268,14 @@ def run_pipeline(
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "summary": {"evaluated_repositories": evaluated_repositories},
     }
-    with open(analysis_output_file, "w", encoding="utf-8") as f:
+    with open(analysis_report_path, "w", encoding="utf-8") as f:
         json.dump(analysis_summary, f, indent=2)
 
     run_report = analysis_runtime.build_analysis_run_report(
         run_records,
         dry_run=dry_run,
         run_root=run_root,
-        analysis_summary_file=analysis_output_file,
+        analysis_summary_file=analysis_report_path,
         previous_report=resolved_previous_report,
         input_config_file=config_file,
     )
