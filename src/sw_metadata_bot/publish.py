@@ -8,15 +8,41 @@ from typing import cast
 import click
 
 from . import constants, github_api, gitlab_api, pitfalls, utils
-from .config_utils import (
+from .config.config_utils import (
+    append_opt_out_to_config,
     detect_platform,
-    get_custom_message,
-    load_config,
     sanitize_repo_name,
 )
+from .config.schemas import BotConfig
 from .reporting import build_counters, write_report_file
 
 MAX_PUBLISH_RETRY_ATTEMPTS = 3
+
+
+class FakeIssueClient:
+    """Issue client used only for local publish simulation."""
+
+    def __init__(self, comments_for=None):
+        self._comments_for = comments_for or (lambda url: [])
+        self.created: list[tuple[str, str, str]] = []
+        self.commented: list[str] = []
+        self.closed: list[str] = []
+
+    def create_issue(self, repo_url: str, title: str, body: str) -> str:
+        self.created.append((repo_url, title, body))
+        return f"{repo_url}/issues/99"
+
+    def get_issue(self, issue_url: str) -> dict[str, object]:
+        return {"state": "open"}
+
+    def get_issue_comments(self, issue_url: str) -> list[str]:
+        return self._comments_for(issue_url)
+
+    def add_issue_comment(self, issue_url: str, body: str) -> None:
+        self.commented.append(issue_url)
+
+    def close_issue(self, issue_url: str) -> None:
+        self.closed.append(issue_url)
 
 
 def _is_unsubscribe_comment(comment: str) -> bool:
@@ -145,7 +171,8 @@ def _load_publish_body(analysis_root: Path, repo_url: str) -> str:
     config_file = analysis_root / constants.FILENAME_CONFIG_SNAPSHOT
     custom_message = None
     if config_file.exists():
-        custom_message = get_custom_message(load_config(config_file))
+        config = BotConfig.from_json(config_file)
+        custom_message = config.get_custom_issue_message()
     report = pitfalls.format_report(repo_url, data)
     return pitfalls.create_issue_body(report, custom_message)
 
@@ -198,7 +225,12 @@ def _write_per_repo_report(
     )
 
 
-def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
+def publish_analysis(
+    analysis_root: Path,
+    retry_failed: bool = False,
+    github_client: github_api.GitHubAPI | None = None,
+    gitlab_client: gitlab_api.GitLabAPI | None = None,
+) -> None:
     """Publish issues from an existing analysis snapshot without re-running analysis."""
     run_report_file = analysis_root / constants.FILENAME_RUN_REPORT
     try:
@@ -219,6 +251,7 @@ def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
         run_metadata = {}
     analysis_summary_value = run_metadata.get("analysis_summary_file")
     previous_report_value = run_metadata.get("previous_report_source")
+    input_config_value = run_metadata.get("input_config_file")
     analysis_summary_file = (
         Path(analysis_summary_value)
         if isinstance(analysis_summary_value, str)
@@ -227,6 +260,9 @@ def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
     previous_report = (
         Path(previous_report_value) if isinstance(previous_report_value, str) else None
     )
+    input_config_file = (
+        Path(input_config_value) if isinstance(input_config_value, str) else None
+    )
 
     records = run_report.get("records") if isinstance(run_report, dict) else None
     if not isinstance(records, list):
@@ -234,21 +270,21 @@ def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
             f"Invalid run_report.json format in {run_report_file}: records must be a list"
         )
 
-    github_client: github_api.GitHubAPI | None = None
-    gitlab_client: gitlab_api.GitLabAPI | None = None
+    github_client_instance = github_client
+    gitlab_client_instance = gitlab_client
 
     def issue_client_for_platform(platform: str):
         """Return lazily initialized issue client for the requested platform."""
-        nonlocal github_client, gitlab_client
+        nonlocal github_client_instance, gitlab_client_instance
         if platform == "github":
-            if github_client is None:
-                github_client = github_api.GitHubAPI(dry_run=False)
-            return github_client
+            if github_client_instance is None:
+                github_client_instance = github_api.GitHubAPI(dry_run=False)
+            return github_client_instance
 
         if platform in {"gitlab", "gitlab.com"}:
-            if gitlab_client is None:
-                gitlab_client = gitlab_api.GitLabAPI(dry_run=False)
-            return gitlab_client
+            if gitlab_client_instance is None:
+                gitlab_client_instance = gitlab_api.GitLabAPI(dry_run=False)
+            return gitlab_client_instance
 
         raise click.ClickException(f"Unsupported platform for publish: {platform}")
 
@@ -265,6 +301,45 @@ def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
             updated_records.append(record)
             continue
 
+        action = str(record.get("action", ""))
+        platform = _detect_platform_for_publish(repo_url, record)
+        issue_url = _issue_url_for_publish(record)
+
+        if action == constants.ACTION_SKIPPED and issue_url:
+            issue_client = issue_client_for_platform(platform)
+            comments = issue_client.get_issue_comments(issue_url)
+            unsubscribe_detected = any(
+                _is_unsubscribe_comment(comment) for comment in comments
+            )
+            record["unsubscribe_detected"] = unsubscribe_detected
+            if unsubscribe_detected:
+                config_file = analysis_root / constants.FILENAME_CONFIG_SNAPSHOT
+                if config_file.exists():
+                    append_opt_out_to_config(config_file, repo_url, explicit=False)
+
+                if input_config_file is not None:
+                    original_input_path = input_config_file
+                    if not original_input_path.is_absolute():
+                        original_input_path = analysis_root.parent / original_input_path
+                    if original_input_path.exists():
+                        append_opt_out_to_config(
+                            original_input_path, repo_url, explicit=False
+                        )
+
+                record["action"] = constants.ACTION_SKIPPED
+                record["reason_code"] = constants.REASON_CODE_UNSUBSCRIBE
+                record["dry_run"] = False
+                record["issue_persistence"] = "none"
+                record.pop("simulated_issue_url", None)
+                updated_records.append(record)
+                _write_per_repo_report(
+                    analysis_root,
+                    record,
+                    analysis_summary_file,
+                    previous_report,
+                )
+                continue
+
         if (
             record.get("dry_run") is False
             and record.get("action") != constants.ACTION_FAILED
@@ -273,7 +348,6 @@ def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
             updated_records.append(record)
             continue
 
-        action = str(record.get("action", ""))
         if action == constants.ACTION_FAILED:
             if not retry_failed:
                 skipped_failed_retry += 1
@@ -312,6 +386,23 @@ def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
                     _is_unsubscribe_comment(comment) for comment in comments
                 )
                 if unsubscribe_detected:
+                    # update config of analysis snapshot when present
+                    config_file = analysis_root / constants.FILENAME_CONFIG_SNAPSHOT
+                    if config_file.exists():
+                        append_opt_out_to_config(config_file, repo_url, explicit=False)
+
+                    # also update the original input config file when available
+                    input_config_value = run_metadata.get("input_config_file")
+                    if isinstance(input_config_value, str):
+                        input_config_path = Path(input_config_value)
+                        if not input_config_path.is_absolute():
+                            input_config_path = analysis_root.parent / input_config_path
+                        if input_config_path.exists():
+                            append_opt_out_to_config(
+                                input_config_path, repo_url, explicit=False
+                            )
+
+                    # skip publish
                     record["action"] = constants.ACTION_SKIPPED
                     record["reason_code"] = constants.REASON_CODE_UNSUBSCRIBE
                     record["unsubscribe_detected"] = True
@@ -441,6 +532,7 @@ def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
         run_root=analysis_root.parent,
         analysis_summary_file=analysis_summary_file,
         previous_report=previous_report,
+        input_config_file=input_config_file,
     )
     run_metadata_candidate = run_report.get("run_metadata")
     if isinstance(run_metadata_candidate, dict):
@@ -474,3 +566,48 @@ def publish_analysis(analysis_root: Path, retry_failed: bool = False) -> None:
 def publish_command(analysis_root: Path, retry_failed: bool) -> None:
     """Publish issues using precomputed decisions from an analysis snapshot."""
     publish_analysis(analysis_root, retry_failed=retry_failed)
+
+
+@click.command()
+@click.option(
+    "--analysis-root",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
+    required=True,
+    help="Existing analysis snapshot folder containing run_report.json.",
+)
+@click.option(
+    "--retry-failed",
+    is_flag=True,
+    default=False,
+    help="Retry records previously marked as failed when they are eligible for retry.",
+)
+@click.option(
+    "--unsubscribe",
+    is_flag=True,
+    default=False,
+    help="Simulate an unsubscribe comment on all issue comment checks.",
+)
+@click.option(
+    "--fake-comment",
+    multiple=True,
+    help="Fake issue comment text returned for all issue URLs. Can be repeated.",
+)
+def simulate_publish_command(
+    analysis_root: Path,
+    retry_failed: bool,
+    unsubscribe: bool,
+    fake_comment: tuple[str, ...],
+) -> None:
+    """Simulate publish using a local fake issue client without external API access."""
+    fake_comments = []
+    if unsubscribe:
+        fake_comments.append("unsubscribe")
+    fake_comments.extend(fake_comment)
+
+    fake_client = FakeIssueClient(comments_for=lambda url: list(fake_comments))
+    publish_analysis(
+        analysis_root,
+        retry_failed=retry_failed,
+        github_client=fake_client,
+        gitlab_client=fake_client,
+    )

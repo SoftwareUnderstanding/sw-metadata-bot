@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "analysis": {
+    "repositories": [
+      "https://github.com/SoftwareUnderstanding/sw-metadata-bot"
+    ]
+  },
+  "issues": {
+    "custom_issue_message": "Unsubscribe list",
+    "opt_outs": [
+    ]
+  },
+  "outputs": {
+    "output_root_dir": "outputs",
+    "run_name": "unsubscribe",
+    "snapshot_tag_format": "%Y%m%d"
+  }
+}   

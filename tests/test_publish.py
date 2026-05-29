@@ -2,10 +2,12 @@
 
 import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from click.testing import CliRunner
 
 from sw_metadata_bot import publish as publish_module
+from sw_metadata_bot.config.schemas import BotConfig
 from sw_metadata_bot.publish import publish_command
 
 # ---------------------------------------------------------------------------
@@ -70,11 +72,21 @@ def _write_run_report(snapshot_dir, records, run_metadata=None):
 
 def _write_issue_report(snapshot_dir, repo_url, body="Issue body text"):
     """Write a per-repo issue_report.md so publish can find the body."""
-    from sw_metadata_bot.config_utils import sanitize_repo_name
+    from sw_metadata_bot.config.config_utils import sanitize_repo_name
 
     repo_folder = snapshot_dir / sanitize_repo_name(repo_url)
     repo_folder.mkdir(parents=True, exist_ok=True)
     (repo_folder / "issue_report.md").write_text(body)
+
+
+def _create_minimal_config_with_repos(config_path: Path, repo_url: str):
+    config_data = {
+        "analysis": {
+            "repositories": [repo_url],
+        },
+        "issues": {"opt_outs": []},
+    }
+    json.dump(config_data, config_path.open("w"), indent=4)
 
 
 # ---------------------------------------------------------------------------
@@ -349,6 +361,182 @@ def test_publish_unsubscribe_detected_during_publish(tmp_path, monkeypatch):
     record = report["records"][0]
     assert record["action"] == "skipped"
     assert record["reason_code"] == "unsubscribe"
+
+
+def test_publish_unsubscribe_persists_opt_out_to_input_config(tmp_path, monkeypatch):
+    """publish appends opt-out to both snapshot config and original config when unsubscribe is detected."""
+
+    snapshot_dir = tmp_path / "snapshot"
+    snapshot_dir.mkdir()
+    repo_url = "https://github.com/example/repo"
+    issue_url = f"{repo_url}/issues/3"
+    original_config_path = tmp_path / "config.json"
+    snapshot_config_path = snapshot_dir / "config.json"
+    _create_minimal_config_with_repos(original_config_path, repo_url)
+    _create_minimal_config_with_repos(snapshot_config_path, repo_url)
+
+    _write_run_report(
+        snapshot_dir,
+        records=[
+            {
+                "repo_url": repo_url,
+                "action": "updated_by_comment",
+                "platform": "github",
+                "issue_url": issue_url,
+                "dry_run": True,
+                "issue_persistence": "simulated",
+            }
+        ],
+        run_metadata={"input_config_file": str(original_config_path)},
+    )
+    _write_issue_report(snapshot_dir, repo_url)
+
+    fake = _FakeIssueClient(comments_for=lambda url: ["unsubscribe"])
+    _patch_clients(monkeypatch, fake)
+
+    runner = CliRunner()
+    result = runner.invoke(publish_command, ["--analysis-root", str(snapshot_dir)])
+
+    assert result.exit_code == 0, result.output
+    assert not fake.commented
+
+    snapshot_config = BotConfig.from_json(snapshot_config_path)
+    original_config = BotConfig.from_json(original_config_path)
+
+    assert snapshot_config.issues.opt_outs == [repo_url]
+    assert original_config.issues.opt_outs == [repo_url]
+
+
+def test_publish_preserves_input_config_file_in_run_report(tmp_path, monkeypatch):
+    """publish preserves run_metadata.input_config_file when rewriting the report."""
+    snapshot_dir = tmp_path / "snapshot"
+    snapshot_dir.mkdir()
+    repo_url = "https://github.com/example/repo"
+    issue_url = f"{repo_url}/issues/3"
+    original_config_path = tmp_path / "config.json"
+    _create_minimal_config_with_repos(original_config_path, repo_url)
+
+    _write_run_report(
+        snapshot_dir,
+        records=[
+            {
+                "repo_url": repo_url,
+                "action": "updated_by_comment",
+                "platform": "github",
+                "issue_url": issue_url,
+                "dry_run": True,
+                "issue_persistence": "simulated",
+            }
+        ],
+        run_metadata={"input_config_file": str(original_config_path)},
+    )
+    _write_issue_report(snapshot_dir, repo_url)
+
+    fake = _FakeIssueClient(comments_for=lambda url: ["unsubscribe"])
+    _patch_clients(monkeypatch, fake)
+
+    runner = CliRunner()
+    result = runner.invoke(publish_command, ["--analysis-root", str(snapshot_dir)])
+
+    assert result.exit_code == 0, result.output
+    report = json.loads((snapshot_dir / "run_report.json").read_text())
+    assert report["run_metadata"]["input_config_file"] is not None
+    assert (
+        Path(report["run_metadata"]["input_config_file"]).name
+        == original_config_path.name
+    )
+
+
+def test_publish_detects_unsubscribe_on_skipped_previous_issue_url(
+    tmp_path, monkeypatch
+):
+    """publish detects unsubscribe on skipped records that carry previous_issue_url."""
+    snapshot_dir = tmp_path / "snapshot"
+    snapshot_dir.mkdir()
+    repo_url = "https://github.com/example/repo"
+    issue_url = f"{repo_url}/issues/3"
+    original_config_path = tmp_path / "config.json"
+    snapshot_config_path = snapshot_dir / "config.json"
+    _create_minimal_config_with_repos(original_config_path, repo_url)
+    _create_minimal_config_with_repos(snapshot_config_path, repo_url)
+
+    _write_run_report(
+        snapshot_dir,
+        records=[
+            {
+                "repo_url": repo_url,
+                "action": "skipped",
+                "platform": "github",
+                "reason_code": "repo_not_updated",
+                "previous_issue_url": issue_url,
+                "dry_run": False,
+                "issue_persistence": "none",
+            }
+        ],
+        run_metadata={"input_config_file": str(original_config_path)},
+    )
+    _write_issue_report(snapshot_dir, repo_url)
+
+    fake = _FakeIssueClient(comments_for=lambda url: ["unsubscribe"])
+    _patch_clients(monkeypatch, fake)
+
+    runner = CliRunner()
+    result = runner.invoke(publish_command, ["--analysis-root", str(snapshot_dir)])
+
+    assert result.exit_code == 0, result.output
+
+    report = json.loads((snapshot_dir / "run_report.json").read_text())
+    record = report["records"][0]
+    assert record["action"] == "skipped"
+    assert record["reason_code"] == "unsubscribe"
+    assert record["unsubscribe_detected"] is True
+
+    snapshot_config = BotConfig.from_json(snapshot_config_path)
+    original_config = BotConfig.from_json(original_config_path)
+    assert snapshot_config.issues.opt_outs == [repo_url]
+    assert original_config.issues.opt_outs == [repo_url]
+
+
+def test_simulate_publish_command_updates_opt_out_with_fake_unsubscribe(tmp_path):
+    """simulate-publish can use a fake unsubscribe comment and update config files."""
+    snapshot_dir = tmp_path / "snapshot"
+    snapshot_dir.mkdir()
+    repo_url = "https://github.com/example/repo"
+    issue_url = f"{repo_url}/issues/3"
+    original_config_path = tmp_path / "config.json"
+    snapshot_config_path = snapshot_dir / "config.json"
+    _create_minimal_config_with_repos(original_config_path, repo_url)
+    _create_minimal_config_with_repos(snapshot_config_path, repo_url)
+
+    _write_run_report(
+        snapshot_dir,
+        records=[
+            {
+                "repo_url": repo_url,
+                "action": "updated_by_comment",
+                "platform": "github",
+                "issue_url": issue_url,
+                "dry_run": True,
+                "issue_persistence": "simulated",
+            }
+        ],
+        run_metadata={"input_config_file": str(original_config_path)},
+    )
+    _write_issue_report(snapshot_dir, repo_url)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        publish_module.simulate_publish_command,
+        ["--analysis-root", str(snapshot_dir), "--unsubscribe"],
+    )
+
+    assert result.exit_code == 0, result.output
+
+    snapshot_config = BotConfig.from_json(snapshot_config_path)
+    original_config = BotConfig.from_json(original_config_path)
+
+    assert snapshot_config.issues.opt_outs == [repo_url]
+    assert original_config.issues.opt_outs == [repo_url]
 
 
 def test_publish_api_error_marks_record_as_failed(tmp_path, monkeypatch):

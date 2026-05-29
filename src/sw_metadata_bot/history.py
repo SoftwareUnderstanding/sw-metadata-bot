@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from . import utils
-from .config_utils import normalize_repo_url
+from .config.config_utils import normalize_repo_url
 
 
 def _read_report_records(report_path: Path | None) -> list[dict]:

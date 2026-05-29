@@ -46,14 +46,20 @@ class RecordLifecycle:
 def relative_to_run_root(path: Path | None, run_root: Path) -> str | None:
     """Return a run-root-relative path string.
 
-    Accepts both absolute and already-relative input paths. Absolute paths must
-    be inside run_root; otherwise Path.relative_to raises ValueError.
+    Accepts both absolute and relative input paths.
+    Relative paths are resolved against the current working directory before
+    comparing against run_root.
     """
     if path is None:
         return None
-    if path.is_absolute():
+
+    if not path.is_absolute():
+        path = path.resolve()
+
+    try:
         return str(path.relative_to(run_root))
-    return str(path)
+    except ValueError:
+        return str(path)
 
 
 def build_counters(records: list[dict[str, object]]) -> dict[str, int]:
@@ -81,6 +87,7 @@ def build_run_metadata(
     run_root: Path,
     analysis_summary_file: Path | None,
     previous_report: Path | None,
+    input_config_file: Path | None = None,
 ) -> dict[str, object]:
     """Build run metadata with normalized relative paths."""
     return {
@@ -88,6 +95,7 @@ def build_run_metadata(
         "dry_run": dry_run,
         "analysis_summary_file": relative_to_run_root(analysis_summary_file, run_root),
         "previous_report_source": relative_to_run_root(previous_report, run_root),
+        "input_config_file": relative_to_run_root(input_config_file, run_root),
     }
 
 
@@ -157,17 +165,25 @@ def write_report_file(
     run_root: Path,
     analysis_summary_file: Path | None,
     previous_report: Path | None,
+    input_config_file: Path | None = None,
 ) -> dict[str, object]:
     """Write a report payload to disk and return the payload."""
+    normalized_records: list[dict[str, object]] = []
+    for record in records:
+        if isinstance(record, dict):
+            record.setdefault("unsubscribe_detected", False)
+        normalized_records.append(record)
+
     payload = {
         "run_metadata": build_run_metadata(
             dry_run=dry_run,
             run_root=run_root,
             analysis_summary_file=analysis_summary_file,
             previous_report=previous_report,
+            input_config_file=input_config_file,
         ),
-        "counters": build_counters(records),
-        "records": records,
+        "counters": build_counters(normalized_records),
+        "records": normalized_records,
     }
     report_file.parent.mkdir(parents=True, exist_ok=True)
     with open(report_file, "w", encoding="utf-8") as f:

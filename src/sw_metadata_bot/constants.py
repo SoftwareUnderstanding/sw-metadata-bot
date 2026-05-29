@@ -6,6 +6,21 @@ duplication and makes it easy to find and update values consistently.
 """
 
 # =============================================================================
+# Configuration Defaults
+# =============================================================================
+# Default values for configuration fields, used when not specified in config.json.
+
+DEFAULT_OUTPUT_ROOT = "outputs"
+DEFAULT_SNAPSHOT_TAG_FORMAT = "%Y%m%d"
+PROJECT_ROOT_MARKERS = ("pyproject.toml", ".git")
+
+CONFIG_SECTION_ISSUES = "issues"
+CONFIG_KEY_CUSTOM_MESSAGE = "custom_message"
+CONFIG_KEY_GENERATE_CODEMETA_IF_MISSING = "generate_codemeta_if_missing"
+CONFIG_KEY_OPT_OUTS = "opt_outs"
+CONFIG_SECTION_OUTPUTS = "outputs"
+
+# =============================================================================
 # Issue Publishing Action Names
 # =============================================================================
 # These represent the different states an analysis record can transition through
