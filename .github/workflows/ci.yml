@@ -90,14 +90,16 @@ jobs:
           uv run pytest -m "not integration_gitlab" \
             --cov=src/sw_metadata_bot \
             --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
             tests/
+            
+      - name: Generate coverage badge
+        run: uv run genbadge coverage -i coverage.xml -o coverage.svg
+        continue-on-error: true
 
       - name: Run small analysis without publishing
         run: uv run sw-metadata-bot run-analysis --config-file assets/example_list_repo.json
 
-      - name: Generate coverage badge
-        run: uv run coverage-badge -o coverage.svg -f
-        continue-on-error: true
 
       - name: Commit coverage badge
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
