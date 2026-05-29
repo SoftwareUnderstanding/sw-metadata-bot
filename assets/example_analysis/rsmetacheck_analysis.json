@@ -1,0 +1,263 @@
+{
+  "summary": {
+    "total_repositories_analyzed": 1,
+    "repositories_with_target_languages": 1,
+    "individual_jsonld_files_created": 1,
+    "total_pitfalls_detected": 0,
+    "total_warnings_detected": 3,
+    "target_languages": [
+      "Python",
+      "Java",
+      "C++",
+      "C",
+      "R",
+      "Rust"
+    ],
+    "evaluated_repositories": {
+      "SoftwareUnderstanding/RsMetaCheck": {
+        "url": "https://github.com/SoftwareUnderstanding/RsMetaCheck",
+        "commit_id": "e15a9e2aebb63d08b94cc10f12f5efd4a374a65d"
+      }
+    }
+  },
+  "pitfalls & warnings": [
+    {
+      "pitfall_code": "P001",
+      "pitfall_desc": "The metadata file (codemeta or other) has a version which does not correspond to the version used in the latest release",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P001"
+    },
+    {
+      "pitfall_code": "P002",
+      "pitfall_desc": "LICENSE file contains template placeholders like <program>, <year>, <name of author> that were not replaced",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P002"
+    },
+    {
+      "pitfall_code": "P003",
+      "pitfall_desc": "Metadata files have multiple authors in single field instead of a list",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P003"
+    },
+    {
+      "pitfall_code": "P004",
+      "pitfall_desc": "In codemeta.json README property pointing to their homepage/wiki instead of README file",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P004"
+    },
+    {
+      "pitfall_code": "P005",
+      "pitfall_desc": "codemeta.json referencePublication refers to software archive instead of paper",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P005"
+    },
+    {
+      "pitfall_code": "P006",
+      "pitfall_desc": "The metadata file has License pointing to a local file instead of stating the name",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P006"
+    },
+    {
+      "pitfall_code": "P007",
+      "pitfall_desc": "CITATION.cff does not have referencePublication even though it's referenced in codemeta.json",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P007"
+    },
+    {
+      "pitfall_code": "P008",
+      "pitfall_desc": "The metadata file softwareRequirement points to an invalid page",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P008"
+    },
+    {
+      "pitfall_code": "P009",
+      "pitfall_desc": "The metadata file coderepository points to their homepage",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P009"
+    },
+    {
+      "pitfall_code": "P010",
+      "pitfall_desc": "LICENSE file only contains copyright information without actual license terms",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P010"
+    },
+    {
+      "pitfall_code": "P011",
+      "pitfall_desc": "codemeta.json IssueTracker violates the expected URL format",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P011"
+    },
+    {
+      "pitfall_code": "P012",
+      "pitfall_desc": "codemeta.json downloadURL is outdated",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P012"
+    },
+    {
+      "pitfall_code": "P013",
+      "pitfall_desc": "The metadata file License does not have the specific version",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P013"
+    },
+    {
+      "pitfall_code": "P014",
+      "pitfall_desc": "codemeta.json uses bare DOIs in the identifier field instead of full https://doi.org/ URL",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P014"
+    },
+    {
+      "pitfall_code": "P015",
+      "pitfall_desc": "In codemeta.json contIntegration link returns 404",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P015"
+    },
+    {
+      "pitfall_code": "P016",
+      "pitfall_desc": "The metadata file codeRepository does not point to the same repository",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P016"
+    },
+    {
+      "pitfall_code": "P017",
+      "pitfall_desc": "codemeta.json version does not match the package's",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P017"
+    },
+    {
+      "pitfall_code": "P018",
+      "pitfall_desc": "codemeta.json Identifier uses raw SWHIDs without their resolvable URL",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P018"
+    },
+    {
+      "pitfall_code": "P019",
+      "pitfall_desc": "Inconsistent author counts found across metadata files",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#P019"
+    },
+    {
+      "warning_code": "W001",
+      "warning_desc": "Software requirements in metadata files don't have version specifications",
+      "count": 1,
+      "percentage": 100.0,
+      "languages": {
+        "Python": 1
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W001"
+    },
+    {
+      "warning_code": "W002",
+      "warning_desc": "The dateModified in codemeta.json is outdated compared to the actual repository last update date",
+      "count": 1,
+      "percentage": 100.0,
+      "languages": {
+        "Python": 1
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W002"
+    },
+    {
+      "warning_code": "W003",
+      "warning_desc": "Codemeta.json repository has multiple licenses but only one is listed",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W003"
+    },
+    {
+      "warning_code": "W004",
+      "warning_desc": "Programming languages in codemeta.json do not have versions",
+      "count": 1,
+      "percentage": 100.0,
+      "languages": {
+        "Python": 1
+      },
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W004"
+    },
+    {
+      "warning_code": "W005",
+      "warning_desc": "The metadata file softwareRequirements have more than one req, but it's written as one string",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W005"
+    },
+    {
+      "warning_code": "W006",
+      "warning_desc": "codemeta.json Identifier is a name instead of a valid unique identifier, but an identifier exist",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W006"
+    },
+    {
+      "warning_code": "W007",
+      "warning_desc": "codemeta.json Identifier is empty",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W007"
+    },
+    {
+      "warning_code": "W008",
+      "warning_desc": "The metadata file GivenName is a list instead of a string",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W008"
+    },
+    {
+      "pitfall_code": "W009",
+      "pitfall_desc": "codemeta.json developmentStatus is a URL instead of a string",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W009"
+    },
+    {
+      "pitfall_code": "W010",
+      "pitfall_desc": "The metadata file codeRepository uses Git remote-style shorthand instead of full URL",
+      "count": 0,
+      "percentage": 0.0,
+      "languages": {},
+      "pitfall": "https://w3id.org/rsmetacheck/catalog/#W010"
+    }
+  ]
+}

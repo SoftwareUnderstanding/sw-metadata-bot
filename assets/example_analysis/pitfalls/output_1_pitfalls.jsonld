@@ -1,0 +1,75 @@
+{
+  "@context": "[IN PROCESS]",
+  "@type": "SoftwareQualityAssessment",
+  "name": "Quality Assessment for SoftwareUnderstanding/RsMetaCheck",
+  "description": "Automated tool to detect metadata quality pitfalls in software repositories (Python, Java, C++, etc.). Analyzes SoMEF output files for version mismatches, license issues, broken URLs, and more.",
+  "creator": {
+    "@type": "schema:Person",
+    "name": "Anonymous",
+    "email": "example@email.com"
+  },
+  "dateCreated": "2026-05-29T14:41:56Z",
+  "license": {
+    "@id": "https://opensource.org/license/mit"
+  },
+  "assessedSoftware": {
+    "@type": "schema:SoftwareApplication",
+    "name": "SoftwareUnderstanding/RsMetaCheck",
+    "softwareVersion": "0.3.2",
+    "url": "https://github.com/SoftwareUnderstanding/RsMetaCheck",
+    "schema:identifier": {
+      "@id": "https://doi.org/10.5281/zenodo.18956787"
+    },
+    "commit_id": "e15a9e2aebb63d08b94cc10f12f5efd4a374a65d"
+  },
+  "checkingSoftware": {
+    "@type": "schema:SoftwareApplication",
+    "name": "RSMetacheck",
+    "@id": "https://w3id.org/rsmetacheck",
+    "softwareVersion": "0.3.1"
+  },
+  "checks": [
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/rsmetacheck/catalog/#W001"
+      },
+      "process": "Analyzes software requirements in metadata to see if they lack explicit version constraints.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "output": "true",
+      "evidence": "W001 detected: pyproject.toml contains software requirements without versions: poetry-core",
+      "suggestion": "Add version numbers to your dependencies. This provides stability for users and allows reproducibility across different environments.",
+      "checkId": "c6106e77f284408904dc592481cae5bfd5fcf66e9e4ecbfeab0c2dbbca4923d1"
+    },
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/rsmetacheck/catalog/#W002"
+      },
+      "process": "Compares the dateModified field against the last updated date of the actual repository.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "output": "true",
+      "evidence": "W002 detected: metadata files dateModified '2025-09-19T00:00:00' is outdated compared to repository date '2026-05-27T16:30:05'",
+      "suggestion": "The data in the metadata file should be updated to be aligned with the date of the latest release (2026-05-27T16:30:05).",
+      "checkId": "9fc5111ff6139c772042983c3b0611efaa23fec563d4edda52bc90caf0daf403"
+    },
+    {
+      "@type": "CheckResult",
+      "assessesIndicator": {
+        "@id": "https://w3id.org/rsmetacheck/catalog/#W004"
+      },
+      "process": "Checks programming language declarations in codemeta.json to see if they lack specific version numbers.",
+      "status": {
+        "@id": "schema:CompletedActionStatus"
+      },
+      "output": "true",
+      "evidence": "W004 detected: metadata files Programming languages without versions: Python",
+      "suggestion": "Include version numbers for each programming language used. Defining these helps ensure reproducibility and compatibility across systems.",
+      "checkId": "d4846ed456a4db4a83afef9594d6fbec1e97a1ca5b54e3080ea1397c90c99b07"
+    }
+  ]
+}
