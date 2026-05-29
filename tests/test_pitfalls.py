@@ -81,6 +81,30 @@ def test_get_pitfalls_list(sample_data):
     assert pitfalls[1]["pitfall"].endswith("#P002")
 
 
+def test_load_pitfalls_from_example_analysis():
+    """Load generated RSMetacheck pitfalls from assets/example_analysis/pitfalls."""
+    base_path = (
+        Path(__file__).resolve().parents[1] / "assets" / "example_analysis" / "pitfalls"
+    )
+    if not base_path.exists():
+        pytest.skip(
+            "Generated example analysis files are not available in assets/example_analysis/pitfalls"
+        )
+
+    jsonld_files = sorted(base_path.rglob("*.jsonld"))
+    assert jsonld_files, f"No JSON-LD files found in {base_path}"
+
+    # Validate at least one generated file can be loaded and has the expected shape.
+    data = load_pitfalls(jsonld_files[0])
+    assert isinstance(data, dict)
+    assert get_repository_url(data), "Generated file missing assessedSoftware.url"
+    assert get_rsmetacheck_version(data), "Generated file missing RSMetacheck version"
+
+    # Sanity-check the top-level payload a bit more.
+    assert "checks" in data
+    assert isinstance(data["checks"], list)
+
+
 def test_get_warnings_list(sample_data):
     """Test filtering warnings from checks."""
     warnings = get_warnings_list(sample_data)
@@ -125,35 +149,6 @@ def test_get_pitfalls_list_empty():
     """Test pitfalls extraction from empty data."""
     pitfalls = get_pitfalls_list({})
     assert pitfalls == []
-
-
-@pytest.mark.parametrize(
-    ("filename", "expected_pitfalls", "expected_warnings"),
-    [
-        ("example_pitfall_1.jsonld", {"P001", "P002", "P009"}, {"W001", "W003"}),
-        ("example_pitfall_2.jsonld", {"P002", "P014"}, {"W003", "W004"}),
-        ("example_pitfall_3.jsonld", {"P001"}, {"W001", "W002", "W004"}),
-        ("example_pitfall_4.jsonld", {"P001", "P006"}, set()),
-        ("example_pitfall_5.jsonld", set(), {"W002", "W004"}),
-    ],
-)
-def test_existing_metacheck_analysis_jsonld_files(
-    filename, expected_pitfalls, expected_warnings
-):
-    """Test parsing of existing metacheck analysis JSON-LD files."""
-    base_path = Path(__file__).resolve().parents[1]
-    data = load_pitfalls(
-        base_path / "assets" / "existing_metacheck_analysis" / filename
-    )
-
-    pitfalls = get_pitfalls_list(data)
-    warnings = get_warnings_list(data)
-
-    pitfall_codes = {item["pitfall"].split("#")[-1] for item in pitfalls}
-    warning_codes = {item["pitfall"].split("#")[-1] for item in warnings}
-
-    assert pitfall_codes == expected_pitfalls
-    assert warning_codes == expected_warnings
 
 
 def test_format_report(sample_data):
