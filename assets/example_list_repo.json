@@ -1,15 +1,18 @@
 {
-  "repositories": [
-    "https://github.com/SoftwareUnderstanding/sw-metadata-bot",
-    "https://github.com/SoftwareUnderstanding/RsMetaCheck"
-  ],
+  "version": "1.0.0",
+  "analysis": {
+    "repositories": [
+      "https://github.com/SoftwareUnderstanding/sw-metadata-bot",
+      "https://github.com/SoftwareUnderstanding/RsMetaCheck"
+    ]
+  },
   "issues": {
-    "custom_message": "This is a issue created for testing purposes. Several metadata issues were identified and could be addressed.",
+    "custom_issue_message": "This is a issue created for testing purposes. Several metadata issues were identified and could be addressed.",
     "opt_outs": [
     ]
   },
   "outputs": {
-    "root_dir": "assets",
+    "output_root_dir": "assets",
     "run_name": "example_run",
     "snapshot_tag_format": "%Y%m%d"
   }

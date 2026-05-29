@@ -1,14 +1,17 @@
 {
-  "repositories": [
-    "https://github.com/SoftwareUnderstanding/ScientificSoftwareKG"
-  ],
+  "version": "1.0.0",
+  "analysis": {
+    "repositories": [
+      "https://github.com/SoftwareUnderstanding/sw-metadata-bot"
+    ]
+  },
   "issues": {
-    "custom_message": "Unsubscribe list",
+    "custom_issue_message": "Unsubscribe list",
     "opt_outs": [
     ]
   },
   "outputs": {
-    "root_dir": "outputs",
+    "output_root_dir": "outputs",
     "run_name": "unsubscribe",
     "snapshot_tag_format": "%Y%m%d"
   }
