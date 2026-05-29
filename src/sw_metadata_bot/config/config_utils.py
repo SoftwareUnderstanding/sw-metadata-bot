@@ -89,11 +89,11 @@ def resolve_run_name(run_name: str | None, config_path: Path) -> str:
     return config_path.stem
 
 
-def append_opt_out_to_config(config_file: Path, repo_url: str) -> None:
+def append_opt_out_to_config(config_file: Path, repo_url: str, explicit: bool) -> None:
     """Helper to append a repository URL to the config's opt-out list from file."""
     normalized_url = normalize_repo_url(repo_url)
 
     config = BotConfig.from_json(config_file)
     is_new_repo_added = config.add_opt_out_repository(normalized_url)
     if is_new_repo_added:
-        config.to_json(config_file)
+        config.to_json(config_file, explicit=explicit)

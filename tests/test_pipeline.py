@@ -8,17 +8,19 @@ from click.testing import CliRunner
 
 from sw_metadata_bot import analysis_runtime, commit_lookup, pipeline
 from sw_metadata_bot import publish as publish_module
+from sw_metadata_bot.config.schemas import BotConfig
 
 # ---------------------------------------------------------------------------
 # is_previous_issue_open
 # ---------------------------------------------------------------------------
+FAKE_REPO_URL = "https://github.com/example/repo"
 
 
 def test_is_previous_issue_open_false_when_action_closed():
     """Return False when the previous record action is closed, regardless of issue_url."""
     record = {
         "action": "closed",
-        "issue_url": "https://github.com/example/repo/issues/1",
+        "issue_url": FAKE_REPO_URL + "/issues/1",
         "issue_persistence": "posted",
     }
     assert analysis_runtime.is_previous_issue_open(record) is False
@@ -28,7 +30,7 @@ def test_is_previous_issue_open_false_when_previous_issue_state_closed():
     """Return False when previous_issue_state is explicitly closed."""
     record = {
         "action": "closed",
-        "issue_url": "https://github.com/example/repo/issues/1",
+        "issue_url": FAKE_REPO_URL + "/issues/1",
         "issue_persistence": "posted",
         "previous_issue_state": "closed",
     }
@@ -39,7 +41,7 @@ def test_is_previous_issue_open_true_for_posted_open_issue():
     """Return True when an issue was posted and no closing signal exists."""
     record = {
         "action": "created",
-        "issue_url": "https://github.com/example/repo/issues/2",
+        "issue_url": FAKE_REPO_URL + "/issues/2",
         "issue_persistence": "posted",
     }
     assert analysis_runtime.is_previous_issue_open(record) is True
@@ -49,26 +51,28 @@ def test_is_previous_issue_open_false_for_simulated_issue():
     """Return False for simulated (dry-run) issues that were never posted."""
     record = {
         "action": "simulated_created",
-        "issue_url": "https://github.com/example/repo/issues/3",
+        "issue_url": FAKE_REPO_URL + "/issues/3",
         "issue_persistence": "simulated",
     }
     assert analysis_runtime.is_previous_issue_open(record) is False
 
 
-def _write_config(tmp_path, **overrides):
-    """Write a minimal config and return its path."""
-    config = {
-        "repositories": ["https://github.com/example/repo"],
-        "issues": {"custom_message": None, "opt_outs": []},
+def _write_config(tmp_path, **overrides) -> Path:
+    """Write a minimal config and return its path.
+    The config is populated with default values and can be overridden by passing fields as keyword arguments."""
+    config_data = {
+        "analysis": {"repositories": [FAKE_REPO_URL]},
+        "issues": {"custom_issue_message": None, "opt_outs": []},
         "outputs": {
-            "root_dir": str(tmp_path / "outputs"),
+            "output_root_dir": str(tmp_path / "outputs"),
             "run_name": "batch-a",
             "snapshot_tag_format": "%Y%m%d",
         },
     }
-    config.update(overrides)
+    config_data.update(overrides)
     config_path = tmp_path / "config.json"
-    config_path.write_text(json.dumps(config))
+    config = BotConfig.model_validate(config_data)
+    config.to_json(config_path)
     return config_path
 
 
@@ -78,7 +82,7 @@ def test_resolve_per_repo_paths_uses_analysis_root(tmp_path):
 
     paths = analysis_runtime.resolve_per_repo_paths(
         analysis_root=analysis_root,
-        repo_url="https://github.com/example/repo",
+        repo_url=FAKE_REPO_URL,
     )
 
     repo_root = analysis_root / "github_com_example_repo"
@@ -130,44 +134,12 @@ def test_standardize_metacheck_outputs_recovers_swapped_somef_and_codemeta(tmp_p
     assert not (repo_folder / "output_1.json").exists()
 
 
-def test_resolve_output_root_relative_uses_project_root(tmp_path):
-    """Resolve relative output root from project root rather than config directory."""
-    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'example'\n")
-    config_dir = tmp_path / "assets"
-    config_dir.mkdir()
-    config_path = config_dir / "config.json"
-    config = {
-        "repositories": [],
-        "outputs": {"root_dir": "assets"},
-    }
-    config_path.write_text(json.dumps(config))
-
-    resolved_output_root = pipeline.resolve_output_root(config, config_path)
-
-    assert resolved_output_root == tmp_path / "assets"
-
-
-def test_resolve_output_root_keeps_absolute_path(tmp_path):
-    """Keep absolute output root unchanged."""
-    config_path = tmp_path / "config.json"
-    absolute_output_root = tmp_path / "custom-output"
-    config = {
-        "repositories": [],
-        "outputs": {"root_dir": str(absolute_output_root)},
-    }
-    config_path.write_text(json.dumps(config))
-
-    resolved_output_root = pipeline.resolve_output_root(config, config_path)
-
-    assert resolved_output_root == absolute_output_root
-
-
 def test_create_analysis_record_reads_rsmetacheck_version_from_checking_software(
     tmp_path,
 ):
     """Read RSMetacheck version from checkingSoftware.softwareVersion."""
     expected_version = "0.3.0"
-    repo_url = "https://github.com/example/repo"
+    repo_url = FAKE_REPO_URL
     repo_folder = tmp_path / "github_com_example_repo"
     repo_folder.mkdir(parents=True)
 
@@ -205,7 +177,7 @@ def test_create_analysis_record_reads_rsmetacheck_version_from_checking_software
 
 def test_create_analysis_record_creates_codemeta_issue_without_findings(tmp_path):
     """Create codemeta-only issue when no pitfalls/warnings are reported."""
-    repo_url = "https://github.com/example/repo"
+    repo_url = FAKE_REPO_URL
     repo_folder = tmp_path / "github_com_example_repo"
     repo_folder.mkdir(parents=True)
 
@@ -290,18 +262,18 @@ def test_run_pipeline_invokes_rsmetacheck_and_writes_reports(monkeypatch, tmp_pa
     monkeypatch.setattr(analysis_runtime, "run_rsmetacheck", fake_run_rsmetacheck)
 
     output_root = tmp_path / "outputs"
-    config = _write_config(
+    config_path = _write_config(
         tmp_path,
-        repositories=["https://github.com/example/repo"],
+        analysis={"repositories": [FAKE_REPO_URL]},
         outputs={
-            "root_dir": str(output_root),
+            "output_root_dir": str(output_root),
             "run_name": "batch-a",
             "snapshot_tag_format": None,
         },
     )
 
     pipeline.run_pipeline(
-        config_file=config,
+        config_file=config_path,
         dry_run=False,
         snapshot_tag="202603",
         previous_report=None,
@@ -337,24 +309,27 @@ def test_run_pipeline_marks_run_report_dry_run(monkeypatch, tmp_path):
     monkeypatch.setattr(analysis_runtime, "run_rsmetacheck", fake_run_rsmetacheck)
 
     output_root = tmp_path / "outputs"
-    config = _write_config(
+    output_root.mkdir(parents=True)
+    config_path = _write_config(
         tmp_path,
         outputs={
-            "root_dir": str(output_root),
+            "output_root_dir": str(output_root),
             "run_name": "batch-a",
             "snapshot_tag_format": None,
         },
     )
 
     pipeline.run_pipeline(
-        config_file=config,
+        config_file=config_path,
         dry_run=True,
         snapshot_tag=None,
         previous_report=None,
     )
-
-    run_report_path = output_root / "batch-a" / "run_report.json"
+    config = BotConfig.from_json(config_path)
+    snapshot_tag = config.resolve_snapshot_tag()
+    run_report_path = output_root / "batch-a" / snapshot_tag / "run_report.json"
     assert run_report_path.exists()
+
     run_report = json.loads(run_report_path.read_text())
     assert run_report["run_metadata"]["dry_run"] is True
 
@@ -369,18 +344,18 @@ def test_run_pipeline_persists_input_config_file_in_run_metadata(monkeypatch, tm
     monkeypatch.setattr(analysis_runtime, "run_rsmetacheck", fake_run_rsmetacheck)
 
     output_root = tmp_path / "outputs"
-    config = _write_config(
+    config_path = _write_config(
         tmp_path,
-        repositories=[],
+        analysis={"repositories": ["https://github.com/example/repo"]},
         outputs={
-            "root_dir": str(output_root),
+            "output_root_dir": str(output_root),
             "run_name": "batch-a",
             "snapshot_tag_format": "202603",
         },
     )
 
     pipeline.run_pipeline(
-        config_file=config,
+        config_file=config_path,
         dry_run=True,
         snapshot_tag="202603",
         previous_report=None,
@@ -389,7 +364,7 @@ def test_run_pipeline_persists_input_config_file_in_run_metadata(monkeypatch, tm
     run_report_path = output_root / "batch-a" / "202603" / "run_report.json"
     assert run_report_path.exists()
     run_report = json.loads(run_report_path.read_text())
-    assert run_report["run_metadata"]["input_config_file"] == str(config)
+    assert run_report["run_metadata"]["input_config_file"] == str(config_path)
 
 
 def test_run_pipeline_persists_relative_input_config_file_in_run_metadata(
@@ -403,11 +378,11 @@ def test_run_pipeline_persists_relative_input_config_file_in_run_metadata(
     monkeypatch.setattr(analysis_runtime, "run_rsmetacheck", fake_run_rsmetacheck)
 
     output_root = tmp_path / "outputs"
-    config = _write_config(
+    config_path = _write_config(
         tmp_path,
-        repositories=[],
+        analysis={"repositories": ["https://github.com/example/repo"]},
         outputs={
-            "root_dir": str(output_root),
+            "output_root_dir": str(output_root),
             "run_name": "batch-a",
             "snapshot_tag_format": "202603",
         },
@@ -418,7 +393,7 @@ def test_run_pipeline_persists_relative_input_config_file_in_run_metadata(
         # Run from a different current working directory to simulate CLI usage.
         Path(tmp_path / "cwd").mkdir()
         os.chdir(tmp_path / "cwd")
-        relative_config = Path(os.path.relpath(config, start=Path.cwd()))
+        relative_config = Path(os.path.relpath(config_path, start=Path.cwd()))
 
         pipeline.run_pipeline(
             config_file=relative_config,
@@ -432,7 +407,7 @@ def test_run_pipeline_persists_relative_input_config_file_in_run_metadata(
     run_report_path = output_root / "batch-a" / "202603" / "run_report.json"
     assert run_report_path.exists()
     run_report = json.loads(run_report_path.read_text())
-    assert run_report["run_metadata"]["input_config_file"] == str(config)
+    assert run_report["run_metadata"]["input_config_file"] == str(config_path)
 
 
 def test_run_analysis_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
@@ -445,10 +420,10 @@ def test_run_analysis_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
 
     monkeypatch.setattr(pipeline, "run_pipeline", fake_run_pipeline)
 
-    config = _write_config(
+    config_path = _write_config(
         tmp_path,
         outputs={
-            "root_dir": str(tmp_path / "results"),
+            "output_root_dir": str(tmp_path / "results"),
             "run_name": "custom-run",
             "snapshot_tag_format": None,
         },
@@ -459,21 +434,21 @@ def test_run_analysis_command_forwards_to_run_pipeline(monkeypatch, tmp_path):
         pipeline.run_analysis_command,
         [
             "--config-file",
-            str(config),
+            str(config_path),
             "--snapshot-tag",
             "2026-03",
             "--previous-report",
-            str(config),
+            str(config_path),
             "--force-analysis",
         ],
     )
 
     assert result.exit_code == 0
     assert captured == {
-        "config_file": config,
+        "config_file": config_path,
         "dry_run": True,
         "snapshot_tag": "2026-03",
-        "previous_report": config,
+        "previous_report": config_path,
         "force_analysis": True,
     }
 
@@ -541,10 +516,10 @@ def test_run_pipeline_auto_discovers_previous_report(monkeypatch, tmp_path):
     monkeypatch.setattr(analysis_runtime, "run_rsmetacheck", fake_run_rsmetacheck)
 
     output_root = tmp_path / "outputs"
-    config = _write_config(
+    config_path = _write_config(
         tmp_path,
         outputs={
-            "root_dir": str(output_root),
+            "output_root_dir": str(output_root),
             "run_name": "batch-a",
             "snapshot_tag_format": None,
         },
@@ -555,7 +530,7 @@ def test_run_pipeline_auto_discovers_previous_report(monkeypatch, tmp_path):
     (previous_snapshot / "run_report.json").write_text("{}")
 
     pipeline.run_pipeline(
-        config_file=config,
+        config_file=config_path,
         dry_run=False,
         snapshot_tag="20260311",
         previous_report=None,
@@ -580,10 +555,10 @@ def test_run_pipeline_uses_incremented_snapshot_tag_on_collision(monkeypatch, tm
     monkeypatch.setattr(analysis_runtime, "run_rsmetacheck", fake_run_rsmetacheck)
 
     output_root = tmp_path / "outputs"
-    config = _write_config(
+    config_path = _write_config(
         tmp_path,
         outputs={
-            "root_dir": str(output_root),
+            "output_root_dir": str(output_root),
             "run_name": "batch-a",
             "snapshot_tag_format": None,
         },
@@ -592,7 +567,7 @@ def test_run_pipeline_uses_incremented_snapshot_tag_on_collision(monkeypatch, tm
     (output_root / "batch-a" / "X").mkdir(parents=True)
 
     pipeline.run_pipeline(
-        config_file=config,
+        config_file=config_path,
         dry_run=False,
         snapshot_tag="X",
         previous_report=None,
@@ -716,9 +691,9 @@ def test_run_pipeline_skips_analysis_when_all_repos_unchanged(monkeypatch, tmp_p
     output_root = tmp_path / "outputs"
     config = _write_config(
         tmp_path,
-        repositories=["https://github.com/example/repo"],
+        analysis={"repositories": ["https://github.com/example/repo"]},
         outputs={
-            "root_dir": str(output_root),
+            "output_root_dir": str(output_root),
             "run_name": "batch-a",
             "snapshot_tag_format": None,
         },
@@ -817,12 +792,14 @@ def test_run_pipeline_merges_pre_skipped_with_analyzed_results(monkeypatch, tmp_
     output_root = tmp_path / "outputs"
     config = _write_config(
         tmp_path,
-        repositories=[
-            "https://github.com/example/old-repo",
-            "https://github.com/example/new-repo",
-        ],
+        analysis={
+            "repositories": [
+                "https://github.com/example/old-repo",
+                "https://github.com/example/new-repo",
+            ]
+        },
         outputs={
-            "root_dir": str(output_root),
+            "output_root_dir": str(output_root),
             "run_name": "batch-a",
             "snapshot_tag_format": None,
         },
@@ -915,7 +892,7 @@ def test_run_pipeline_uses_config_snapshot_default(monkeypatch, tmp_path):
     config = _write_config(
         tmp_path,
         outputs={
-            "root_dir": str(output_root),
+            "output_root_dir": str(output_root),
             "run_name": "batch-a",
             "snapshot_tag_format": "%Y%m%d",
         },
@@ -928,9 +905,8 @@ def test_run_pipeline_uses_config_snapshot_default(monkeypatch, tmp_path):
         previous_report=None,
     )
 
-    expected_snapshot = pipeline.resolve_snapshot_tag(
-        pipeline.load_config(config), None
-    )
+    config = BotConfig.from_json(config)
+    expected_snapshot = config.resolve_snapshot_tag()
     somef_output = calls["rsmetacheck"]["somef_output"]
     assert "/batch-a/" in somef_output
     assert somef_output.endswith(f"/{expected_snapshot}/github_com_example_repo")
@@ -954,9 +930,9 @@ def test_run_pipeline_skips_analysis_from_previous_dry_run_commit(
     output_root = tmp_path / "outputs"
     config = _write_config(
         tmp_path,
-        repositories=["https://github.com/example/repo"],
+        analysis={"repositories": ["https://github.com/example/repo"]},
         outputs={
-            "root_dir": str(output_root),
+            "output_root_dir": str(output_root),
             "run_name": "batch-a",
             "snapshot_tag_format": None,
         },
@@ -1031,9 +1007,9 @@ def test_run_pipeline_unchanged_repo_does_not_update_opt_out(monkeypatch, tmp_pa
     output_root = tmp_path / "outputs"
     config = _write_config(
         tmp_path,
-        repositories=["https://github.com/example/repo"],
+        analysis={"repositories": ["https://github.com/example/repo"]},
         outputs={
-            "root_dir": str(output_root),
+            "output_root_dir": str(output_root),
             "run_name": "batch-a",
             "snapshot_tag_format": None,
         },
@@ -1114,9 +1090,9 @@ def test_run_pipeline_force_analysis_reruns_metacheck_when_commit_unchanged(
     output_root = tmp_path / "outputs"
     config = _write_config(
         tmp_path,
-        repositories=["https://github.com/example/repo"],
+        analysis={"repositories": ["https://github.com/example/repo"]},
         outputs={
-            "root_dir": str(output_root),
+            "output_root_dir": str(output_root),
             "run_name": "batch-a",
             "snapshot_tag_format": None,
         },

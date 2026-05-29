@@ -20,7 +20,7 @@ CONFIG_DATA = {
     "outputs": {
         "output_root_dir": "custom_outputs",
         "run_name": "test_run",
-        "snapshot_tag_format": "custom_snapshot_{timestamp}",
+        "snapshot_tag_format": "custom_snapshot_%Y%m%d",
     },
 }
 
@@ -251,3 +251,24 @@ def test_bot_config_add_opt_out_repository_export_and_duplicate(tmp_path):
     result = new_config.add_opt_out_repository(new_opt_out)
     assert result is False
     assert new_config.get_issue_opt_outs() == [new_opt_out]
+
+
+def test_resolve_resolve_snapshot_tag_empty():
+    """Test that the resolve_snapshot_tag method returns the expected snapshot tag based on the configured format and timestamp."""
+    from datetime import datetime
+
+    config = BotConfig.model_validate(CONFIG_DATA)
+    actual_timestamp = datetime.now().strftime("%Y%m%d")
+    snapshot_tag = config.resolve_snapshot_tag()
+    assert snapshot_tag.startswith("custom_snapshot_")
+    assert snapshot_tag == f"custom_snapshot_{actual_timestamp}"
+
+
+def test_resolve_resolve_snapshot_tag_explicit():
+    """Test that if an explicit snapshot tag is provided, it is returned directly."""
+
+    config = BotConfig.model_validate(CONFIG_DATA)
+
+    explicit_tag = "explicit_snapshot_tag"
+    snapshot_tag = config.resolve_snapshot_tag(explicit_snapshot_tag=explicit_tag)
+    assert snapshot_tag == explicit_tag

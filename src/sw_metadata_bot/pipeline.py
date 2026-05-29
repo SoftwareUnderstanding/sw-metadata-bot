@@ -10,9 +10,7 @@ import click
 from sw_metadata_bot.config.schemas import BotConfig
 
 from . import __version__, analysis_runtime, commit_lookup, constants
-from .config.config_utils import (
-    sanitize_repo_name,
-)
+from .config.config_utils import sanitize_repo_name
 from .reporting import RecordAnalysis, RecordLifecycle, build_record_entry
 
 SNAPSHOT_TAG_PATTERN = re.compile(r"^(\d{8})(?:_(\d+))?$")
@@ -143,6 +141,7 @@ def run_pipeline(
     requested_snapshot_tag = config.resolve_snapshot_tag(snapshot_tag)
 
     run_root = output_root / run_folder_name
+    run_root.mkdir(parents=True, exist_ok=True)
     resolved_snapshot_tag = _resolve_unique_snapshot_tag(
         run_root=run_root,
         snapshot_tag=requested_snapshot_tag,

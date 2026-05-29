@@ -2,10 +2,12 @@
 
 import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from click.testing import CliRunner
 
 from sw_metadata_bot import publish as publish_module
+from sw_metadata_bot.config.schemas import BotConfig
 from sw_metadata_bot.publish import publish_command
 
 # ---------------------------------------------------------------------------
@@ -70,11 +72,21 @@ def _write_run_report(snapshot_dir, records, run_metadata=None):
 
 def _write_issue_report(snapshot_dir, repo_url, body="Issue body text"):
     """Write a per-repo issue_report.md so publish can find the body."""
-    from sw_metadata_bot.config_utils import sanitize_repo_name
+    from sw_metadata_bot.config.config_utils import sanitize_repo_name
 
     repo_folder = snapshot_dir / sanitize_repo_name(repo_url)
     repo_folder.mkdir(parents=True, exist_ok=True)
     (repo_folder / "issue_report.md").write_text(body)
+
+
+def _create_minimal_config_with_repos(config_path: Path, repo_url: str):
+    config_data = {
+        "analysis": {
+            "repositories": [repo_url],
+        },
+        "issues": {"opt_outs": []},
+    }
+    json.dump(config_data, config_path.open("w"), indent=4)
 
 
 # ---------------------------------------------------------------------------
@@ -353,17 +365,15 @@ def test_publish_unsubscribe_detected_during_publish(tmp_path, monkeypatch):
 
 def test_publish_unsubscribe_persists_opt_out_to_input_config(tmp_path, monkeypatch):
     """publish appends opt-out to both snapshot config and original config when unsubscribe is detected."""
+
     snapshot_dir = tmp_path / "snapshot"
     snapshot_dir.mkdir()
     repo_url = "https://github.com/example/repo"
     issue_url = f"{repo_url}/issues/3"
-    original_config = tmp_path / "config.json"
-    original_config.write_text(
-        json.dumps({"repositories": [repo_url]}), encoding="utf-8"
-    )
-    (snapshot_dir / "config.json").write_text(
-        json.dumps({"repositories": [repo_url]}), encoding="utf-8"
-    )
+    original_config_path = tmp_path / "config.json"
+    snapshot_config_path = snapshot_dir / "config.json"
+    _create_minimal_config_with_repos(original_config_path, repo_url)
+    _create_minimal_config_with_repos(snapshot_config_path, repo_url)
 
     _write_run_report(
         snapshot_dir,
@@ -377,7 +387,7 @@ def test_publish_unsubscribe_persists_opt_out_to_input_config(tmp_path, monkeypa
                 "issue_persistence": "simulated",
             }
         ],
-        run_metadata={"input_config_file": str(original_config)},
+        run_metadata={"input_config_file": str(original_config_path)},
     )
     _write_issue_report(snapshot_dir, repo_url)
 
@@ -390,11 +400,11 @@ def test_publish_unsubscribe_persists_opt_out_to_input_config(tmp_path, monkeypa
     assert result.exit_code == 0, result.output
     assert not fake.commented
 
-    snapshot_data = json.loads((snapshot_dir / "config.json").read_text())
-    original_data = json.loads(original_config.read_text())
+    snapshot_config = BotConfig.from_json(snapshot_config_path)
+    original_config = BotConfig.from_json(original_config_path)
 
-    assert snapshot_data["issues"]["opt_outs"] == [repo_url]
-    assert original_data["issues"]["opt_outs"] == [repo_url]
+    assert snapshot_config.issues.opt_outs == [repo_url]
+    assert original_config.issues.opt_outs == [repo_url]
 
 
 def test_simulate_publish_command_updates_opt_out_with_fake_unsubscribe(tmp_path):
@@ -403,14 +413,10 @@ def test_simulate_publish_command_updates_opt_out_with_fake_unsubscribe(tmp_path
     snapshot_dir.mkdir()
     repo_url = "https://github.com/example/repo"
     issue_url = f"{repo_url}/issues/3"
-    original_config = tmp_path / "config.json"
-
-    original_config.write_text(
-        json.dumps({"repositories": [repo_url]}), encoding="utf-8"
-    )
-    (snapshot_dir / "config.json").write_text(
-        json.dumps({"repositories": [repo_url]}), encoding="utf-8"
-    )
+    original_config_path = tmp_path / "config.json"
+    snapshot_config_path = snapshot_dir / "config.json"
+    _create_minimal_config_with_repos(original_config_path, repo_url)
+    _create_minimal_config_with_repos(snapshot_config_path, repo_url)
 
     _write_run_report(
         snapshot_dir,
@@ -424,7 +430,7 @@ def test_simulate_publish_command_updates_opt_out_with_fake_unsubscribe(tmp_path
                 "issue_persistence": "simulated",
             }
         ],
-        run_metadata={"input_config_file": str(original_config)},
+        run_metadata={"input_config_file": str(original_config_path)},
     )
     _write_issue_report(snapshot_dir, repo_url)
 
@@ -436,11 +442,11 @@ def test_simulate_publish_command_updates_opt_out_with_fake_unsubscribe(tmp_path
 
     assert result.exit_code == 0, result.output
 
-    snapshot_data = json.loads((snapshot_dir / "config.json").read_text())
-    original_data = json.loads(original_config.read_text())
+    snapshot_config = BotConfig.from_json(snapshot_config_path)
+    original_config = BotConfig.from_json(original_config_path)
 
-    assert snapshot_data["issues"]["opt_outs"] == [repo_url]
-    assert original_data["issues"]["opt_outs"] == [repo_url]
+    assert snapshot_config.issues.opt_outs == [repo_url]
+    assert original_config.issues.opt_outs == [repo_url]
 
 
 def test_publish_api_error_marks_record_as_failed(tmp_path, monkeypatch):

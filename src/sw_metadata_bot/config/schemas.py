@@ -140,7 +140,7 @@ class BotConfig(BaseModel):
         return self.outputs.snapshot_tag_format or DEFAULT_SNAPSHOT_TAG_FORMAT
 
     def get_run_name(self) -> str:
-        """Return the configured run name, or None if not set."""
+        """Return the configured run name, or empty string if not set."""
         return self.outputs.run_name or ""
 
     def add_opt_out_repository(self, repo_url: str) -> bool:
