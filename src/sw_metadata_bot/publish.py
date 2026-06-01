@@ -301,118 +301,40 @@ def publish_analysis(
             updated_records.append(record)
             continue
 
-        action = str(record.get("action", ""))
-        platform = _detect_platform_for_publish(repo_url, record)
-        issue_url = _issue_url_for_publish(record)
-
-        if action == constants.ACTION_SKIPPED and issue_url:
-            issue_client = issue_client_for_platform(platform)
-            comments = issue_client.get_issue_comments(issue_url)
-            unsubscribe_detected = any(
-                _is_unsubscribe_comment(comment) for comment in comments
-            )
-            record["unsubscribe_detected"] = unsubscribe_detected
-            if unsubscribe_detected:
-                config_file = analysis_root / constants.FILENAME_CONFIG_SNAPSHOT
-                if config_file.exists():
-                    append_opt_out_to_config(config_file, repo_url, explicit=False)
-
-                if input_config_file is not None:
-                    original_input_path = input_config_file
-                    if not original_input_path.is_absolute():
-                        original_input_path = analysis_root.parent / original_input_path
-                    if original_input_path.exists():
-                        append_opt_out_to_config(
-                            original_input_path, repo_url, explicit=False
-                        )
-
-                record["action"] = constants.ACTION_SKIPPED
-                record["reason_code"] = constants.REASON_CODE_UNSUBSCRIBE
-                record["dry_run"] = False
-                record["issue_persistence"] = "none"
-                record.pop("simulated_issue_url", None)
-                updated_records.append(record)
-                _write_per_repo_report(
-                    analysis_root,
-                    record,
-                    analysis_summary_file,
-                    previous_report,
-                )
-                continue
-
-        if (
-            record.get("dry_run") is False
-            and record.get("action") != constants.ACTION_FAILED
-        ):
-            skipped_published += 1
-            updated_records.append(record)
-            continue
-
-        if action == constants.ACTION_FAILED:
-            if not retry_failed:
-                skipped_failed_retry += 1
-                updated_records.append(record)
-                continue
-
-            if not _can_retry_failed_record(record):
-                skipped_failed_retry += 1
-                updated_records.append(record)
-                continue
-
-            retry_action = _resolve_retry_action(record)
-            if retry_action is None:
-                skipped_failed_retry += 1
-                record["reason_code"] = "missing_retry_action"
-                updated_records.append(record)
-                continue
-
-            action = retry_action
-            record["action"] = retry_action
-
-        platform = _detect_platform_for_publish(repo_url, record)
-        issue_url = _issue_url_for_publish(record)
-        attempted_action = action
-
         try:
-            if action in {constants.ACTION_UPDATED_BY_COMMENT, constants.ACTION_CLOSED}:
-                if not issue_url:
-                    raise click.ClickException(
-                        f"Missing issue URL for publish action {action}: {repo_url}"
-                    )
+            action = str(record.get("action", ""))
+            platform = _detect_platform_for_publish(repo_url, record)
+            issue_url = _issue_url_for_publish(record)
 
+            if action == constants.ACTION_SKIPPED and issue_url:
                 issue_client = issue_client_for_platform(platform)
                 comments = issue_client.get_issue_comments(issue_url)
                 unsubscribe_detected = any(
                     _is_unsubscribe_comment(comment) for comment in comments
                 )
+                record["unsubscribe_detected"] = unsubscribe_detected
                 if unsubscribe_detected:
-                    # update config of analysis snapshot when present
                     config_file = analysis_root / constants.FILENAME_CONFIG_SNAPSHOT
                     if config_file.exists():
                         append_opt_out_to_config(config_file, repo_url, explicit=False)
 
-                    # also update the original input config file when available
-                    input_config_value = run_metadata.get("input_config_file")
-                    if isinstance(input_config_value, str):
-                        input_config_path = Path(input_config_value)
-                        if not input_config_path.is_absolute():
-                            input_config_path = analysis_root.parent / input_config_path
-                        if input_config_path.exists():
+                    if input_config_file is not None:
+                        original_input_path = input_config_file
+                        if not original_input_path.is_absolute():
+                            original_input_path = (
+                                analysis_root.parent / original_input_path
+                            )
+                        if original_input_path.exists():
                             append_opt_out_to_config(
-                                input_config_path, repo_url, explicit=False
+                                original_input_path, repo_url, explicit=False
                             )
 
-                    # skip publish
                     record["action"] = constants.ACTION_SKIPPED
                     record["reason_code"] = constants.REASON_CODE_UNSUBSCRIBE
-                    record["unsubscribe_detected"] = True
                     record["dry_run"] = False
                     record["issue_persistence"] = "none"
                     record.pop("simulated_issue_url", None)
                     updated_records.append(record)
-                    analysis_summary_value = run_report.get("run_metadata", {}).get(
-                        "analysis_summary_file"
-                    )
                     _write_per_repo_report(
                         analysis_root,
                         record,
@@ -421,83 +343,194 @@ def publish_analysis(
                     )
                     continue
 
-                issue_data = issue_client.get_issue(issue_url)
-                if action == constants.ACTION_UPDATED_BY_COMMENT and _issue_is_closed(
-                    issue_data
-                ):
-                    record["action"] = constants.ACTION_SIMULATED_CREATED
-                    record["reason_code"] = "changed_and_issue_closed"
-                    record["previous_issue_url"] = issue_url
-                    record.pop("issue_url", None)
-                    action = constants.ACTION_SIMULATED_CREATED
+            if (
+                record.get("dry_run") is False
+                and record.get("action") != constants.ACTION_FAILED
+            ):
+                skipped_published += 1
+                updated_records.append(record)
+                continue
 
-            if action == constants.ACTION_SIMULATED_CREATED:
-                body = _load_publish_body(analysis_root, repo_url)
-                title = "Automated Metadata Quality Report from CodeMetaSoft"
-                issue_client = issue_client_for_platform(platform)
-                created_url = issue_client.create_issue(repo_url, title, body)
-
-                record["action"] = constants.ACTION_CREATED
-                record["issue_url"] = created_url
-                record["dry_run"] = False
-                record["issue_persistence"] = "posted"
-                record.pop("simulated_issue_url", None)
-                _clear_failure_metadata(record)
-
-            elif action == constants.ACTION_UPDATED_BY_COMMENT:
-                if not issue_url:
-                    raise click.ClickException(
-                        f"Missing previous issue URL for repo: {repo_url}"
-                    )
-
-                body = _load_publish_body(analysis_root, repo_url)
-                issue_client = issue_client_for_platform(platform)
-                issue_client.add_issue_comment(
-                    issue_url,
-                    f"New analysis detected updated findings.\n\n{body}",
-                )
-
-                record["issue_url"] = issue_url
-                record["dry_run"] = False
-                record["issue_persistence"] = "posted"
-                record.pop("simulated_issue_url", None)
-                _clear_failure_metadata(record)
-
-            elif action == constants.ACTION_CLOSED:
-                if not issue_url:
-                    raise click.ClickException(
-                        f"Missing previous issue URL for repo: {repo_url}"
-                    )
-
-                issue_client = issue_client_for_platform(platform)
-                issue_client.add_issue_comment(
-                    issue_url,
-                    "The latest analysis no longer reports metadata pitfalls/warnings. "
-                    "Closing this issue.",
-                )
-                issue_client.close_issue(issue_url)
-
-                record["issue_url"] = issue_url
-                record["previous_issue_state"] = "closed"
-                record["dry_run"] = False
-                record["issue_persistence"] = "posted"
-                record.pop("simulated_issue_url", None)
-                _clear_failure_metadata(record)
-
-            elif action == constants.ACTION_SKIPPED:
-                record["dry_run"] = False
-                record["issue_persistence"] = "none"
-                record.pop("simulated_issue_url", None)
-                _clear_failure_metadata(record)
-
-            else:
-                if attempted_action == constants.ACTION_FAILED:
+            if action == constants.ACTION_FAILED:
+                if not retry_failed:
                     skipped_failed_retry += 1
-                else:
+                    updated_records.append(record)
+                    continue
+
+                if not _can_retry_failed_record(record):
+                    skipped_failed_retry += 1
+                    updated_records.append(record)
+                    continue
+
+                retry_action = _resolve_retry_action(record)
+                if retry_action is None:
+                    skipped_failed_retry += 1
+                    record["reason_code"] = "missing_retry_action"
+                    updated_records.append(record)
+                    continue
+
+                action = retry_action
+                record["action"] = retry_action
+
+            platform = _detect_platform_for_publish(repo_url, record)
+            issue_url = _issue_url_for_publish(record)
+            attempted_action = action
+
+            try:
+                if action in {
+                    constants.ACTION_UPDATED_BY_COMMENT,
+                    constants.ACTION_CLOSED,
+                }:
+                    if not issue_url:
+                        raise click.ClickException(
+                            f"Missing issue URL for publish action {action}: {repo_url}"
+                        )
+
+                    issue_client = issue_client_for_platform(platform)
+                    comments = issue_client.get_issue_comments(issue_url)
+                    unsubscribe_detected = any(
+                        _is_unsubscribe_comment(comment) for comment in comments
+                    )
+                    if unsubscribe_detected:
+                        # update config of analysis snapshot when present
+                        config_file = analysis_root / constants.FILENAME_CONFIG_SNAPSHOT
+                        if config_file.exists():
+                            append_opt_out_to_config(
+                                config_file, repo_url, explicit=False
+                            )
+
+                        # also update the original input config file when available
+                        input_config_value = run_metadata.get("input_config_file")
+                        if isinstance(input_config_value, str):
+                            input_config_path = Path(input_config_value)
+                            if not input_config_path.is_absolute():
+                                input_config_path = (
+                                    analysis_root.parent / input_config_path
+                                )
+                            if input_config_path.exists():
+                                append_opt_out_to_config(
+                                    input_config_path, repo_url, explicit=False
+                                )
+
+                        # skip publish
+                        record["action"] = constants.ACTION_SKIPPED
+                        record["reason_code"] = constants.REASON_CODE_UNSUBSCRIBE
+                        record["unsubscribe_detected"] = True
+                        record["dry_run"] = False
+                        record["issue_persistence"] = "none"
+                        record.pop("simulated_issue_url", None)
+                        updated_records.append(record)
+                        analysis_summary_value = run_report.get("run_metadata", {}).get(
+                            "analysis_summary_file"
+                        )
+                        _write_per_repo_report(
+                            analysis_root,
+                            record,
+                            analysis_summary_file,
+                            previous_report,
+                        )
+                        continue
+
+                    issue_data = issue_client.get_issue(issue_url)
+                    if (
+                        action == constants.ACTION_UPDATED_BY_COMMENT
+                        and _issue_is_closed(issue_data)
+                    ):
+                        record["action"] = constants.ACTION_SIMULATED_CREATED
+                        record["reason_code"] = "changed_and_issue_closed"
+                        record["previous_issue_url"] = issue_url
+                        record.pop("issue_url", None)
+                        action = constants.ACTION_SIMULATED_CREATED
+
+                if action == constants.ACTION_SIMULATED_CREATED:
+                    body = _load_publish_body(analysis_root, repo_url)
+                    title = "Automated Metadata Quality Report from CodeMetaSoft"
+                    issue_client = issue_client_for_platform(platform)
+                    created_url = issue_client.create_issue(repo_url, title, body)
+
+                    record["action"] = constants.ACTION_CREATED
+                    record["issue_url"] = created_url
                     record["dry_run"] = False
+                    record["issue_persistence"] = "posted"
                     record.pop("simulated_issue_url", None)
                     _clear_failure_metadata(record)
 
+                elif action == constants.ACTION_UPDATED_BY_COMMENT:
+                    if not issue_url:
+                        raise click.ClickException(
+                            f"Missing previous issue URL for repo: {repo_url}"
+                        )
+
+                    body = _load_publish_body(analysis_root, repo_url)
+                    issue_client = issue_client_for_platform(platform)
+                    issue_client.add_issue_comment(
+                        issue_url,
+                        f"New analysis detected updated findings.\n\n{body}",
+                    )
+
+                    record["issue_url"] = issue_url
+                    record["dry_run"] = False
+                    record["issue_persistence"] = "posted"
+                    record.pop("simulated_issue_url", None)
+                    _clear_failure_metadata(record)
+
+                elif action == constants.ACTION_CLOSED:
+                    if not issue_url:
+                        raise click.ClickException(
+                            f"Missing previous issue URL for repo: {repo_url}"
+                        )
+
+                    issue_client = issue_client_for_platform(platform)
+                    issue_client.add_issue_comment(
+                        issue_url,
+                        "The latest analysis no longer reports metadata pitfalls/warnings. "
+                        "Closing this issue.",
+                    )
+                    issue_client.close_issue(issue_url)
+
+                    record["issue_url"] = issue_url
+                    record["previous_issue_state"] = "closed"
+                    record["dry_run"] = False
+                    record["issue_persistence"] = "posted"
+                    record.pop("simulated_issue_url", None)
+                    _clear_failure_metadata(record)
+
+                elif action == constants.ACTION_SKIPPED:
+                    record["dry_run"] = False
+                    record["issue_persistence"] = "none"
+                    record.pop("simulated_issue_url", None)
+                    _clear_failure_metadata(record)
+
+                else:
+                    if attempted_action == constants.ACTION_FAILED:
+                        skipped_failed_retry += 1
+                    else:
+                        record["dry_run"] = False
+                        record.pop("simulated_issue_url", None)
+                        _clear_failure_metadata(record)
+
+            except Exception as exc:
+                record["action"] = constants.ACTION_FAILED
+                record["reason_code"] = constants.REASON_CODE_PUBLISH_EXCEPTION
+                error_text = str(exc)
+                record["error"] = error_text
+                record["dry_run"] = True
+                record["is_transient_error"] = _is_transient_publish_error(error_text)
+                record["retry_after_seconds"] = _retry_after_seconds_from_error(
+                    error_text
+                )
+                previous_retry_attempt = record.get("retry_attempt")
+                retry_attempt = (
+                    previous_retry_attempt + 1
+                    if isinstance(previous_retry_attempt, int)
+                    else 1
+                )
+                record["retry_attempt"] = retry_attempt
+                record["failed_at"] = _now_utc_iso()
+                if attempted_action and attempted_action != constants.ACTION_FAILED:
+                    record["last_publish_action"] = attempted_action
+
+            updated_records.append(record)
         except Exception as exc:
             record["action"] = constants.ACTION_FAILED
             record["reason_code"] = constants.REASON_CODE_PUBLISH_EXCEPTION
@@ -514,10 +547,7 @@ def publish_analysis(
             )
             record["retry_attempt"] = retry_attempt
             record["failed_at"] = _now_utc_iso()
-            if attempted_action and attempted_action != constants.ACTION_FAILED:
-                record["last_publish_action"] = attempted_action
-
-        updated_records.append(record)
+            updated_records.append(record)
         _write_per_repo_report(
             analysis_root,
             record,
