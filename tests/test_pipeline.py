@@ -6,7 +6,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from sw_metadata_bot import analysis_runtime, commit_lookup, pipeline
+from sw_metadata_bot import analysis_runtime, commit_lookup, constants, pipeline
 from sw_metadata_bot import publish as publish_module
 from sw_metadata_bot.config.schemas import BotConfig
 
@@ -297,6 +297,89 @@ def test_run_pipeline_invokes_rsmetacheck_and_writes_reports(monkeypatch, tmp_pa
         run_report["records"][0]["file"]
         == "202603/github_com_example_repo/pitfall.jsonld"
     )
+
+
+def test_run_pipeline_continues_when_one_repo_analysis_fails(monkeypatch, tmp_path):
+    """The pipeline continues processing other repos even if one repo fails."""
+
+    def fake_run_metacheck_for_repo(
+        repo_url, repo_folder, generate_codemeta_if_missing
+    ):
+        if "fail" in repo_url:
+            raise RuntimeError("analysis failure")
+        repo_folder.mkdir(parents=True, exist_ok=True)
+        (repo_folder / constants.FILENAME_PITFALL).write_text(
+            json.dumps({"@type": "FailureReport"}), encoding="utf-8"
+        )
+
+    def fake_create_analysis_record(
+        *,
+        run_root,
+        repo_url,
+        repo_folder,
+        previous_record,
+        current_commit_id,
+        dry_run,
+        custom_message,
+        force_analysis=False,
+    ):
+        return {
+            "repo_url": repo_url,
+            "action": "simulated_created",
+            "platform": "github",
+            "dry_run": dry_run,
+            "issue_persistence": "simulated",
+            "file": str(repo_folder / constants.FILENAME_PITFALL),
+        }
+
+    monkeypatch.setattr(
+        analysis_runtime, "run_metacheck_for_repo", fake_run_metacheck_for_repo
+    )
+    monkeypatch.setattr(
+        analysis_runtime, "create_analysis_record", fake_create_analysis_record
+    )
+
+    output_root = tmp_path / "outputs"
+    config_path = _write_config(
+        tmp_path,
+        analysis={
+            "repositories": [
+                "https://github.com/example/repo-fail",
+                "https://github.com/example/repo-ok",
+            ]
+        },
+        outputs={
+            "output_root_dir": str(output_root),
+            "run_name": "batch-a",
+            "snapshot_tag_format": None,
+        },
+    )
+
+    pipeline.run_pipeline(
+        config_file=config_path,
+        dry_run=True,
+        snapshot_tag="202603",
+        previous_report=None,
+    )
+
+    run_report_path = output_root / "batch-a" / "202603" / "run_report.json"
+    assert run_report_path.exists()
+    run_report = json.loads(run_report_path.read_text())
+
+    failed_record = next(
+        record
+        for record in run_report["records"]
+        if record["repo_url"] == "https://github.com/example/repo-fail"
+    )
+    assert failed_record["action"] == "failed"
+    assert failed_record["reason_code"] == "exception"
+
+    success_record = next(
+        record
+        for record in run_report["records"]
+        if record["repo_url"] == "https://github.com/example/repo-ok"
+    )
+    assert success_record["action"] == "simulated_created"
 
 
 def test_run_pipeline_marks_run_report_dry_run(monkeypatch, tmp_path):

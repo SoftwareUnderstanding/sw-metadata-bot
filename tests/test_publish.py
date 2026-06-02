@@ -601,6 +601,61 @@ def test_publish_api_error_marks_record_as_failed(tmp_path, monkeypatch):
     assert record["last_publish_action"] == "simulated_created"
 
 
+def test_publish_unknown_platform_marks_record_failed_and_continues(
+    tmp_path, monkeypatch
+):
+    """publish records unsupported platforms as failed but continues processing."""
+    snapshot_dir = tmp_path / "snapshot"
+    snapshot_dir.mkdir()
+    repo_url_unsupported = "https://example.com/repo"
+    repo_url_github = "https://github.com/example/repo"
+
+    _write_run_report(
+        snapshot_dir,
+        records=[
+            {
+                "repo_url": repo_url_unsupported,
+                "action": "simulated_created",
+                "dry_run": True,
+                "issue_persistence": "simulated",
+            },
+            {
+                "repo_url": repo_url_github,
+                "action": "simulated_created",
+                "platform": "github",
+                "dry_run": True,
+                "issue_persistence": "simulated",
+            },
+        ],
+    )
+    _write_issue_report(snapshot_dir, repo_url_github)
+
+    fake = _FakeIssueClient()
+    _patch_clients(monkeypatch, fake)
+
+    runner = CliRunner()
+    result = runner.invoke(publish_command, ["--analysis-root", str(snapshot_dir)])
+
+    assert result.exit_code == 0, result.output
+
+    report = json.loads((snapshot_dir / "run_report.json").read_text())
+    failed_record = next(
+        record
+        for record in report["records"]
+        if record["repo_url"] == repo_url_unsupported
+    )
+    success_record = next(
+        record for record in report["records"] if record["repo_url"] == repo_url_github
+    )
+
+    assert failed_record["action"] == "failed"
+    assert failed_record["reason_code"] == "publish_exception"
+    assert "Unsupported platform" in failed_record["error"]
+
+    assert success_record["action"] == "created"
+    assert success_record["issue_url"] == f"{repo_url_github}/issues/99"
+
+
 def test_publish_failed_record_not_retried_without_flag(tmp_path, monkeypatch):
     """publish keeps failed records untouched unless --retry-failed is set."""
     snapshot_dir = tmp_path / "snapshot"

@@ -187,40 +187,86 @@ def run_pipeline(
         except Exception:
             current_commit_id = None
 
-        reused_previous = False
-        if not force_analysis and (
-            previous_snapshot_root is not None
-            and previous_record is not None
-            and previous_commit_id
-            and current_commit_id
-            and previous_commit_id != "Unknown"
-            and current_commit_id != "Unknown"
-            and current_commit_id == previous_commit_id
-        ):
-            previous_repo_folder = previous_snapshot_root / sanitize_repo_name(repo_url)
-            if previous_repo_folder.exists():
-                analysis_runtime.copy_previous_repo_artifacts(
-                    previous_repo_folder, repo_folder
+        try:
+            reused_previous = False
+            if not force_analysis and (
+                previous_snapshot_root is not None
+                and previous_record is not None
+                and previous_commit_id
+                and current_commit_id
+                and previous_commit_id != "Unknown"
+                and current_commit_id != "Unknown"
+                and current_commit_id == previous_commit_id
+            ):
+                previous_repo_folder = previous_snapshot_root / sanitize_repo_name(
+                    repo_url
                 )
-                reused_previous = True
+                if previous_repo_folder.exists():
+                    analysis_runtime.copy_previous_repo_artifacts(
+                        previous_repo_folder, repo_folder
+                    )
+                    reused_previous = True
 
-        if not reused_previous:
-            analysis_runtime.run_metacheck_for_repo(
-                repo_url,
+            if not reused_previous:
+                analysis_runtime.run_metacheck_for_repo(
+                    repo_url,
+                    repo_folder,
+                    generate_codemeta_if_missing=generate_codemeta_if_missing,
+                )
+
+            normalized_repo = analysis_runtime.normalize_repo_url(repo_url)
+            if normalized_repo in opt_out_repos:
+                record = build_record_entry(
+                    run_root=run_root,
+                    repo_url=repo_url,
+                    platform=analysis_runtime.detect_repo_platform(repo_url),
+                    analysis=RecordAnalysis(
+                        analysis_date=datetime.now(timezone.utc).strftime(
+                            "%Y-%m-%dT%H:%M:%SZ"
+                        ),
+                        bot_version=__version__,
+                        rsmetacheck_version="unknown",
+                        pitfalls_count=0,
+                        warnings_count=0,
+                        pitfalls_ids=[],
+                        warnings_ids=[],
+                    ),
+                    lifecycle=RecordLifecycle(
+                        action="skipped",
+                        reason_code="in_opt_out_list",
+                        current_commit_id=current_commit_id,
+                        dry_run=dry_run,
+                        issue_persistence="none",
+                        file_path=repo_folder / "pitfall.jsonld",
+                    ),
+                )
+            else:
+                record = analysis_runtime.create_analysis_record(
+                    run_root=run_root,
+                    repo_url=repo_url,
+                    repo_folder=repo_folder,
+                    previous_record=previous_record,
+                    current_commit_id=current_commit_id,
+                    dry_run=dry_run,
+                    custom_message=custom_message,
+                    force_analysis=force_analysis,
+                )
+
+            analysis_runtime.write_analysis_repo_report(
                 repo_folder,
-                generate_codemeta_if_missing=generate_codemeta_if_missing,
+                record,
+                dry_run=dry_run,
+                run_root=run_root,
+                analysis_summary_file=analysis_report_path,
+                previous_report=resolved_previous_report,
             )
-
-        normalized_repo = analysis_runtime.normalize_repo_url(repo_url)
-        if normalized_repo in opt_out_repos:
+        except Exception as exc:
             record = build_record_entry(
                 run_root=run_root,
                 repo_url=repo_url,
                 platform=analysis_runtime.detect_repo_platform(repo_url),
                 analysis=RecordAnalysis(
-                    analysis_date=datetime.now(timezone.utc).strftime(
-                        "%Y-%m-%dT%H:%M:%SZ"
-                    ),
+                    analysis_date="unknown",
                     bot_version=__version__,
                     rsmetacheck_version="unknown",
                     pitfalls_count=0,
@@ -229,34 +275,34 @@ def run_pipeline(
                     warnings_ids=[],
                 ),
                 lifecycle=RecordLifecycle(
-                    action="skipped",
-                    reason_code="in_opt_out_list",
+                    action="failed",
+                    reason_code="exception",
+                    findings_signature="",
                     current_commit_id=current_commit_id,
+                    previous_commit_id=(
+                        analysis_runtime.extract_previous_commit(previous_record)
+                        if previous_record is not None
+                        else None
+                    ),
                     dry_run=dry_run,
                     issue_persistence="none",
-                    file_path=repo_folder / "pitfall.jsonld",
+                    issue_url=None,
+                    file_path=repo_folder / constants.FILENAME_PITFALL,
+                    error=str(exc),
                 ),
             )
-        else:
-            record = analysis_runtime.create_analysis_record(
-                run_root=run_root,
-                repo_url=repo_url,
-                repo_folder=repo_folder,
-                previous_record=previous_record,
-                current_commit_id=current_commit_id,
-                dry_run=dry_run,
-                custom_message=custom_message,
-                force_analysis=force_analysis,
-            )
+            try:
+                analysis_runtime.write_analysis_repo_report(
+                    repo_folder,
+                    record,
+                    dry_run=dry_run,
+                    run_root=run_root,
+                    analysis_summary_file=analysis_report_path,
+                    previous_report=resolved_previous_report,
+                )
+            except Exception:
+                pass
 
-        analysis_runtime.write_analysis_repo_report(
-            repo_folder,
-            record,
-            dry_run=dry_run,
-            run_root=run_root,
-            analysis_summary_file=analysis_report_path,
-            previous_report=resolved_previous_report,
-        )
         run_records.append(record)
 
         evaluated_repositories[sanitize_repo_name(repo_url)] = {
