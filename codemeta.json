@@ -13,6 +13,8 @@
       },
       "email": "tom.francois@lapp.in2p3.fr",
       "@id": "https://orcid.org/0000-0001-5226-3089",
+      "givenName": "Tom",
+      "familyName": "François",
       "@type": "Person"
     }
   ],
