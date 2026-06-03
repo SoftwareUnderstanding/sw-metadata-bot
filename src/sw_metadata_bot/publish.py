@@ -23,25 +23,33 @@ class FakeIssueClient:
     """Issue client used only for local publish simulation."""
 
     def __init__(self, comments_for=None):
+        """
+        Initialize the fake issue client.
+        """
         self._comments_for = comments_for or (lambda url: [])
         self.created: list[tuple[str, str, str]] = []
         self.commented: list[str] = []
         self.closed: list[str] = []
 
     def create_issue(self, repo_url: str, title: str, body: str) -> str:
+        """Create an issue and return a simulated issue URL."""
         self.created.append((repo_url, title, body))
         return f"{repo_url}/issues/99"
 
     def get_issue(self, issue_url: str) -> dict[str, object]:
+        """return simulated issue data, with state 'open' by default (can be overridden by test setup)"""
         return {"state": "open"}
 
     def get_issue_comments(self, issue_url: str) -> list[str]:
+        """get simulated comments for the issue URL, as provided by the comments_for function"""
         return self._comments_for(issue_url)
 
     def add_issue_comment(self, issue_url: str, body: str) -> None:
+        """add a comment to the issue URL (recording the action for test verification)"""
         self.commented.append(issue_url)
 
     def close_issue(self, issue_url: str) -> None:
+        """simulate closing the issue at the given URL (recording the action for test verification)"""
         self.closed.append(issue_url)
 
 
