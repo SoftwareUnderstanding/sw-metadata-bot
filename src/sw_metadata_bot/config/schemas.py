@@ -1,3 +1,5 @@
+"""configurations schemas for the bot, defined using Pydantic models for validation and parsing of config files."""
+
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,11 +17,12 @@ class AnalysisConfig(BaseModel):
     """
 
     repositories: list[str]
-    generate_codemeta_if_missing: Optional[bool] = True
+    generate_codemeta_if_missing: bool = True
 
     @field_validator("repositories", mode="after")
     @classmethod
     def validate_repositories(cls, v):
+        """Check that repositories list is not empty"""
         if not v:
             raise ValueError("Repositories list cannot be empty")
         return v

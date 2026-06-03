@@ -4628,15 +4628,15 @@ wheels = [
 
 [[package]]
 name = "rsmetacheck"
-version = "0.3.1"
+version = "0.3.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "requests" },
     { name = "somef" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c8/0b/a268565797fe046402da6a451a7c0eb6dec7f0aec1645e8e9cd17d5cd484/rsmetacheck-0.3.1.tar.gz", hash = "sha256:211236ee44af252f7d401ffa8e18e6923d22e1b7a556e6441434f7b3e5213888", size = 38426, upload-time = "2026-04-30T10:13:01.523Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/91/40/04410691dd8e9f46a14ed809fab8f1fea975659bda28d00d116c92f94a90/rsmetacheck-0.3.2.tar.gz", hash = "sha256:f594dc5c1151fb8b0e1c622d907f4182ebc7f6ecd185b8a744d6001299276dda", size = 39909, upload-time = "2026-05-06T09:40:53.61Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/aa/5a/6fecc685133a6fa7c3ef922e70025a13eb04a9a2a60ce01c120769d16858/rsmetacheck-0.3.1-py3-none-any.whl", hash = "sha256:2ed82973dcae3e7f30ff338e65ceaa9f2beb2b153047e076e7cb73239ae64c4a", size = 57547, upload-time = "2026-04-30T10:13:02.489Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/09/95f8af85964781cf80de937767571f2e2de10d1a0096a69f2e5309cfa15d/rsmetacheck-0.3.2-py3-none-any.whl", hash = "sha256:0ee31e3c95028dba6ad581d49c000f4a74533101a4373ffa4726adbaf3f044a3", size = 58790, upload-time = "2026-05-06T09:40:54.539Z" },
 ]
 
 [[package]]
@@ -5053,7 +5053,7 @@ wheels = [
 
 [[package]]
 name = "sw-metadata-bot"
-version = "0.4.3"
+version = "0.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -5096,7 +5096,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'test'" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "requests", specifier = ">=2.32.5" },
-    { name = "rsmetacheck", specifier = ">=0.3.1" },
+    { name = "rsmetacheck", specifier = ">=0.3.2" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.14.13" },
     { name = "setuptools", marker = "extra == 'test'", specifier = "<83.0.0" },
     { name = "setuptools", extras = ["test"], specifier = "<83.0.0" },
