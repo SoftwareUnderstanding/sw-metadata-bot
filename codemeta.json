@@ -1,5 +1,5 @@
 {
-  "@context": "https://raw.githubusercontent.com/codemeta/codemeta/3.0/codemeta.jsonld",
+  "@context": "https://w3id.org/codemeta/3.0",
   "applicationCategory": "SoftwareSourceCode",
   "author": [
     {
