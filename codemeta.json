@@ -14,7 +14,7 @@
       "email": "tom.francois@lapp.in2p3.fr",
       "@id": "https://orcid.org/0000-0001-5226-3089",
       "givenName": "Tom",
-      "familyName": "François",
+      "familyName": "Fran\u00e7ois",
       "@type": "Person"
     }
   ],
@@ -47,7 +47,7 @@
     "python-dotenv>=1.0.0",
     "requests>=2.32.5"
   ],
-  "version": "0.5.0",
+  "version": "0.5.1",
   "codemeta:contIntegration": {
     "@id": "https://raw.githubusercontent.com/SoftwareUnderstanding/sw-metadata-bot/main/.github/workflows/ci.yml"
   },
