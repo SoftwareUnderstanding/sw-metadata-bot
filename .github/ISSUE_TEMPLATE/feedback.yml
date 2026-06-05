@@ -1,0 +1,154 @@
+name: "💬 Early Adopter Feedback"
+description: >
+  Share your experience using sw-metadata-bot, RSMetaCheck, or any CodeMetaSoft tool.
+  Your feedback directly shapes the project roadmap.
+labels: ["feedback", "early-adopter"]
+title: "[Feedback] <brief summary of your experience>"
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Thanks for using CodeMetaSoft tools! 🎉
+        
+        This form covers feedback for:
+        - **[sw-metadata-bot](https://github.com/SoftwareUnderstanding/sw-metadata-bot)** — the GitHub/GitLab metadata bot
+        - **[RSMetaCheck](https://github.com/SoftwareUnderstanding/RsMetaCheck)** — the metadata analysis tool
+        - **[CodeMetaSoft project tools](https://softwareunderstanding.github.io/CodeMetaSoft_website/website/)** — any other tool in the ecosystem
+        
+        Be as specific as possible. Vague feedback is hard to act on.
+
+  - type: dropdown
+    id: tool
+    attributes:
+      label: "Which tool are you providing feedback on?"
+      description: Select the tool(s) you used.
+      multiple: true
+      options:
+        - sw-metadata-bot (GitHub/GitLab bot)
+        - RSMetaCheck (CLI / analysis tool)
+        - Autocodemeta
+        - Somef
+        - Other CodeMetaSoft tool
+    validations:
+      required: true
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: "Your role"
+      description: How do you interact with these tools?
+      options:
+        - Repository maintainer (received a bot issue)
+        - Research Software Engineer (RSE)
+        - Researcher / scientist
+        - Infrastructure / platform operator
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: "Describe your use case"
+      description: What were you trying to do? What repository / project did you use the tool on?
+      placeholder: |
+        e.g., "I received a bot issue on my Python library for CTA data analysis. 
+        The bot flagged missing CITATION.cff and incomplete codemeta.json."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: overall-rating
+    attributes:
+      label: "Overall experience"
+      options:
+        - "⭐ Very useful — solved my problem"
+        - "👍 Useful — minor friction"
+        - "😐 Neutral — unclear value"
+        - "👎 Not useful — missed the point"
+        - "🚫 Broken — could not use it"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-worked
+    attributes:
+      label: "What worked well?"
+      description: Be specific. Which suggestion, output, or workflow was helpful?
+      placeholder: "e.g., The codemeta.json suggestion was accurate and ready to use."
+
+  - type: textarea
+    id: what-didnt-work
+    attributes:
+      label: "What did NOT work or was confusing?"
+      description: >
+        Be specific. Include error messages, wrong detections, or unclear guidance.
+        If the bot flagged something incorrectly, explain what and why.
+      placeholder: |
+        e.g., "P002 was flagged but our LICENSE already had correct author info. 
+        The check seems to match a regex without reading the actual content."
+
+  - type: textarea
+    id: missing
+    attributes:
+      label: "What is missing?"
+      description: Features, checks, integrations, or documentation you expected but didn't find.
+      placeholder: "e.g., No support for REUSE/SPDX license format detection."
+
+  - type: dropdown
+    id: false-positives
+    attributes:
+      label: "Did you receive incorrect suggestions (false positives)?"
+      options:
+        - "No, all suggestions were accurate"
+        - "1–2 minor false positives"
+        - "Several false positives — noticeable friction"
+        - "Mostly false positives — tool was not useful"
+        - "Not applicable / did not check"
+    validations:
+      required: true
+
+  - type: textarea
+    id: false-positive-details
+    attributes:
+      label: "False positive details (if any)"
+      description: >
+        Which rule ID(s) fired incorrectly? Include the rule code (e.g., P002, W005) if known.
+      placeholder: "e.g., W003 triggered even though we have an active DOI in the README."
+
+  - type: dropdown
+    id: would-recommend
+    attributes:
+      label: "Would you recommend this tool to a colleague?"
+      options:
+        - "Yes, definitely"
+        - "Yes, with reservations"
+        - "Not sure"
+        - "No"
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestions
+    attributes:
+      label: "Any specific suggestions for improvement?"
+      description: Concrete and actionable is best.
+      placeholder: "e.g., Add a dry-run mode so I can preview suggestions before they become issues."
+
+  - type: input
+    id: repo-url
+    attributes:
+      label: "Repository URL (optional)"
+      description: Share the repo the bot analyzed, if you're comfortable doing so.
+      placeholder: "https://github.com/your-org/your-repo"
+
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: "Consent"
+      options:
+        - label: >
+            I agree this feedback may be used to improve CodeMetaSoft tools.
+            I understand it will be publicly visible on this GitHub repository.
+          required: true
