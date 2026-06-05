@@ -1,0 +1,59 @@
+name: "🤖 Subscribe to sw-metadata-bot"
+description: >
+  Request sw-metadata-bot to analyze your GitHub or GitLab repository
+  and open issues with metadata improvement suggestions.
+labels: ["subscribe", "bot-request"]
+title: "[Subscribe] <your-org/your-repo>"
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Subscribe to sw-metadata-bot 🤖
+        
+        The bot will analyze your repository's metadata quality using **[RSMetaCheck](https://github.com/SoftwareUnderstanding/RsMetaCheck)** 
+        and open an issue with:
+        
+        - **Pitfalls** — critical metadata problems
+        - **Warnings** — recommended improvements  
+        - **Suggestions** — concrete fixes
+        - **codemeta.json** — auto-generated if missing
+        
+        > The bot does **not** modify your files, create PRs, or access secrets.
+        > 
+        > To unsubscribe later, comment `unsubscribe` on any bot issue.
+
+  - type: input
+    id: repo-url
+    attributes:
+      label: "Repository URL"
+      description: Full URL of the repository to analyze.
+      placeholder: "https://github.com/your-org/your-repo"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: "Repository platform"
+      options:
+        - GitHub (github.com)
+        - GitLab (gitlab.com)
+        - Self-hosted GitLab 
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: acknowledgement
+    attributes:
+      label: "Acknowledgements"
+      options:
+        - label: >
+            I understand the bot will open a **public issue** on my repository.
+          required: true
+        - label: >
+            I agree to follow up on the issue (close it, comment, or unsubscribe).
+          required: true
+        - label: >
+            I understand this is a research project and analysis may take time.
+          required: true
