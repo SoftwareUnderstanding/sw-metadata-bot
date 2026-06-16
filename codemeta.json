@@ -4,7 +4,8 @@
   "author": [
     {
       "@id": "https://github.com/SoftwareUnderstanding",
-      "@type": "Organization"
+      "@type": "Organization",
+      "name":"Software Understanding"
     },
     {
       "affiliation": {
@@ -14,9 +15,44 @@
       "email": "tom.francois@lapp.in2p3.fr",
       "@id": "https://orcid.org/0000-0001-5226-3089",
       "givenName": "Tom",
-      "familyName": "François",
+      "familyName": "Fran\u00e7ois",
       "@type": "Person"
     }
+  ],
+  "contributor": [
+      {
+          "id": "https://orcid.org/0000-0002-5686-2078",
+          "@type": "Person",
+          "affiliation": {
+              "@type": "Organization",
+              "name": "Univ. Savoie Mont-Blanc, CNRS, LAPP"
+          },
+          "email": "thomas.vuillaume@lapp.in2p3.fr",
+          "familyName": "Vuillaume",
+          "givenName": "Thomas"
+      },
+      {
+          "id": "https://orcid.org/0000-0003-0454-7145",
+          "@type": "Person",
+          "affiliation": {
+              "@type": "Organization",
+              "name": "Universidad Politécnica de Madrid "
+          },
+          "email": "daniel.garijo@upm.es",
+          "familyName": "Garijo",
+          "givenName": "Daniel"
+      },
+      {
+          "id": "https://orcid.org/0009-0005-6868-4511",
+          "@type": "Person",
+          "affiliation": {
+              "@type": "Organization",
+              "name": "Universidad Politécnica de Madrid "
+          },
+          "email": "a.elhounsri@upm.es",
+          "familyName": "El Hounsri",
+          "givenName": "Anas"
+      }
   ],
   "codeRepository": "https://github.com/SoftwareUnderstanding/sw-metadata-bot",
   "dateCreated": "2025-12-15",
@@ -39,6 +75,7 @@
       "version": "3"
     }
   ],
+ 
   "runtimePlatform": "Python 3.11, Python 3.12",
   "releaseNotes": "## What's Changed\n* Fix beta test feedbacks by @francoto in https://github.com/SoftwareUnderstanding/sw-metadata-bot/pull/7\n\n\n**Full Changelog**: https://github.com/SoftwareUnderstanding/sw-metadata-bot/compare/v0.1.0...v0.1.1",
   "softwareRequirements": [
@@ -47,10 +84,16 @@
     "python-dotenv>=1.0.0",
     "requests>=2.32.5"
   ],
-  "version": "0.5.0",
-  "codemeta:contIntegration": {
-    "@id": "https://raw.githubusercontent.com/SoftwareUnderstanding/sw-metadata-bot/main/.github/workflows/ci.yml"
+  "version": "0.5.1",
+  "softwareVersion": "0.5.1",
+  "maintainer": {
+    "@id": "https://orcid.org/0000-0001-5226-3089",
+    "givenName": "Tom",
+    "familyName": "Fran\u00e7ois",
+    "email": "tom.francois@lapp.in2p3.fr",
+    "@type": "Person"
   },
+  "readme": "https://raw.githubusercontent.com/SoftwareUnderstanding/sw-metadata-bot/main/README.md",
   "continuousIntegration": "https://raw.githubusercontent.com/SoftwareUnderstanding/sw-metadata-bot/main/.github/workflows/ci.yml",
   "developmentStatus": "active",
   "issueTracker": "https://github.com/SoftwareUnderstanding/sw-metadata-bot/issues",
