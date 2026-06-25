@@ -201,19 +201,18 @@ jobs:
         with:
           packages-dir: dist/
 
-  # publish-zenodo:
+  publish-zenodo:
   #   name: Publish to Zenodo
-  #   if: github.event_name == 'release'
-  #   needs: [lint, test]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v6
-
-  #     - name: Publish to Zenodo
-  #       uses: leokratos/github-action-json-to-zenodo@v1.0.1
-  #       with:
-  #         filename: codemeta.json
-  #         zenodo_sandbox: false
-  #       env:
-  #         ZENODO_DEPOSITION_ID: ${{ secrets.ZENODO_DEPOSITION_ID }}
-  #         ZENODO_ACCESS_TOKEN: ${{ secrets.ZENODO_ACCESS_TOKEN }}
+    if: github.event_name == 'release'
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Convert CodeMeta to Zenodo metadata
+        run: uvx eossr-codemeta2zenodo -i codemeta.json -o .zenodo.json --overwrite
+      - name: Upload and Publish to Zenodo via eossr
+        run: |
+          uvx --from eossr eossr-upload-repository \
+            --token "${{ secrets.ZENODO_ACCESS_TOKEN }}" \
+            --input-dir . \
+            --record_id "${{ secrets.ZENODO_DEPOSITION_ID }}"
