@@ -36,7 +36,4 @@ sed -i "s|badge/version-[^)]*-|badge/version-$NEW_VERSION-|g" README.md
 # update the uv.lock file
 uv sync
 
-echo "Updated version to $NEW_VERSION"  
-# commit the changes
-git add pyproject.toml codemeta.json uv.lock README.md
-git commit -m "Bump version to $NEW_VERSION"
+echo "Updated version to $NEW_VERSION"
