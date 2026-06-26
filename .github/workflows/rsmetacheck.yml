@@ -5,6 +5,7 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+    types: [opened, synchronize, reopened, labeled, unlabeled] # Needed to catch label changes
 
 jobs:
   analyze-metadata:
@@ -13,10 +14,32 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6
 
-      - name: Run RsMetaCheck
+      - name: Determine Environment
+        id: check_label
+        run: |
+          if echo "${{ toJson(github.event.pull_request.labels.*.name) }}" | grep -q "prerelease"; then
+            echo "IS_PRERELEASE=true" >> $GITHUB_ENV
+          else
+            echo "IS_PRERELEASE=false" >> $GITHUB_ENV
+          fi
+
+      - name: Run RSMetacheck with unstable config
+        if: env.IS_PRERELEASE == 'false'
         uses: SoftwareUnderstanding/rs-metacheck-action@0.3.1
         with:
           input: "https://github.com/SoftwareUnderstanding/sw-metadata-bot"
           branch: $GITHUB_REF
           pitfalls_output: "./pitfalls_outputs"
           verbose: "false"
+          config_file: "./.github/workflows/rsmetacheck_config.toml"
+
+      - name:  Run RSMetacheck with Release profile
+        if: env.IS_PRERELEASE == 'true'
+        uses: SoftwareUnderstanding/rs-metacheck-action@0.3.1
+        with:
+          input: "https://github.com/SoftwareUnderstanding/sw-metadata-bot"
+          branch: $GITHUB_REF
+          pitfalls_output: "./pitfalls_outputs"
+          verbose: "false"
+          config_file: "./.github/workflows/rsmetacheck_config.toml"
+          config-profile: "release"

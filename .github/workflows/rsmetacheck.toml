@@ -1,0 +1,21 @@
+exclude_files = ["**/generated/**", "tmp_metadata.json"]
+active_profile = "unstable"
+
+[parameters.P001]
+ahead_significant_diff = 2
+
+[parameters.W002]
+stale_after_days = 3
+
+[profiles.unstable]
+ignore = ["W002", "P017"]
+
+[profiles.unstable.parameters.P001]
+ahead_significant_diff = 10
+
+
+[profiles.prerelease]
+ignore = [] # remove all ignores for prerelease profile
+
+[profiles.prerelease.parameters.P001]
+ahead_significant_diff = 1
