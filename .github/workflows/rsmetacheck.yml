@@ -7,6 +7,13 @@ on:
     branches: ["main"]
     types: [opened, synchronize, reopened, labeled, unlabeled] # Needed to catch label changes
 
+env:
+  RSMETACHECK_INPUT: "https://github.com/SoftwareUnderstanding/sw-metadata-bot"
+  RSMETACHECK_PITFALLS_OUTPUT: "./pitfalls_outputs"
+  RSMETACHECK_VERBOSE: "false"
+  RSMETACHECK_CONFIG_FILE: "./.github/workflows/rsmetacheck_config.toml"
+  RSMETACHECK_ACTION_VERSION: "0.3.2"
+
 jobs:
   analyze-metadata:
     runs-on: ubuntu-latest
@@ -25,21 +32,22 @@ jobs:
 
       - name: Run RSMetacheck with unstable config
         if: env.IS_PRERELEASE == 'false'
-        uses: SoftwareUnderstanding/rs-metacheck-action@0.3.1
+        uses: SoftwareUnderstanding/rs-metacheck-action@${{ env.RSMETACHECK_ACTION_VERSION }}
         with:
-          input: "https://github.com/SoftwareUnderstanding/sw-metadata-bot"
+          input: ${{ env.RSMETACHECK_INPUT }}
           branch: $GITHUB_REF
-          pitfalls_output: "./pitfalls_outputs"
-          verbose: "false"
-          config_file: "./.github/workflows/rsmetacheck_config.toml"
+          pitfalls_output: ${{ env.RSMETACHECK_PITFALLS_OUTPUT }}
+          verbose: ${{ env.RSMETACHECK_VERBOSE }}
+          config_file: ${{ env.RSMETACHECK_CONFIG_FILE }}
+          config-profile: "unstable"
 
-      - name:  Run RSMetacheck with Release profile
+      - name: Run RSMetacheck with Release profile
         if: env.IS_PRERELEASE == 'true'
-        uses: SoftwareUnderstanding/rs-metacheck-action@0.3.1
+        uses: SoftwareUnderstanding/rs-metacheck-action@${{ env.RSMETACHECK_ACTION_VERSION }}
         with:
-          input: "https://github.com/SoftwareUnderstanding/sw-metadata-bot"
+          input: ${{ env.RSMETACHECK_INPUT }}
           branch: $GITHUB_REF
-          pitfalls_output: "./pitfalls_outputs"
-          verbose: "false"
-          config_file: "./.github/workflows/rsmetacheck_config.toml"
+          pitfalls_output: ${{ env.RSMETACHECK_PITFALLS_OUTPUT }}
+          verbose: ${{ env.RSMETACHECK_VERBOSE }}
+          config_file: ${{ env.RSMETACHECK_CONFIG_FILE }}
           config-profile: "release"
