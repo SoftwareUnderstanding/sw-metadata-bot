@@ -12,7 +12,7 @@ env:
   RSMETACHECK_PITFALLS_OUTPUT: "./pitfalls_outputs"
   RSMETACHECK_VERBOSE: "false"
   RSMETACHECK_CONFIG_FILE: "./.github/workflows/rsmetacheck_config.toml"
-  RSMETACHECK_ACTION: "SoftwareUnderstanding/rs-metacheck-action@0.3.2"
+  
 
 jobs:
   analyze-metadata:
@@ -32,22 +32,22 @@ jobs:
 
       - name: Run RSMetacheck with unstable config
         if: env.IS_PRERELEASE == 'false'
-        uses: ${{ env.RSMETACHECK_ACTION }}
+        uses: SoftwareUnderstanding/rs-metacheck-action@${{ vars.RSMETACHECK_ACTION_VERSION }}
         with:
-          input: ${{ env.RSMETACHECK_INPUT }}
+          input: $RSMETACHECK_INPUT
           branch: $GITHUB_REF
-          pitfalls_output: ${{ env.RSMETACHECK_PITFALLS_OUTPUT }}
-          verbose: ${{ env.RSMETACHECK_VERBOSE }}
-          config_file: ${{ env.RSMETACHECK_CONFIG_FILE }}
+          pitfalls_output: $RSMETACHECK_PITFALLS_OUTPUT
+          verbose: $RSMETACHECK_VERBOSE
+          config_file: $RSMETACHECK_CONFIG_FILE
           config-profile: "unstable"
 
       - name: Run RSMetacheck with Release profile
         if: env.IS_PRERELEASE == 'true'
-        uses: ${{ env.RSMETACHECK_ACTION }}
+        uses: SoftwareUnderstanding/rs-metacheck-action@${{ vars.RSMETACHECK_ACTION_VERSION }}
         with:
-          input: ${{ env.RSMETACHECK_INPUT }}
+          input: $RSMETACHECK_INPUT
           branch: $GITHUB_REF
-          pitfalls_output: ${{ env.RSMETACHECK_PITFALLS_OUTPUT }}
-          verbose: ${{ env.RSMETACHECK_VERBOSE }}
-          config_file: ${{ env.RSMETACHECK_CONFIG_FILE }}
+          pitfalls_output: $RSMETACHECK_PITFALLS_OUTPUT
+          verbose: $RSMETACHECK_VERBOSE
+          config_file: $RSMETACHECK_CONFIG_FILE
           config-profile: "release"
