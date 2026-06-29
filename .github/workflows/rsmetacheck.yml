@@ -5,6 +5,14 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+    types: [opened, synchronize, reopened, labeled, unlabeled] # Needed to catch label changes
+
+env:
+  RSMETACHECK_INPUT: "https://github.com/SoftwareUnderstanding/sw-metadata-bot"
+  RSMETACHECK_PITFALLS_OUTPUT: "./pitfalls_outputs"
+  RSMETACHECK_VERBOSE: "false"
+  RSMETACHECK_CONFIG_FILE: "./.github/workflows/rsmetacheck_config.toml"
+  
 
 jobs:
   analyze-metadata:
@@ -13,10 +21,27 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6
 
-      - name: Run RsMetaCheck
-        uses: SoftwareUnderstanding/rs-metacheck-action@0.3.1
+      - name: Determine Environment
+        id: check_label
+        run: |
+          if echo "${{ toJson(github.event.pull_request.labels.*.name) }}" | grep -q "prerelease"; then
+            echo "IS_PRERELEASE=true" >> $GITHUB_ENV
+          else
+            echo "IS_PRERELEASE=false" >> $GITHUB_ENV
+          fi
+          echo "Explicit input of rs-metacheck-action"
+          echo "input: $RSMETACHECK_INPUT"
+          echo "branch: $GITHUB_REF"
+          echo "pitfalls_output: $RSMETACHECK_PITFALLS_OUTPUT"
+          echo "verbose: $RSMETACHECK_VERBOSE"
+          echo "config: $RSMETACHECK_CONFIG_FILE"
+
+      - name: Run RSMetacheck
+        uses: SoftwareUnderstanding/rs-metacheck-action@0.3.3
         with:
-          input: "https://github.com/SoftwareUnderstanding/sw-metadata-bot"
+          input: $RSMETACHECK_INPUT
           branch: $GITHUB_REF
-          pitfalls_output: "./pitfalls_outputs"
-          verbose: "false"
+          pitfalls_output: $RSMETACHECK_PITFALLS_OUTPUT
+          verbose: $RSMETACHECK_VERBOSE
+          config: $RSMETACHECK_CONFIG_FILE
+          config_profile: ${{ env.IS_PRERELEASE == 'true' && 'release' || 'unstable' }}

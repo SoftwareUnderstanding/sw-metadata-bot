@@ -14,6 +14,8 @@ def run_rsmetacheck(
     analysis_output: str = "analysis_results.json",
     threshold: float = 0.8,
     generate_codemeta: bool = False,
+    config_file: str | None = None,
+    config_profile: str | None = None,
 ) -> None:
     """Run rsmetacheck CLI by constructing and forwarding argv."""
     argv = ["rsmetacheck"]
@@ -23,6 +25,11 @@ def run_rsmetacheck(
     argv.extend(["--pitfalls-output", pitfalls_output])
     argv.extend(["--analysis-output", analysis_output])
     argv.extend(["--threshold", str(threshold)])
+
+    if config_file:
+        argv.extend(["--config-file", config_file])
+    if config_profile:
+        argv.extend(["--config-profile", config_profile])
 
     if skip_somef:
         argv.append("--skip-somef")
