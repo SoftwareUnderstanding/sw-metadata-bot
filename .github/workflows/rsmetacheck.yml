@@ -12,7 +12,7 @@ env:
   RSMETACHECK_PITFALLS_OUTPUT: "./pitfalls_outputs"
   RSMETACHECK_VERBOSE: "false"
   RSMETACHECK_CONFIG_FILE: "./.github/workflows/rsmetacheck_config.toml"
-  RSMETACHECK_ACTION_VERSION: "0.3.2"
+  RSMETACHECK_ACTION: "SoftwareUnderstanding/rs-metacheck-action@0.3.2"
 
 jobs:
   analyze-metadata:
@@ -32,7 +32,7 @@ jobs:
 
       - name: Run RSMetacheck with unstable config
         if: env.IS_PRERELEASE == 'false'
-        uses: SoftwareUnderstanding/rs-metacheck-action@${{ env.RSMETACHECK_ACTION_VERSION }}
+        uses: ${{ env.RSMETACHECK_ACTION }}
         with:
           input: ${{ env.RSMETACHECK_INPUT }}
           branch: $GITHUB_REF
@@ -43,7 +43,7 @@ jobs:
 
       - name: Run RSMetacheck with Release profile
         if: env.IS_PRERELEASE == 'true'
-        uses: SoftwareUnderstanding/rs-metacheck-action@${{ env.RSMETACHECK_ACTION_VERSION }}
+        uses: ${{ env.RSMETACHECK_ACTION }}
         with:
           input: ${{ env.RSMETACHECK_INPUT }}
           branch: $GITHUB_REF
