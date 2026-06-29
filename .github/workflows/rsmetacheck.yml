@@ -32,7 +32,7 @@ jobs:
 
       - name: Run RSMetacheck with unstable config
         if: env.IS_PRERELEASE == 'false'
-        uses: SoftwareUnderstanding/rs-metacheck-action@${{ vars.RSMETACHECK_ACTION_VERSION }}
+        uses: SoftwareUnderstanding/rs-metacheck-action@0.3.2
         with:
           input: $RSMETACHECK_INPUT
           branch: $GITHUB_REF
@@ -43,7 +43,7 @@ jobs:
 
       - name: Run RSMetacheck with Release profile
         if: env.IS_PRERELEASE == 'true'
-        uses: SoftwareUnderstanding/rs-metacheck-action@${{ vars.RSMETACHECK_ACTION_VERSION }}
+        uses: SoftwareUnderstanding/rs-metacheck-action@0.3.2
         with:
           input: $RSMETACHECK_INPUT
           branch: $GITHUB_REF
