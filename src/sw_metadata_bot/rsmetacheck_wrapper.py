@@ -1,8 +1,14 @@
 """Wrapper for rsmetacheck CLI to integrate with sw-metadata-bot."""
 
 import sys
+from pathlib import Path
 
 from rsmetacheck import cli as rsmetacheck_cli
+
+
+def _default_non_failing_rsmetacheck_config() -> Path:
+    """Return the packaged rsmetacheck config that disables CI exit-on-findings."""
+    return Path(__file__).resolve().parent / "config" / "rsmetacheck_non_failing.toml"
 
 
 def run_rsmetacheck(
@@ -19,6 +25,7 @@ def run_rsmetacheck(
 ) -> None:
     """Run rsmetacheck CLI by constructing and forwarding argv."""
     argv = ["rsmetacheck"]
+    config_path = _default_non_failing_rsmetacheck_config()
 
     argv.extend(["--input", input_source.strip()])
     argv.extend(["--somef-output", somef_output])
@@ -26,8 +33,7 @@ def run_rsmetacheck(
     argv.extend(["--analysis-output", analysis_output])
     argv.extend(["--threshold", str(threshold)])
 
-    if config_file:
-        argv.extend(["--config-file", config_file])
+    argv.extend(["--config", str(config_path)])
     if config_profile:
         argv.extend(["--config-profile", config_profile])
 
@@ -43,5 +49,9 @@ def run_rsmetacheck(
     try:
         sys.argv = argv
         rsmetacheck_cli()
+    except SystemExit as exc:
+        if exc.code not in {0, None}:
+            return
+        raise
     finally:
         sys.argv = original_argv

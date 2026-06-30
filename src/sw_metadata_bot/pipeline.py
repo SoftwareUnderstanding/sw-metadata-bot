@@ -122,8 +122,6 @@ def run_pipeline(
     snapshot_tag: str | None,
     previous_report: Path | None,
     force_analysis: bool = False,
-    rsmetacheck_config: Path | None = None,
-    rsmetacheck_config_profile: str | None = None,
 ) -> None:
     """Run analysis and write issue decision records without API side effects.
 
@@ -136,6 +134,9 @@ def run_pipeline(
     config = BotConfig.from_json(config_file)
 
     repositories = config.get_repositories()
+    # get rsmetacheck options from the main config file
+    rsmetacheck_config_file = config.get_rsmetacheck_config_file()
+    rsmetacheck_config_profile = config.get_rsmetacheck_config_profile()
     custom_message = config.get_custom_issue_message()
     generate_codemeta_if_missing = config.get_generate_codemeta_if_missing()
     opt_out_repos = config.get_issue_opt_outs()
@@ -214,6 +215,8 @@ def run_pipeline(
                     repo_url,
                     repo_folder,
                     generate_codemeta_if_missing=generate_codemeta_if_missing,
+                    rsmetacheck_config_file=rsmetacheck_config_file,
+                    rsmetacheck_config_profile=rsmetacheck_config_profile,
                 )
 
             normalized_repo = analysis_runtime.normalize_repo_url(repo_url)
@@ -357,25 +360,11 @@ def run_pipeline(
     default=False,
     help="Force analysis even when the repository commit id is unchanged.",
 )
-@click.option(
-    "--rsmetacheck-config",
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
-    default=None,
-    help="Path to the config for rsmetacheck",
-)
-@click.option(
-    "--rsmetacheck-profile",
-    type=str,
-    default=None,
-    help="Profile name defined in rsmetacheck config. Bypass the default profile.",
-)
 def run_analysis_command(
     config_file: Path,
     snapshot_tag: str | None,
     previous_report: Path | None,
     force_analysis: bool,
-    rsmetacheck_config: Path | None,
-    rsmetacheck_config_profile: str | None,
 ) -> None:
     """Run analysis and compute issue lifecycle decisions in dry-run mode."""
     run_pipeline(
@@ -384,6 +373,4 @@ def run_analysis_command(
         snapshot_tag=snapshot_tag,
         previous_report=previous_report,
         force_analysis=force_analysis,
-        rsmetacheck_config=rsmetacheck_config,
-        rsmetacheck_config_profile=rsmetacheck_config_profile,
     )

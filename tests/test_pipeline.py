@@ -2,11 +2,18 @@
 
 import json
 import os
+import sys
 from pathlib import Path
 
 from click.testing import CliRunner
 
-from sw_metadata_bot import analysis_runtime, commit_lookup, constants, pipeline
+from sw_metadata_bot import (
+    analysis_runtime,
+    commit_lookup,
+    constants,
+    pipeline,
+    rsmetacheck_wrapper,
+)
 from sw_metadata_bot import publish as publish_module
 from sw_metadata_bot.config.schemas import BotConfig
 
@@ -299,11 +306,77 @@ def test_run_pipeline_invokes_rsmetacheck_and_writes_reports(monkeypatch, tmp_pa
     )
 
 
+def test_run_rsmetacheck_uses_default_config_and_tolerates_cli_exit(monkeypatch):
+    """Use a non-fatal rsmetacheck config by default and tolerate findings exits."""
+    captured: dict[str, object] = {}
+
+    def fake_cli() -> None:
+        captured["argv"] = list(sys.argv)
+        raise SystemExit(1)
+
+    monkeypatch.setattr(rsmetacheck_wrapper, "rsmetacheck_cli", fake_cli)
+
+    rsmetacheck_wrapper.run_rsmetacheck(
+        input_source="https://github.com/example/repo",
+        somef_output="/tmp/somef",
+        pitfalls_output="/tmp/pitfalls",
+        analysis_output="/tmp/analysis.json",
+    )
+
+    argv = captured["argv"]
+    assert argv[0] == "rsmetacheck"
+    assert "--config" in argv
+    config_path = Path(argv[argv.index("--config") + 1])
+    assert config_path.exists()
+    config_text = config_path.read_text(encoding="utf-8")
+    assert "fail_on_pitfalls = false" in config_text
+    assert "fail_on_warnings = false" in config_text
+
+
+def test_run_rsmetacheck_overrides_provided_config_with_non_failing_settings(
+    monkeypatch, tmp_path
+):
+    """Force non-failing rsmetacheck settings even when a config file is provided."""
+    captured: dict[str, object] = {}
+    custom_config = tmp_path / "custom.toml"
+    custom_config.write_text(
+        "fail_on_pitfalls = true\nfail_on_warnings = true\n",
+        encoding="utf-8",
+    )
+
+    def fake_cli() -> None:
+        captured["argv"] = list(sys.argv)
+        raise SystemExit(1)
+
+    monkeypatch.setattr(rsmetacheck_wrapper, "rsmetacheck_cli", fake_cli)
+
+    rsmetacheck_wrapper.run_rsmetacheck(
+        input_source="https://github.com/example/repo",
+        somef_output="/tmp/somef",
+        pitfalls_output="/tmp/pitfalls",
+        analysis_output="/tmp/analysis.json",
+        config_file=str(custom_config),
+    )
+
+    argv = captured["argv"]
+    config_path = Path(argv[argv.index("--config") + 1])
+    assert config_path.exists()
+    assert config_path != custom_config
+    config_text = config_path.read_text(encoding="utf-8")
+    assert "fail_on_pitfalls = false" in config_text
+    assert "fail_on_warnings = false" in config_text
+
+
 def test_run_pipeline_continues_when_one_repo_analysis_fails(monkeypatch, tmp_path):
     """The pipeline continues processing other repos even if one repo fails."""
 
     def fake_run_metacheck_for_repo(
-        repo_url, repo_folder, generate_codemeta_if_missing
+        repo_url,
+        repo_folder,
+        *,
+        generate_codemeta_if_missing,
+        rsmetacheck_config_file=None,
+        rsmetacheck_config_profile=None,
     ):
         if "fail" in repo_url:
             raise RuntimeError("analysis failure")

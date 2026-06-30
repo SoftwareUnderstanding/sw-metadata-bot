@@ -480,6 +480,8 @@ def run_metacheck_for_repo(
     repo_folder: Path,
     *,
     generate_codemeta_if_missing: bool,
+    rsmetacheck_config_file: str | None,
+    rsmetacheck_config_profile: str | None,
 ) -> None:
     """Run metacheck for a single repository URL into its own folder."""
     repo_folder.mkdir(parents=True, exist_ok=True)
@@ -499,6 +501,8 @@ def run_metacheck_for_repo(
         pitfalls_output=str(repo_folder),
         analysis_output=str(temp_analysis_file),
         generate_codemeta=generate_codemeta_if_missing,
+        config_file=rsmetacheck_config_file,
+        config_profile=rsmetacheck_config_profile,
     )
 
     if temp_analysis_file is not None and temp_analysis_file.exists():

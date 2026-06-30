@@ -18,6 +18,8 @@ class AnalysisConfig(BaseModel):
 
     repositories: list[str]
     generate_codemeta_if_missing: bool = True
+    rsmetacheck_config_file: Optional[str] = None
+    rsmetacheck_config_profile: Optional[str] = None
 
     @field_validator("repositories", mode="after")
     @classmethod
@@ -70,7 +72,7 @@ class OutputConfig(BaseModel):
 class BotConfig(BaseModel):
     """Top-level configuration model for the bot."""
 
-    version: str = "1.0.0"
+    version: str = "1.1.0"
     analysis: AnalysisConfig
     # Optional sections in configuration
     issues: IssueConfig = Field(default_factory=IssueConfig)
@@ -119,6 +121,14 @@ class BotConfig(BaseModel):
     def get_repositories(self) -> list[str]:
         """Return the list of repositories to analyze, excluding any opt-outs."""
         return self.analysis.repositories
+
+    def get_rsmetacheck_config_file(self) -> str | None:
+        """Return the config filepath for rsmetacheck"""
+        return self.analysis.rsmetacheck_config_file
+
+    def get_rsmetacheck_config_profile(self) -> str | None:
+        """Return rsmetacheck profile if provided in config file"""
+        return self.analysis.rsmetacheck_config_profile
 
     def get_issue_opt_outs(self) -> list[str]:
         """Return the list of repositories that are opted out of issue creation."""
