@@ -540,11 +540,6 @@ def build_analysis_run_report(
     }
 
 
-def detect_repo_platform(repo_url: str) -> str | None:
-    """Detect publish platform from a repository URL."""
-    return detect_platform(repo_url)
-
-
 def is_previous_issue_open(previous_record: dict[str, object]) -> bool:
     """Infer whether previous issue was open from stored metadata only."""
     state_value = previous_record.get("previous_issue_state")
@@ -668,7 +663,7 @@ def create_analysis_record(
         return build_record_entry(
             run_root=run_root,
             repo_url=repo_url,
-            platform=detect_repo_platform(repo_url),
+            platform=detect_platform(repo_url),
             pitfalls_count=0,
             warnings_count=0,
             analysis_date="unknown",
@@ -705,7 +700,7 @@ def create_analysis_record(
                 issue_body, encoding="utf-8"
             )
 
-        platform = detect_repo_platform(repo_url)
+        platform = detect_platform(repo_url)
         previous_analysis = _load_previous_analysis_context(
             previous_record,
             current_commit_id,
@@ -780,7 +775,7 @@ def create_analysis_record(
         return build_record_entry(
             run_root=run_root,
             repo_url=repo_url,
-            platform=detect_repo_platform(repo_url),
+            platform=detect_platform(repo_url),
             pitfalls_count=0,
             warnings_count=0,
             analysis_date="unknown",
