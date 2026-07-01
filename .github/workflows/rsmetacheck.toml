@@ -24,7 +24,7 @@ fail_on_warnings = true
 fail_on_pitfalls = true
 
 [profiles.prerelease.parameters.P001]
-ahead_significant_diff = 1
+ahead_significant_diff = 2
 
 [profiles.prerelease.parameters.W002]
 stale_after_days = 1
