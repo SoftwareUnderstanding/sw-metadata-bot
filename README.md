@@ -14,6 +14,8 @@ An automated bot that analyzes repository metadata quality and creates issues wi
 
 Part of the [CodeMetaSoft](https://w3id.org/codemetasoft) project to improve research software metadata quality.
 
+[![Subscribe](https://img.shields.io/badge/subscribe%20to%20the%20bot-blue?style=for-the-badge)](https://github.com/SoftwareUnderstanding/sw-metadata-bot/issues/new?template=subscribe.yml)
+
 ---
 
 ## 📋 What This Bot Does

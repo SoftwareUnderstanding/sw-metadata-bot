@@ -128,11 +128,14 @@ This automated issue includes:
 - Suggestions for fixing each issue
 
 ## Context
+
 This analysis is performed by the [CodeMetaSoft](https://w3id.org/codemetasoft) project to help improve research software metadata quality.
 
 This is a first initiative aimed at identifying and reporting metadata quality issues across research software repositories. 
 At this stage, we only provide diagnostics and recommendations. 
 In future iterations, we plan to propose automated fixes for the detected issues to further simplify the improvement process and reduce manual effort.
+Feedbacks are welcome and will help us improve the tool and its recommendations.
+[![Feedbacks](https://img.shields.io/badge/feedbacks-blue?style=for-the-badge)](https://github.com/SoftwareUnderstanding/sw-metadata-bot/issues/new?template=feedback.yml)
 
 Each pitfall and warning is identified by a unique code (e.g. P001 for pitfalls, W004 for warnings) that corresponds to specific metadata quality issues.
 You can find more details about these checks and how to address them in the [RSMetacheck catalog](https://softwareunderstanding.github.io/RsMetaCheck/).
