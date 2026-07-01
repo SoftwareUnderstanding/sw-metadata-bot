@@ -480,6 +480,8 @@ def run_metacheck_for_repo(
     repo_folder: Path,
     *,
     generate_codemeta_if_missing: bool,
+    rsmetacheck_config_file: str | None,
+    rsmetacheck_config_profile: str | None,
 ) -> None:
     """Run metacheck for a single repository URL into its own folder."""
     repo_folder.mkdir(parents=True, exist_ok=True)
@@ -499,6 +501,8 @@ def run_metacheck_for_repo(
         pitfalls_output=str(repo_folder),
         analysis_output=str(temp_analysis_file),
         generate_codemeta=generate_codemeta_if_missing,
+        config_file=rsmetacheck_config_file,
+        config_profile=rsmetacheck_config_profile,
     )
 
     if temp_analysis_file is not None and temp_analysis_file.exists():
@@ -538,11 +542,6 @@ def build_analysis_run_report(
         "counters": build_analysis_counters(records),
         "records": records,
     }
-
-
-def detect_repo_platform(repo_url: str) -> str | None:
-    """Detect publish platform from a repository URL."""
-    return detect_platform(repo_url)
 
 
 def is_previous_issue_open(previous_record: dict[str, object]) -> bool:
@@ -668,7 +667,7 @@ def create_analysis_record(
         return build_record_entry(
             run_root=run_root,
             repo_url=repo_url,
-            platform=detect_repo_platform(repo_url),
+            platform=detect_platform(repo_url),
             pitfalls_count=0,
             warnings_count=0,
             analysis_date="unknown",
@@ -705,7 +704,7 @@ def create_analysis_record(
                 issue_body, encoding="utf-8"
             )
 
-        platform = detect_repo_platform(repo_url)
+        platform = detect_platform(repo_url)
         previous_analysis = _load_previous_analysis_context(
             previous_record,
             current_commit_id,
@@ -780,7 +779,7 @@ def create_analysis_record(
         return build_record_entry(
             run_root=run_root,
             repo_url=repo_url,
-            platform=detect_repo_platform(repo_url),
+            platform=detect_platform(repo_url),
             pitfalls_count=0,
             warnings_count=0,
             analysis_date="unknown",

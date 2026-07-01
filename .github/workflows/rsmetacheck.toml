@@ -9,6 +9,8 @@ stale_after_days = 3
 
 [profiles.unstable]
 ignore = ["W002", "P017"]
+fail_on_warnings = false
+fail_on_pitfalls = false
 
 [profiles.unstable.parameters.P001]
 ahead_significant_diff = 10
@@ -16,6 +18,8 @@ ahead_significant_diff = 10
 
 [profiles.prerelease]
 ignore = [] # remove all ignores for prerelease profile
+fail_on_warnings = true
+fail_on_pitfalls = true
 
 [profiles.prerelease.parameters.P001]
 ahead_significant_diff = 1

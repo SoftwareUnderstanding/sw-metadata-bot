@@ -11,7 +11,8 @@ CONFIG_DATA = {
         "repositories": [
             "https://github.com/SoftwareUnderstanding/sw-metadata-bot",
             "https://github.com/example/repo3",
-        ]
+        ],
+        "rsmetacheck_config_file": "rsmetacheck.toml",
     },
     "issues": {
         "custom_issue_message": "This is a custom issue message.",
@@ -57,6 +58,7 @@ def test_bot_config_schema_from_json(tmp_path):
     config = BotConfig.from_json(config_file)
 
     assert config.analysis.repositories == CONFIG_DATA["analysis"]["repositories"]
+    assert config.analysis.rsmetacheck_config_file == "rsmetacheck.toml"
     assert (
         config.issues.custom_issue_message
         == CONFIG_DATA["issues"]["custom_issue_message"]
@@ -80,6 +82,8 @@ def test_bot_config_schema_from_json_minimal(tmp_path):
     assert (
         config.analysis.repositories == CONFIG_DATA_MINIMAL["analysis"]["repositories"]
     )
+    assert config.analysis.rsmetacheck_config_file is None
+    assert config.analysis.rsmetacheck_config_profile is None
     assert config.issues.custom_issue_message is None
     assert config.issues.opt_outs == []
     assert config.outputs.output_root_dir == "outputs"

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sw-metadata-bot"
-version = "0.5.1"
+version = "0.5.2"
 description = "Metadata quality bot for software repositories, leveraging metacheck for analysis and GitHub/GitLab APIs for issue management."
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
@@ -14,7 +14,7 @@ authors = [
 ]
 dependencies = [
     "click>=8.3.1",
-    "rsmetacheck>=0.3.2",
+    "rsmetacheck>=0.3.3",
     "python-dotenv>=1.0.0",
     "requests>=2.32.5",
     "setuptools[test]<83.0.0",

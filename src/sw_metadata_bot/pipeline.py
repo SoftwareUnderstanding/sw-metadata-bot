@@ -10,7 +10,7 @@ import click
 from sw_metadata_bot.config.schemas import BotConfig
 
 from . import __version__, analysis_runtime, commit_lookup, constants
-from .config.config_utils import sanitize_repo_name
+from .config.config_utils import detect_platform, sanitize_repo_name
 from .reporting import RecordAnalysis, RecordLifecycle, build_record_entry
 
 SNAPSHOT_TAG_PATTERN = re.compile(r"^(\d{8})(?:_(\d+))?$")
@@ -134,6 +134,9 @@ def run_pipeline(
     config = BotConfig.from_json(config_file)
 
     repositories = config.get_repositories()
+    # get rsmetacheck options from the main config file
+    rsmetacheck_config_file = config.get_rsmetacheck_config_file()
+    rsmetacheck_config_profile = config.get_rsmetacheck_config_profile()
     custom_message = config.get_custom_issue_message()
     generate_codemeta_if_missing = config.get_generate_codemeta_if_missing()
     opt_out_repos = config.get_issue_opt_outs()
@@ -212,6 +215,8 @@ def run_pipeline(
                     repo_url,
                     repo_folder,
                     generate_codemeta_if_missing=generate_codemeta_if_missing,
+                    rsmetacheck_config_file=rsmetacheck_config_file,
+                    rsmetacheck_config_profile=rsmetacheck_config_profile,
                 )
 
             normalized_repo = analysis_runtime.normalize_repo_url(repo_url)
@@ -219,7 +224,7 @@ def run_pipeline(
                 record = build_record_entry(
                     run_root=run_root,
                     repo_url=repo_url,
-                    platform=analysis_runtime.detect_repo_platform(repo_url),
+                    platform=detect_platform(repo_url),
                     analysis=RecordAnalysis(
                         analysis_date=datetime.now(timezone.utc).strftime(
                             "%Y-%m-%dT%H:%M:%SZ"
@@ -264,7 +269,7 @@ def run_pipeline(
             record = build_record_entry(
                 run_root=run_root,
                 repo_url=repo_url,
-                platform=analysis_runtime.detect_repo_platform(repo_url),
+                platform=detect_platform(repo_url),
                 analysis=RecordAnalysis(
                     analysis_date="unknown",
                     bot_version=__version__,
