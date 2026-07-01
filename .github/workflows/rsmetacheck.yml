@@ -32,4 +32,4 @@ jobs:
           pitfalls_output: ./pitfalls_output
           verbose: true
           config: "./.github/workflows/rsmetacheck.toml"
-          config_profile: ${{ env.IS_PRERELEASE == 'true' && 'release' || 'unstable' }}
+          config_profile: ${{ env.IS_PRERELEASE == 'true' && 'prerelease' || 'unstable' }}
