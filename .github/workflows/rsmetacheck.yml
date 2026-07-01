@@ -31,7 +31,7 @@ jobs:
           echo "config: $RSMETACHECK_CONFIG_FILE"
 
       - name: Run RSMetacheck
-        uses: SoftwareUnderstanding/rs-metacheck-action@0.3.3
+        uses: SoftwareUnderstanding/rs-metacheck-action@0.3.4
         with:
           input: "https://github.com/SoftwareUnderstanding/sw-metadata-bot"
           branch: $GITHUB_REF
