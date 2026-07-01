@@ -138,10 +138,25 @@ jobs:
       - name: Run GitLab integration tests
         if: ${{ env.GITLAB_API_TOKEN != '' }}
         run: uv run pytest --run-integration-gitlab -m "integration_gitlab" tests/test_gitlab_integration.py
-      
+
+
+  test-zenodo-connection:
+    name: Test Zenodo connection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup uv environment
+        uses: ./.github/actions/setup-uv
+        with:
+          dependency-group: dev
+
+      - name: Verify Zenodo token before integration tests
+        run: uvx --from eossr eossr-check-connection-zenodo \
+          --token "${{ secrets.ZENODO_ACCESS_TOKEN }}" \
+          --project-dir . \
       
 
-      
 
   docs:
     name: Docs (Sphinx)
