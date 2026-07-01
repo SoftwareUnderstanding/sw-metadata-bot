@@ -55,7 +55,7 @@ jobs:
           dependency-group: dev
 
       - name: Interrogate (docstring coverage)
-        run: uv run interrogate -c pyproject.toml
+        run: uv run interrogate -c pyproject.toml -v src/sw_metadata_bot/
       
       - name: Commit interrogate badge
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
