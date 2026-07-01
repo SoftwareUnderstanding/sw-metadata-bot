@@ -31,5 +31,5 @@ jobs:
           branch: $GITHUB_REF
           pitfalls_output: ./pitfalls_output
           verbose: true
-          config: "/.github/workflows/rsmetacheck_config.toml"
+          config: "./.github/workflows/rsmetacheck_config.toml"
           config_profile: ${{ env.IS_PRERELEASE == 'true' && 'release' || 'unstable' }}
