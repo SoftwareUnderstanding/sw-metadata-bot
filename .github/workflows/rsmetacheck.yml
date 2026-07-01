@@ -33,3 +33,10 @@ jobs:
           verbose: true
           config: "./.github/workflows/rsmetacheck.toml"
           config_profile: ${{ env.IS_PRERELEASE == 'true' && 'prerelease' || 'unstable' }}
+      
+      - name: Upload Pitfalls Output
+        uses: actions/upload-artifact@v7
+        with:
+          name: pitfalls output 
+          path: ./pitfalls_output/       # The path to the file or directory you want to save
+          retention-days: 5
