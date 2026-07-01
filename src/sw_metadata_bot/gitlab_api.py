@@ -24,10 +24,12 @@ class GitLabAPI(IssueAPIBase):
     @staticmethod
     def parse_repo_url(url: str) -> tuple[str, str, str]:
         """
-        Parse GitLab URL to extract host, owner, and repo.
+        Parse GitLab URL to extract host, namespace, and repo.
+
+        The namespace can be a single owner or a nested group path.
 
         Returns:
-            Tuple of (host, owner, repo_name)
+            Tuple of (host, namespace, repo_name)
         """
         parsed = urlparse(url)
         host = parsed.netloc
@@ -35,12 +37,13 @@ class GitLabAPI(IssueAPIBase):
         if not host or "gitlab" not in host.lower():
             raise ValueError(f"Not a GitLab URL: {url}")
 
-        parts = parsed.path.strip("/").split("/")
+        parts = [part for part in parsed.path.split("/") if part]
         if len(parts) < 2:
             raise ValueError(f"Invalid GitLab URL format: {url}")
 
-        owner, repo = parts[0], parts[1].removesuffix(".git")
-        return host, owner, repo
+        namespace = "/".join(parts[:-1])
+        repo = parts[-1].removesuffix(".git")
+        return host, namespace, repo
 
     def get_base_url(self, host: str) -> str:
         """Get API base URL for GitLab host."""
@@ -169,11 +172,11 @@ class GitLabAPI(IssueAPIBase):
         Returns:
             URL of created issue (or fake URL in dry-run mode)
         """
-        host, owner, repo = self.parse_repo_url(repo_url)
-        project_id = f"{owner}/{repo}"
+        host, namespace, repo = self.parse_repo_url(repo_url)
+        project_id = f"{namespace}/{repo}"
 
         if self.dry_run:
-            return f"https://{host}/{owner}/{repo}/-/issues/0"
+            return f"https://{host}/{namespace}/{repo}/-/issues/0"
 
         base_url = self.get_base_url(host)
         url = f"{base_url}/projects/{requests.utils.quote(project_id, safe='')}/issues"
