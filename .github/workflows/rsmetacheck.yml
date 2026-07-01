@@ -23,12 +23,6 @@ jobs:
           else
             echo "IS_PRERELEASE=false" >> $GITHUB_ENV
           fi
-          echo "Explicit input of rs-metacheck-action"
-          echo "input: $RSMETACHECK_INPUT"
-          echo "branch: $GITHUB_REF"
-          echo "pitfalls_output: $RSMETACHECK_PITFALLS_OUTPUT"
-          echo "verbose: $RSMETACHECK_VERBOSE"
-          echo "config: $RSMETACHECK_CONFIG_FILE"
 
       - name: Run RSMetacheck
         uses: SoftwareUnderstanding/rs-metacheck-action@0.3.4
