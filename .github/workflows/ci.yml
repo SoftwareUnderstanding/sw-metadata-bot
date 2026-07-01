@@ -213,7 +213,8 @@ jobs:
         with:
           dependency-group: dev
       - name: Convert CodeMeta to Zenodo metadata
-        run: uvx --from eossr eossr-codemeta2zenodo -i codemeta.json -o .zenodo.json --overwrite
+        run: uvx --from eossr eossr-codemeta2zenodo -i codemeta.json --overwrite
+        
       - name: Upload and Publish to Zenodo via eossr
         run: |
           uvx --from eossr eossr-upload-repository \
