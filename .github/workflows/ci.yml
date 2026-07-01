@@ -151,6 +151,9 @@ jobs:
         with:
           dependency-group: dev
 
+      - name: Convert CodeMeta to Zenodo metadata
+        run: uvx --from eossr eossr-codemeta2zenodo -i codemeta.json --overwrite
+
       - name: Verify Zenodo token before integration tests
         run: uvx --from eossr eossr-check-connection-zenodo \
           --token "${{ secrets.ZENODO_ACCESS_TOKEN }}" \
