@@ -243,6 +243,7 @@ jobs:
         run: |
           TODAY=$(date +%Y-%m-%d)
           sed -i "s/\"publicationDate\": \".*\"/\"publicationDate\": \"$TODAY\"/" .zenodo.json
+          sed -i "s/\"dateModified\": \".*\"/\"dateModified\": \"$TODAY\"/" codemeta.json
       - name: Upload and Publish to Zenodo via eossr
         run: |
           eossr-upload-repository \
