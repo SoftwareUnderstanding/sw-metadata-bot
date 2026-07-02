@@ -2,7 +2,7 @@ name: CI (uv)
 
 on:
   push:
-    branches: ["main", "master"]
+    branches: ["main"]
   pull_request:
     branches: ["*"]
   release:
@@ -143,13 +143,12 @@ jobs:
   test-zenodo-connection:
     name: Test Zenodo connection
     runs-on: ubuntu-latest
+    container: 
+      image: registry.gitlab.com/escape-ossr/eossr:v2.2.0
     steps:
-      - uses: actions/checkout@v7
 
-      - name: Setup uv environment
-        uses: ./.github/actions/setup-uv
-        with:
-          dependency-group: dev
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
       - name: Convert CodeMeta to Zenodo metadata
         uses: escape2020/codemeta2zenodo@v1.3.0
@@ -157,9 +156,9 @@ jobs:
           overwrite: true
 
       - name: Verify Zenodo token before integration tests
-        run: uvx --from eossr eossr-check-connection-zenodo \
+        run: eossr-check-connection-zenodo \
           --token "${{ secrets.ZENODO_ACCESS_TOKEN }}" \
-          --project-dir . \
+          -p . \
       
 
 
@@ -217,15 +216,16 @@ jobs:
         run: uv build
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: dist/
+        run: # need to setup a trusted publisher in Pypi (but avoid passing pypi tokens and password to Github secrets).
+          uv publish
 
   publish-zenodo:
   #   name: Publish to Zenodo
     if: github.event_name == 'release'
-    needs: [lint, test]
+    needs: [lint, test, test-zenodo-connection]
     runs-on: ubuntu-latest
+    container: 
+      image: registry.gitlab.com/escape-ossr/eossr:v2.2.0
     steps:
       - uses: actions/checkout@v7
       - name: Setup uv environment
@@ -238,7 +238,8 @@ jobs:
           overwrite: true
       - name: Upload and Publish to Zenodo via eossr
         run: |
-          uvx --from eossr eossr-upload-repository \
+          eossr-upload-repository \
             --token "${{ secrets.ZENODO_ACCESS_TOKEN }}" \
             --input-dir . \
+            --archive-name $CI_PROJECT_NAME.zip \
             --record_id "${{ secrets.ZENODO_DEPOSITION_ID }}"
