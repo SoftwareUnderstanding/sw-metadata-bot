@@ -229,10 +229,6 @@ jobs:
       image: registry.gitlab.com/escape-ossr/eossr:v2.2.0
     steps:
       - uses: actions/checkout@v7
-      - name: Setup uv environment
-        uses: ./.github/actions/setup-uv
-        with:
-          dependency-group: dev
       - name: Convert CodeMeta to Zenodo metadata
         uses: escape2020/codemeta2zenodo@v1.3.0
         with:
