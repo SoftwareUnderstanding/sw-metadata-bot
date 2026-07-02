@@ -152,7 +152,9 @@ jobs:
           dependency-group: dev
 
       - name: Convert CodeMeta to Zenodo metadata
-        run: uvx --from eossr eossr-codemeta2zenodo -i codemeta.json --overwrite
+        uses: escape2020/codemeta2zenodo@v1.3.0
+        with:
+          overwrite: true
 
       - name: Verify Zenodo token before integration tests
         run: uvx --from eossr eossr-check-connection-zenodo \
@@ -231,8 +233,9 @@ jobs:
         with:
           dependency-group: dev
       - name: Convert CodeMeta to Zenodo metadata
-        run: uvx --from eossr eossr-codemeta2zenodo -i codemeta.json --overwrite
-        
+        uses: escape2020/codemeta2zenodo@v1.3.0
+        with:
+          overwrite: true
       - name: Upload and Publish to Zenodo via eossr
         run: |
           uvx --from eossr eossr-upload-repository \
