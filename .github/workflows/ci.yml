@@ -155,6 +155,11 @@ jobs:
         with:
           overwrite: true
 
+      - name: Change publicationDate in .zenodo.json to current date (fix eossr)
+        run: |
+          TODAY=$(date +%Y-%m-%d)
+          sed -i "s/\"publicationDate\": \".*\"/\"publicationDate\": \"$TODAY\"/" .zenodo.json
+
       - name: Verify Zenodo token before integration tests
         run: |
           eossr-check-connection-zenodo \
@@ -233,6 +238,11 @@ jobs:
         uses: escape2020/codemeta2zenodo@v1.3.0
         with:
           overwrite: true
+
+      - name: Change publicationDate in .zenodo.json to current date (fix eossr)
+        run: |
+          TODAY=$(date +%Y-%m-%d)
+          sed -i "s/\"publicationDate\": \".*\"/\"publicationDate\": \"$TODAY\"/" .zenodo.json
       - name: Upload and Publish to Zenodo via eossr
         run: |
           eossr-upload-repository \
