@@ -238,5 +238,5 @@ jobs:
           eossr-upload-repository \
             --token "${{ secrets.ZENODO_ACCESS_TOKEN }}" \
             --input-dir . \
-            --archive-name $CI_PROJECT_NAME.zip \
+            --archive-name sw-metadata-bot-{{github.event.release.tag_name}}.zip \
             --record_id "${{ secrets.ZENODO_DEPOSITION_ID }}"
