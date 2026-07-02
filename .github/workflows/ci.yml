@@ -156,9 +156,10 @@ jobs:
           overwrite: true
 
       - name: Verify Zenodo token before integration tests
-        run: eossr-check-connection-zenodo \
-          --token "${{ secrets.ZENODO_ACCESS_TOKEN }}" \
-          -p . \
+        run: |
+          eossr-check-connection-zenodo \
+            --token "${{ secrets.ZENODO_ACCESS_TOKEN }}" \
+            --project-dir .
       
 
 
