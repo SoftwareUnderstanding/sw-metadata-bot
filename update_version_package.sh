@@ -26,6 +26,7 @@ import json
 with open('codemeta.json', 'r') as f:
     data = json.load(f)
 data['version'] = '$NEW_VERSION'
+data['softwareVersion'] = '$NEW_VERSION'
 data['dateModified'] = '$TODAY'
 with open('codemeta.json', 'w') as f:
     json.dump(data, f, indent=2)
