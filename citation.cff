@@ -1,0 +1,33 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: sw-metadata-bot
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Tom
+    family-names: François
+    email: tom.francois@lapp.in2p3.fr
+    orcid: 'https://orcid.org/0000-0001-5226-3089'
+    affiliation: 'Univ. Savoie Mont-Blanc, CNRS, LAPP'
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.19468976
+  - type: swh
+    value: 'swh:1:dir:9f3d474c040158cc675e8db135767e0d2d3fba7b'
+repository-code: 'https://github.com/SoftwareUnderstanding/sw-metadata-bot'
+url: 'https://w3id.org/codemetasoft/'
+abstract: >-
+  A repository to keep the code of the RSMetaCheck bot for
+  pushing issues with existing repository metadata
+keywords:
+  - metadata
+  - codemeta
+  - bot
+  - software
+license: MIT
+version: 0.5.1
+date-released: '2026-07-02'
