@@ -242,12 +242,12 @@ jobs:
       - name: Change publicationDate in .zenodo.json to current date (fix eossr)
         run: |
           TODAY=$(date +%Y-%m-%d)
-          sed -i "s/\"publicationDate\": \".*\"/\"publicationDate\": \"$TODAY\"/" .zenodo.json
+          sed -i "s/\"publication_date\": \".*\"/\"publication_date\": \"$TODAY\"/" .zenodo.json
           sed -i "s/\"dateModified\": \".*\"/\"dateModified\": \"$TODAY\"/" codemeta.json
       - name: Upload and Publish to Zenodo via eossr
         run: |
           eossr-upload-repository \
             --token "${{ secrets.ZENODO_ACCESS_TOKEN }}" \
             --input-dir . \
-            --archive-name sw-metadata-bot-{{github.event.release.tag_name}}.zip \
+            --archive-name "sw-metadata-bot-${{ github.event.release.tag_name }}.zip" \
             --record_id "${{ secrets.ZENODO_DEPOSITION_ID }}"
