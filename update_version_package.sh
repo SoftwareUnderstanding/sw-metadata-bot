@@ -15,6 +15,7 @@
 ## Currently handles:
 # - codemeta.json: updates the version and dateModified fields
 # - README.md: updates the version badge
+# - Citation.cff: updates the version field
 
 NEW_VERSION=$(uv version | cut -d' ' -f2)
 TODAY=$(date +%Y-%m-%d)
@@ -32,6 +33,11 @@ with open('codemeta.json', 'w') as f:
 
 # Update README.md
 sed -i "s|badge/version-[^)]*-|badge/version-$NEW_VERSION-|g" README.md
+
+# update the CITATION.cff file
+
+sed -i "s/^version: .*/version: $NEW_VERSION/" CITATION.cff
+sed -i "s/^date-released: .*/date-released: $TODAY/" CITATION.cff
 
 # update the uv.lock file
 uv sync

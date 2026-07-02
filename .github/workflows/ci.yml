@@ -2,7 +2,7 @@ name: CI (uv)
 
 on:
   push:
-    branches: ["main", "master"]
+    branches: ["main"]
   pull_request:
     branches: ["*"]
   release:
@@ -138,10 +138,30 @@ jobs:
       - name: Run GitLab integration tests
         if: ${{ env.GITLAB_API_TOKEN != '' }}
         run: uv run pytest --run-integration-gitlab -m "integration_gitlab" tests/test_gitlab_integration.py
-      
+
+
+  test-zenodo-connection:
+    name: Test Zenodo connection
+    runs-on: ubuntu-latest
+    container: 
+      image: registry.gitlab.com/escape-ossr/eossr:v2.2.0
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Convert CodeMeta to Zenodo metadata
+        uses: escape2020/codemeta2zenodo@v1.3.0
+        with:
+          overwrite: true
+
+      - name: Verify Zenodo token before integration tests
+        run: |
+          eossr-check-connection-zenodo \
+            --token "${{ secrets.ZENODO_ACCESS_TOKEN }}" \
+            --project_dir .
       
 
-      
 
   docs:
     name: Docs (Sphinx)
@@ -197,27 +217,26 @@ jobs:
         run: uv build
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: dist/
+        run: # need to setup a trusted publisher in Pypi (but avoid passing pypi tokens and password to Github secrets).
+          uv publish
 
   publish-zenodo:
   #   name: Publish to Zenodo
     if: github.event_name == 'release'
-    needs: [lint, test]
+    needs: [lint, test, test-zenodo-connection]
     runs-on: ubuntu-latest
+    container: 
+      image: registry.gitlab.com/escape-ossr/eossr:v2.2.0
     steps:
       - uses: actions/checkout@v7
-      - name: Setup uv environment
-        uses: ./.github/actions/setup-uv
-        with:
-          dependency-group: dev
       - name: Convert CodeMeta to Zenodo metadata
-        run: uvx --from eossr eossr-codemeta2zenodo -i codemeta.json --overwrite
-        
+        uses: escape2020/codemeta2zenodo@v1.3.0
+        with:
+          overwrite: true
       - name: Upload and Publish to Zenodo via eossr
         run: |
-          uvx --from eossr eossr-upload-repository \
+          eossr-upload-repository \
             --token "${{ secrets.ZENODO_ACCESS_TOKEN }}" \
             --input-dir . \
+            --archive-name $CI_PROJECT_NAME.zip \
             --record_id "${{ secrets.ZENODO_DEPOSITION_ID }}"
