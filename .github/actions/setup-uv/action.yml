@@ -4,7 +4,8 @@ description: Install Python, uv, and sync dependencies with caching
 inputs:
   dependency-group:
     description: 'Dependency group to sync (e.g., dev, test, docs)'
-    required: true
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -30,4 +31,9 @@ runs:
 
     - name: Sync dependencies
       shell: bash
-      run: uv sync --locked --extra ${{ inputs.dependency-group }} # extras are defined in [project.optional-dependencies]
+      run: |
+        cmd="uv sync --locked"
+        if [ -n "${{ inputs.dependency-group }}" ]; then
+          cmd="$cmd --extra ${{ inputs.dependency-group }}"
+        fi
+        eval "$cmd" # extras are defined in [project.optional-dependencies]
