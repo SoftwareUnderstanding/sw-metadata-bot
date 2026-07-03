@@ -97,10 +97,6 @@ jobs:
         run: uv run genbadge coverage -i coverage.xml -o coverage.svg
         continue-on-error: true
 
-      - name: Run small analysis without publishing
-        run: uv run sw-metadata-bot run-analysis --config-file assets/example_list_repo.json
-
-
       - name: Commit coverage badge
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
@@ -111,9 +107,20 @@ jobs:
           git push
         continue-on-error: true
 
+  test-small-analysis:
+    name: Minimal integration test (small analysis)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup uv environment
+        uses: ./.github/actions/setup-uv
+
+      - name: Run small analysis without publishing
+        run: uv run sw-metadata-bot run-analysis --config-file assets/example_list_repo.json
+
   test-gitlab-integration:
     name: Test (GitLab integration)
-    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     env:
       GITLAB_API_TOKEN: ${{ secrets.GITLAB_API_TOKEN }}
@@ -132,11 +139,9 @@ jobs:
           exit 0
 
       - name: Verify GitLab token before integration tests
-        if: ${{ env.GITLAB_API_TOKEN != '' }}
         run: uv run sw-metadata-bot verify-tokens --gitlab
 
       - name: Run GitLab integration tests
-        if: ${{ env.GITLAB_API_TOKEN != '' }}
         run: uv run pytest --run-integration-gitlab -m "integration_gitlab" tests/test_gitlab_integration.py
 
 
@@ -206,7 +211,7 @@ jobs:
   publish-pypi:
     name: Publish to PyPI
     if: github.event_name == 'release'
-    needs: [lint, test]
+    needs: [lint, test, test-zenodo-connection, test-gitlab-integration, test-small-analysis]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -228,7 +233,7 @@ jobs:
   publish-zenodo:
   #   name: Publish to Zenodo
     if: github.event_name == 'release'
-    needs: [lint, test, test-zenodo-connection]
+    needs: [lint, test, test-zenodo-connection, test-gitlab-integration, test-small-analysis]
     runs-on: ubuntu-latest
     container: 
       image: registry.gitlab.com/escape-ossr/eossr:v2.2.0
