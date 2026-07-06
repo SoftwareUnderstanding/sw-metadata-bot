@@ -62,6 +62,11 @@ package = true
 [tool.setuptools]
 package-dir = {"" = "src"}
 packages = { find = { where = ["src"] } }
+include-package-data = true
+
+
+[tool.setuptools.package-data]
+sw_metadata_bot = ["config/rsmetacheck_non_failing.toml"]
 
 [tool.sw_metadata_bot.docs]
 # Start year for copyright range (displayed as "YYYY–present" in docs)
