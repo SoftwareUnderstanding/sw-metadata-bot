@@ -3,7 +3,7 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19468976.svg)](https://doi.org/10.5281/zenodo.19468976)
 [![SWH](https://archive.softwareheritage.org/badge/swh:1:dir:9f3d474c040158cc675e8db135767e0d2d3fba7b/)](https://archive.softwareheritage.org/swh:1:dir:9f3d474c040158cc675e8db135767e0d2d3fba7b;origin=https://github.com/SoftwareUnderstanding/sw-metadata-bot;visit=swh:1:snp:03da984544982fdf5aa1f556012b917250f1e4c3;anchor=swh:1:rev:fc64150edf2e35f045cf3858d81b00ca6e7f6e68)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.5.2-blue.svg)](https://github.com/SoftwareUnderstanding/sw-metadata-bot/releases)
+[![Version](https://img.shields.io/badge/version-0.5.3-blue.svg)](https://github.com/SoftwareUnderstanding/sw-metadata-bot/releases)
 [![Python 3.11--3.12](https://img.shields.io/badge/python-3.11--3.12-blue.svg)](https://www.python.org/downloads/)
 [![CI (build)](https://github.com/SoftwareUnderstanding/sw-metadata-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/SoftwareUnderstanding/sw-metadata-bot/actions/workflows/ci.yml)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)

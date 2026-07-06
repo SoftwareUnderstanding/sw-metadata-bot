@@ -31,14 +31,17 @@ data['dateModified'] = '$TODAY'
 with open('codemeta.json', 'w') as f:
     json.dump(data, f, indent=2)
 "
+echo "Update version and dateModified in codemeta.json"
 
 # Update README.md
 sed -i "s|badge/version-[^)]*-|badge/version-$NEW_VERSION-|g" README.md
+echo "Update badge version in README.md"
 
 # update the CITATION.cff file
-
 sed -i "s/^version: .*/version: $NEW_VERSION/" CITATION.cff
+echo "Update version in CITATION.cff"
 sed -i "s/^date-released: .*/date-released: $TODAY/" CITATION.cff
+echo "Update date-released in CITATION.cff"
 
 # update the uv.lock file
 uv sync
