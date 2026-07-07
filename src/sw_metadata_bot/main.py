@@ -4,6 +4,7 @@ import click
 
 from .pipeline import run_analysis_command
 from .publish import publish_command, simulate_publish_command
+from .report_summary import summarize_report_command
 from .verify_tokens import verify_tokens_command
 
 
@@ -22,6 +23,7 @@ cli.add_command(verify_tokens_command, name="verify-tokens")
 cli.add_command(run_analysis_command, name="run-analysis")
 cli.add_command(publish_command, name="publish")
 cli.add_command(simulate_publish_command, name="simulate-publish")
+cli.add_command(summarize_report_command, name="report-summary")
 
 
 def main():
