@@ -46,7 +46,7 @@ dev = [
 test = [
     "pytest",
     "pytest-cov",
-    "setuptools<83.0.0",
+    "setuptools<84.0.0",
     "genbadge[coverage]>=1.0.0",
 ]
 docs = [
