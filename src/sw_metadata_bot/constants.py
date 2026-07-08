@@ -134,6 +134,8 @@ METACHECK_OUTPUT_BLACKLIST = frozenset(
         FILENAME_CONFIG_SNAPSHOT,
     }
 )
+
+FILENAME_REPORT_SUMMARY = "report_summary.json"
 """Files to exclude when cleaning up metacheck output directories."""
 
 
