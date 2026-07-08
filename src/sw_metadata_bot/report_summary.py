@@ -1,3 +1,5 @@
+"""Create a summary from existing report for dashboard"""
+
 import json
 from collections import Counter
 from pathlib import Path
@@ -25,6 +27,7 @@ def summarize_report_command(analysis_root: Path):
 def summarize_report(report: RunReport) -> dict[str, object]:
     """Build a compact summary for plotting and comparison."""
     repository_count = len(report.records)
+    toolmetadata = report.get_tool_metadata()
 
     pitfalls_by_id: Counter[str] = Counter()
     warnings_by_id: Counter[str] = Counter()
@@ -68,6 +71,8 @@ def summarize_report(report: RunReport) -> dict[str, object]:
         }
 
     return {
+        "tool_metadata": toolmetadata.to_dict(),
+        "run_metadata": report.run_metadata,
         "repository_count": repository_count,
         "pitfalls_by_id": dict(sorted(pitfalls_by_id.items())),
         "warnings_by_id": dict(sorted(warnings_by_id.items())),

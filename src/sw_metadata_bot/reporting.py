@@ -104,6 +104,14 @@ class ReportRecord:
             "error": self.error,
         }
 
+    def get_tool_metadata(self) -> "ToolMetadata":
+        """Retrieve tool versions information"""
+        sw_metadata_bot_version = (
+            self.sw_metadata_bot_version if not None else "unknown"
+        )
+        rsmetacheck_version = self.rsmetacheck_version if not None else "unknown"
+        return ToolMetadata(sw_metadata_bot_version, rsmetacheck_version)
+
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "ReportRecord":
         """Create a report record from a dictionary payload."""
@@ -137,12 +145,27 @@ class ReportRecord:
 
 
 @dataclass(frozen=True)
+class ToolMetadata:
+    """Intermediate class to represent the sw-metadata-bot metadata"""
+
+    sw_metadata_bot_version: str = "unknown"
+    rs_metacheck_version: str = "unknown"
+
+    def to_dict(self):
+        """Convert to dict"""
+        return {
+            "sw_metadata_bot_version": self.sw_metadata_bot_version,
+            "rsmetacheck_version": self.rs_metacheck_version,
+        }
+
+
+@dataclass(frozen=True)
 class RunReport:
     """Structured representation of a run_report.json payload."""
 
     run_metadata: dict[str, Any]
     counters: dict[str, int]
-    records: tuple[ReportRecord, ...]
+    records: tuple[ReportRecord]
 
     def to_payload(self) -> dict[str, Any]:
         """Serialize the report to the JSON payload shape used on disk."""
@@ -151,6 +174,16 @@ class RunReport:
             "counters": self.counters,
             "records": [record.to_dict() for record in self.records],
         }
+
+    def get_tool_metadata(self) -> "ToolMetadata":
+        """Retrieve metadata from the first ReportRecord.
+        Requires record and that the first record to be set correctly.
+        """
+        if self.records:
+            sample_record: ReportRecord = self.records[0]
+            return sample_record.get_tool_metadata()
+        else:
+            return ToolMetadata()
 
 
 def relative_to_run_root(path: Path | None, run_root: Path) -> str | None:
