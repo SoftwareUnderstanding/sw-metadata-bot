@@ -14,6 +14,7 @@ from sw_metadata_bot import (
     pipeline,
     rsmetacheck_wrapper,
 )
+from sw_metadata_bot import fetch as fetch_module
 from sw_metadata_bot import publish as publish_module
 from sw_metadata_bot.config.schemas import BotConfig
 
@@ -657,6 +658,30 @@ def test_publish_command_forwards_to_publish_analysis(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert captured["analysis_root"] == analysis_root
     assert captured["retry_failed"] is False
+
+
+def test_fetch_command_forwards_to_fetch_analysis(monkeypatch, tmp_path):
+    captured: dict[str, object] = {}
+
+    def fake_fetch_analysis(analysis_root: Path) -> None:
+        captured["analysis_root"] = analysis_root
+
+    monkeypatch.setattr(fetch_module, "fetch_analysis", fake_fetch_analysis)
+
+    analysis_root = tmp_path / "outputs" / "ossr" / "20260325"
+    analysis_root.mkdir(parents=True)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        fetch_module.fetch_command,
+        [
+            "--analysis-root",
+            str(analysis_root),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["analysis_root"] == analysis_root
 
 
 def test_find_latest_previous_report_prefers_latest_snapshot(tmp_path):

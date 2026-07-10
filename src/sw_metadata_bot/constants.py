@@ -106,6 +106,9 @@ FILENAME_PITFALL = "pitfall.jsonld"
 FILENAME_REPORT = "report.json"
 """Per-repository unified report: single-record list with analysis results."""
 
+FILENAME_FETCH_DIFF = "fetch_diff.json"
+"""Fetch diff report listing records changed by a fetch invocation."""
+
 FILENAME_ISSUE_REPORT = "issue_report.md"
 """Markdown issue body: human-readable summary of findings."""
 
