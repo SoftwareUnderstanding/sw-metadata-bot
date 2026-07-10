@@ -88,6 +88,25 @@ def _write_per_repo_report(
     )
 
 
+def _build_fetch_diff_record(
+    record: dict[str, object],
+    issue_url: str,
+    platform: str,
+    status: str,
+    error: str | None = None,
+) -> dict[str, object]:
+    """Build a minimal fetch diff entry for a single issues status check."""
+    diff_record: dict[str, object] = {
+        "repo_url": record.get("repo_url"),
+        "issue_url": issue_url,
+        "platform": platform,
+        "status": status,
+    }
+    if error is not None:
+        diff_record["error"] = error
+    return diff_record
+
+
 def _save_fetch_diff(analysis_root: Path, records: list[dict[str, object]]) -> None:
     """Persist a diff report containing all changed fetch records."""
     diff_payload = {
@@ -98,6 +117,15 @@ def _save_fetch_diff(analysis_root: Path, records: list[dict[str, object]]) -> N
     fetch_diff_file = analysis_root / constants.FILENAME_FETCH_DIFF
     with open(fetch_diff_file, "w", encoding="utf-8") as handle:
         json.dump(diff_payload, handle, indent=2)
+
+
+def _fetch_status(unsubscribe_detected: bool, issue_closed: bool) -> str:
+    """Return a normalized status string for fetched issue state."""
+    if unsubscribe_detected:
+        return "unsubscribed"
+    if issue_closed:
+        return "closed"
+    return "commented"
 
 
 def fetch_analysis(
@@ -195,6 +223,7 @@ def fetch_analysis(
             )
             issue_data = issue_client.get_issue(issue_url)
             issue_closed = _issue_is_closed(issue_data)
+            status = _fetch_status(unsubscribe_detected, issue_closed)
 
             if unsubscribe_detected:
                 record["unsubscribe_detected"] = True
@@ -210,13 +239,40 @@ def fetch_analysis(
             if issue_closed:
                 record["previous_issue_state"] = "closed"
 
-            if unsubscribe_detected or issue_closed:
-                fetch_diff_records.append(record)
+            if unsubscribe_detected or issue_closed or status == "commented":
+                fetch_diff_records.append(
+                    _build_fetch_diff_record(record, issue_url, platform, status)
+                )
 
         except Exception as exc:
-            record["error"] = str(exc)
-            record["fetch_error"] = True
-            fetch_diff_records.append(record)
+            error_message = str(exc)
+            if "404" in error_message or "not found" in error_message.lower():
+                fetch_status = "not_existing"
+            else:
+                fetch_status = "commented"
+
+            if fetch_status == "not_existing":
+                fetch_diff_records.append(
+                    _build_fetch_diff_record(
+                        record,
+                        issue_url,
+                        platform,
+                        fetch_status,
+                        error=error_message,
+                    )
+                )
+            else:
+                record["error"] = error_message
+                record["fetch_error"] = True
+                fetch_diff_records.append(
+                    _build_fetch_diff_record(
+                        record,
+                        issue_url,
+                        platform,
+                        fetch_status,
+                        error=error_message,
+                    )
+                )
 
         updated_records.append(record)
         _write_per_repo_report(

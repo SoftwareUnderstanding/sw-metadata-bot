@@ -102,10 +102,125 @@ def test_fetch_unsubscribe_detected_updates_configs(tmp_path, monkeypatch):
     assert updated_run_report["run_metadata"]["fetch_diff_count"] == 1
     assert (analysis_root / "fetch_diff.json").exists()
 
+    fetch_diff = json.loads(
+        (analysis_root / "fetch_diff.json").read_text(encoding="utf-8")
+    )
+    assert fetch_diff["record_count"] == 1
+    assert fetch_diff["records"] == [
+        {
+            "repo_url": repo_url,
+            "issue_url": f"{repo_url}/issues/1",
+            "platform": "github",
+            "status": "unsubscribed",
+        }
+    ]
+
     snapshot_config = BotConfig.from_json(analysis_root / "config.json")
     assert repo_url in snapshot_config.get_issue_opt_outs()
     original_config = BotConfig.from_json(input_config_path)
     assert repo_url in original_config.get_issue_opt_outs()
+
+
+def test_fetch_closed_status_records_closed(tmp_path, monkeypatch):
+    repo_url = "https://github.com/example/repo"
+    analysis_root = tmp_path / "outputs" / "ossr" / "20260325"
+    analysis_root.mkdir(parents=True)
+
+    _write_run_report(
+        analysis_root,
+        records=[
+            {
+                "repo_url": repo_url,
+                "platform": "github",
+                "issue_url": f"{repo_url}/issues/1",
+            }
+        ],
+    )
+
+    fake_client = _FakeIssueClient(
+        comments_for=lambda url: [],
+    )
+    fake_client.get_issue = lambda issue_url: {"state": "closed"}
+    monkeypatch.setattr(
+        fetch_module.github_api, "GitHubAPI", lambda dry_run=False: fake_client
+    )
+
+    fetch_module.fetch_analysis(analysis_root)
+
+    fetch_diff = json.loads(
+        (analysis_root / "fetch_diff.json").read_text(encoding="utf-8")
+    )
+    assert fetch_diff["record_count"] == 1
+    assert fetch_diff["records"][0]["status"] == "closed"
+    assert fetch_diff["records"][0]["platform"] == "github"
+
+
+def test_fetch_commented_status_records_commented(tmp_path, monkeypatch):
+    repo_url = "https://github.com/example/repo"
+    analysis_root = tmp_path / "outputs" / "ossr" / "20260325"
+    analysis_root.mkdir(parents=True)
+
+    _write_run_report(
+        analysis_root,
+        records=[
+            {
+                "repo_url": repo_url,
+                "platform": "github",
+                "issue_url": f"{repo_url}/issues/1",
+            }
+        ],
+    )
+
+    fake_client = _FakeIssueClient(comments_for=lambda url: [])
+    fake_client.get_issue = lambda issue_url: {"state": "open"}
+    monkeypatch.setattr(
+        fetch_module.github_api, "GitHubAPI", lambda dry_run=False: fake_client
+    )
+
+    fetch_module.fetch_analysis(analysis_root)
+
+    fetch_diff = json.loads(
+        (analysis_root / "fetch_diff.json").read_text(encoding="utf-8")
+    )
+    assert fetch_diff["record_count"] == 1
+    assert fetch_diff["records"][0]["status"] == "commented"
+    assert fetch_diff["records"][0]["platform"] == "github"
+
+
+def test_fetch_not_existing_status_records_not_existing(tmp_path, monkeypatch):
+    repo_url = "https://github.com/example/repo"
+    analysis_root = tmp_path / "outputs" / "ossr" / "20260325"
+    analysis_root.mkdir(parents=True)
+
+    _write_run_report(
+        analysis_root,
+        records=[
+            {
+                "repo_url": repo_url,
+                "platform": "github",
+                "issue_url": f"{repo_url}/issues/1",
+            }
+        ],
+    )
+
+    fake_client = _FakeIssueClient(comments_for=lambda url: [])
+
+    def raise_not_found(issue_url: str) -> dict[str, object]:
+        raise Exception("404 Not Found")
+
+    fake_client.get_issue = raise_not_found
+    monkeypatch.setattr(
+        fetch_module.github_api, "GitHubAPI", lambda dry_run=False: fake_client
+    )
+
+    fetch_module.fetch_analysis(analysis_root)
+
+    fetch_diff = json.loads(
+        (analysis_root / "fetch_diff.json").read_text(encoding="utf-8")
+    )
+    assert fetch_diff["record_count"] == 1
+    assert fetch_diff["records"][0]["status"] == "not_existing"
+    assert "error" in fetch_diff["records"][0]
 
 
 def test_fetch_skips_unknown_platform_gracefully(tmp_path):
