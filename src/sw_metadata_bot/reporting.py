@@ -185,6 +185,10 @@ class RunReport:
         else:
             return ToolMetadata()
 
+    def get_records(self) -> list[ReportRecord]:
+        """getter to access a copy list of records"""
+        return list(self.records)
+
 
 def relative_to_run_root(path: Path | None, run_root: Path) -> str | None:
     """Return a run-root-relative path string.
