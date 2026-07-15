@@ -9,7 +9,7 @@ import click
 
 from sw_metadata_bot.config.schemas import BotConfig
 
-from . import __version__, analysis_runtime, commit_lookup, constants
+from . import __version__, analysis_runtime, commit_lookup, constants, repo_state
 from .config.config_utils import detect_platform, sanitize_repo_name
 from .reporting import RecordAnalysis, RecordLifecycle, build_record_entry
 
@@ -172,9 +172,9 @@ def run_pipeline(
     run_records: list[dict[str, object]] = []
 
     for repo_url in repositories:
-        per_repo = analysis_runtime.resolve_per_repo_paths(analysis_root, repo_url)
+        per_repo = repo_state.resolve_repo_state_paths(analysis_root, repo_url)
         repo_folder = per_repo["repo_folder"]
-        repo_folder.mkdir(parents=True, exist_ok=True)
+        repo_state.ensure_repo_state_dirs(per_repo)
 
         previous_record = analysis_runtime.load_previous_repo_record(
             previous_snapshot_root, repo_url
@@ -242,7 +242,7 @@ def run_pipeline(
                         current_commit_id=current_commit_id,
                         dry_run=dry_run,
                         issue_persistence="none",
-                        file_path=repo_folder / "pitfall.jsonld",
+                        file_path=repo_folder / constants.FILENAME_PITFALL,
                     ),
                 )
             else:
@@ -264,6 +264,20 @@ def run_pipeline(
                 run_root=run_root,
                 analysis_summary_file=analysis_report_path,
                 previous_report=resolved_previous_report,
+            )
+
+            archive_path = repo_state.write_analysis_archive(repo_folder, record)
+            repo_state.append_event_log(
+                repo_folder,
+                {
+                    "event": "analysis_completed",
+                    "commit_id": current_commit_id or "unknown",
+                    "analysis_file": str(archive_path.relative_to(repo_folder)),
+                },
+            )
+            repo_state.write_current_state(
+                repo_folder,
+                repo_state.build_analysis_current_state(record),
             )
         except Exception as exc:
             record = build_record_entry(
