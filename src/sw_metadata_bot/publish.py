@@ -7,7 +7,7 @@ from typing import cast
 
 import click
 
-from . import constants, github_api, gitlab_api, pitfalls, utils
+from . import constants, github_api, gitlab_api, pitfalls, repo_state, utils
 from .config.config_utils import (
     append_opt_out_to_config,
     detect_platform,
@@ -164,11 +164,15 @@ def _detect_platform_for_publish(repo_url: str, record: dict[str, object]) -> st
 
 def _load_publish_body(analysis_root: Path, repo_url: str) -> str:
     """Load issue body from report file, with pitfall-based fallback if needed."""
-    repo_folder = analysis_root / sanitize_repo_name(repo_url)
+    paths = repo_state.resolve_repo_state_paths(analysis_root, repo_url)
+    repo_folder = paths["repo_folder"]
+
+    # Try legacy issue_report.md first for backward compatibility
     issue_report_file = repo_folder / "issue_report.md"
     if issue_report_file.exists():
         return issue_report_file.read_text(encoding="utf-8")
 
+    # Fallback to pitfall.jsonld for generating issue body
     pitfall_file = repo_folder / "pitfall.jsonld"
     if not pitfall_file.exists():
         raise click.ClickException(
@@ -562,6 +566,19 @@ def publish_analysis(
             analysis_summary_file,
             previous_report,
         )
+
+        # Log publish event to repo-centric event log
+        repo_url = record.get("repo_url")
+        if isinstance(repo_url, str) and repo_url:
+            action = record.get("action")
+            paths = repo_state.resolve_repo_state_paths(analysis_root, repo_url)
+            repo_folder = paths["repo_folder"]
+            event = {
+                "event_type": "publish_completed",
+                "action": action,
+                "issue_url": record.get("issue_url"),
+            }
+            repo_state.append_event_log(repo_folder, event)
 
     run_report = write_report_file(
         report_file=run_report_file,

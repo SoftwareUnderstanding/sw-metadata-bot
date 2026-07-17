@@ -468,6 +468,7 @@ def standardize_metacheck_outputs(repo_folder: Path) -> None:
                 constants.FILENAME_ANALYSIS_RESULTS,
                 constants.FILENAME_CONFIG_SNAPSHOT,
                 constants.FILENAME_RUN_REPORT,
+                constants.FILENAME_PITFALL,
             }
             and _looks_like_codemeta_payload(path)
         ]

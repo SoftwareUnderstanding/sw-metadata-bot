@@ -74,6 +74,10 @@ copyright_year = "2026"
 
 
 [tool.pytest.ini_options]
+pythonpath = [
+    "src",
+    "scripts"
+]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]

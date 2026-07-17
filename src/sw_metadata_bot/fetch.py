@@ -7,7 +7,7 @@ from typing import cast
 
 import click
 
-from . import constants, github_api, gitlab_api
+from . import constants, github_api, gitlab_api, repo_state
 from .config.config_utils import (
     append_opt_out_to_config,
     detect_platform,
@@ -281,6 +281,24 @@ def fetch_analysis(
             analysis_summary_file,
             previous_report,
         )
+
+        # Log fetch event to repo-centric event log
+        repo_url = record.get("repo_url")
+        issue_url = _issue_url_for_fetch(record)
+        if isinstance(repo_url, str) and repo_url and issue_url:
+            # Determine fetch status from record
+            unsubscribe_detected = record.get("unsubscribe_detected", False)
+            issue_closed = record.get("previous_issue_state") == "closed"
+            fetch_status = _fetch_status(unsubscribe_detected, issue_closed)
+
+            paths = repo_state.resolve_repo_state_paths(analysis_root, repo_url)
+            repo_folder = paths["repo_folder"]
+            event = {
+                "event_type": "fetch_completed",
+                "issue_url": issue_url,
+                "status": fetch_status,
+            }
+            repo_state.append_event_log(repo_folder, event)
 
     _save_fetch_diff(analysis_root, fetch_diff_records)
     run_report_payload = write_report_file(
